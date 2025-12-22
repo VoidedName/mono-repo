@@ -1,0 +1,17 @@
+[package]
+name = "vn-vttrpg-web"
+version = "0.1.0"
+authors = ["Voided Name"]
+categories = ["wasm"]
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+lto = true
+
+[dependencies]
+vn-vttrpg = { path = "../vn-vttrpg" }
+wasm-bindgen = { workspace = true }
+log = { workspace = true}
