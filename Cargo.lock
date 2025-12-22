@@ -1823,18 +1823,16 @@ name = "vn-vttrpg"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "console_error_panic_hook",
- "console_log",
- "env_logger",
  "log",
  "vn-vttrpg-window",
- "wasm-bindgen",
 ]
 
 [[package]]
 name = "vn-vttrpg-native"
 version = "0.1.0"
 dependencies = [
+ "env_logger",
+ "log",
  "vn-vttrpg",
 ]
 
@@ -1842,6 +1840,9 @@ dependencies = [
 name = "vn-vttrpg-web"
 version = "0.1.0"
 dependencies = [
+ "console_error_panic_hook",
+ "console_log",
+ "log",
  "vn-vttrpg",
  "wasm-bindgen",
 ]

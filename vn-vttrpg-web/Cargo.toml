@@ -14,3 +14,6 @@ crate-type = ["cdylib"]
 [dependencies]
 vn-vttrpg = { path = "../vn-vttrpg" }
 wasm-bindgen = { workspace = true }
+console_error_panic_hook = { workspace = true }
+console_log = { workspace = true }
+log = { workspace = true }
