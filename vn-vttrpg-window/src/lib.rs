@@ -2,6 +2,7 @@ use log;
 use std::sync::Arc;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+use wgpu::{CompositeAlphaMode, PresentMode};
 use winit::application::ApplicationHandler;
 use winit::event::{KeyEvent, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
@@ -9,18 +10,157 @@ use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{Window, WindowId};
 
 pub struct State {
+    surface: wgpu::Surface<'static>,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    config: wgpu::SurfaceConfiguration,
+    is_surface_configured: bool,
     window: Arc<Window>,
 }
 
 impl State {
     pub async fn new(window: Arc<Window>) -> anyhow::Result<Self> {
-        Ok(Self { window })
+        let size = window.inner_size();
+
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+            #[cfg(target_arch = "wasm32")]
+            backends: wgpu::Backends::all(),
+
+            #[cfg(not(target_arch = "wasm32"))]
+            backends: wgpu::Backends::PRIMARY,
+
+            ..Default::default()
+        });
+
+        let surface = instance
+            .create_surface(window.clone())
+            .expect("Failed to create surface!");
+
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::default(),
+                compatible_surface: Some(&surface),
+                force_fallback_adapter: false,
+            })
+            .await?;
+
+        let (device, queue) = adapter
+            .request_device(&wgpu::DeviceDescriptor {
+                label: None,
+                required_features: wgpu::Features::empty(),
+                experimental_features: wgpu::ExperimentalFeatures::disabled(),
+                required_limits: if cfg!(target_arch = "wasm32") {
+                    wgpu::Limits::downlevel_webgl2_defaults()
+                } else {
+                    wgpu::Limits::default()
+                },
+                memory_hints: Default::default(),
+                trace: wgpu::Trace::Off,
+            })
+            .await?;
+
+        let surface_capabilities = surface.get_capabilities(&adapter);
+        let surface_format = surface_capabilities
+            .formats
+            .iter()
+            .copied()
+            .find(|format| format.is_srgb())
+            .unwrap_or(surface_capabilities.formats[0]);
+
+        let alpha_mode = if surface_capabilities
+            .alpha_modes
+            .contains(&CompositeAlphaMode::PreMultiplied)
+        {
+            CompositeAlphaMode::PreMultiplied
+        } else {
+            surface_capabilities.alpha_modes[0]
+        };
+
+        let config = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format: surface_format,
+            width: size.width,
+            height: size.height,
+            present_mode: PresentMode::Fifo,
+            alpha_mode,
+            view_formats: vec![],
+            desired_maximum_frame_latency: 2,
+        };
+
+        Ok(Self {
+            surface,
+            device,
+            queue,
+            config,
+            is_surface_configured: false,
+            window,
+        })
     }
 
-    pub fn resize(&mut self, _width: u32, _height: u32) {}
+    pub fn resize(&mut self, width: u32, height: u32) {
+        if width > 0 && height > 0 {
+            log::info!("Resizing window to {}x{}", width, height);
+            self.config.width = width;
+            self.config.height = height;
+            self.surface.configure(&self.device, &self.config);
+            self.is_surface_configured = true;
+        }
+    }
 
-    pub fn render(&mut self) {
+    fn handle_key(&self, event_loop: &ActiveEventLoop, event: &KeyEvent) {
+        match (event.physical_key, event.state.is_pressed()) {
+            (PhysicalKey::Code(KeyCode::Escape), true) => event_loop.exit(),
+            _ => {}
+        }
+    }
+
+    pub fn update(&mut self) {
+        // TODO: Implement update logic
+        // Update is always called before render
+    }
+
+    pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         self.window.request_redraw();
+
+        if !self.is_surface_configured {
+            return Ok(());
+        }
+
+        let output = self.surface.get_current_texture()?;
+
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Render Encoder"),
+            });
+
+        {
+            let _render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+        }
+
+        self.queue.submit(std::iter::once(encoder.finish()));
+        output.present();
+
+        Ok(())
     }
 }
 
@@ -59,7 +199,9 @@ impl ApplicationHandler<State> for App {
 
             let window = wgpu::web_sys::window().unwrap();
             let document = window.document().unwrap();
-            let canvas = document.get_element_by_id(CANVAS_ID).expect("Failed to find canvas!");
+            let canvas = document
+                .get_element_by_id(CANVAS_ID)
+                .expect("Failed to find canvas!");
             let canvas: web_sys::HtmlCanvasElement = canvas.unchecked_into();
             window_attributes = window_attributes.with_canvas(Some(canvas));
         }
@@ -114,22 +256,25 @@ impl ApplicationHandler<State> for App {
         // TODO (shutdown): In WEB hitting ESC should behave differently?
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
-            WindowEvent::Resized(size) => state.resize(size.width, size.height),
-            WindowEvent::RedrawRequested => state.render(),
-            WindowEvent::KeyboardInput {
-                event:
-                    KeyEvent {
-                        physical_key: PhysicalKey::Code(code),
-                        state: key_state,
-                        ..
-                    },
-                ..
-            } => match (code, key_state.is_pressed()) {
-                (KeyCode::Escape, true) => event_loop.exit(),
-                _ => {
-                    log::info!("Key pressed: {:?}", code);
+            WindowEvent::Resized(size) => {
+                let size = size.to_logical(state.window.scale_factor());
+                state.resize(size.width, size.height)
+            }
+            WindowEvent::RedrawRequested => {
+                state.update();
+                match state.render() {
+                    Ok(_) => {}
+                    Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::OutOfMemory) => {
+                        let size = state
+                            .window
+                            .inner_size()
+                            .to_logical(state.window.scale_factor());
+                        state.resize(size.width, size.height);
+                    }
+                    Err(e) => log::error!("Failed to render: {:?}", e),
                 }
-            },
+            }
+            WindowEvent::KeyboardInput { event, .. } => state.handle_key(event_loop, &event),
             _ => {}
         }
     }

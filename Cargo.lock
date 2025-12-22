@@ -1842,7 +1842,6 @@ dependencies = [
 name = "vn-vttrpg-web"
 version = "0.1.0"
 dependencies = [
- "log",
  "vn-vttrpg",
  "wasm-bindgen",
 ]

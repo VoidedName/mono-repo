@@ -30,7 +30,7 @@ pub fn init_logging() {
     #[cfg(not(target_arch = "wasm32"))]
     {
         let env = Env::default()
-            .filter_or("MY_LOG_LEVEL", "trace")
+            .filter_or("MY_LOG_LEVEL", "Debug")
             .write_style_or("MY_LOG_STYLE", "always");
         env_logger::init_from_env(env);
     }

@@ -14,4 +14,3 @@ lto = true
 [dependencies]
 vn-vttrpg = { path = "../vn-vttrpg" }
 wasm-bindgen = { workspace = true }
-log = { workspace = true}
