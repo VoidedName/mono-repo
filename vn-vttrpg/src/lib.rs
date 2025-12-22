@@ -2,16 +2,13 @@
 use env_logger::Env;
 
 #[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-#[cfg(target_arch = "wasm32")]
 use log;
 #[cfg(target_arch = "wasm32")]
 use console_error_panic_hook;
 
+use vn_vttrpg_window::{init_with_logic, DefaultStateLogic};
 
 pub fn init() -> anyhow::Result<()> {
-    use vn_vttrpg_window::init;
-
 
     #[cfg(target_arch = "wasm32")]
     console_error_panic_hook::set_once();
@@ -20,7 +17,7 @@ pub fn init() -> anyhow::Result<()> {
     log::info!("Logging was initialized!");
 
     log::info!("Initializing Application!");
-    init()?;
+    init_with_logic(DefaultStateLogic::default())?;
 
     log::info!("Application terminated!");
     Ok(())
