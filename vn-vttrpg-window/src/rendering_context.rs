@@ -18,9 +18,25 @@ impl<T: StateLogic> RenderingContext<T> {
         Ok(Self { context, logic })
     }
 
+    /// !!! EXPECTS LOGICAL NOT PHYSICAL PIXELS !!!
     pub fn resize(&mut self, width: u32, height: u32) {
         if width > 0 && height > 0 {
             log::info!("Resizing window to {}x{}", width, height);
+
+            let scale_factor = self.context.window.scale_factor();
+
+            // Remark (platform differences): This is a bit of a hack. The web canvas appears to
+            //  expect logical pixel sizes while the native one wants physical ones.
+            //  I may refactor this later to be prettier... Maybe there is something I can do on
+            //  the web side i.e. in the CSS / HTML? Or did I fuck up some setting somewhere?
+            //  LLMs are in their typical way of being wrong completely useless for figuring this
+            //  out either. (Thx LLM for suggesting that you are "useless" yourself with just the
+            //  input of "LLMs are ")
+            #[cfg(not(target_arch = "wasm32"))]
+            let width = (width as f64 * scale_factor).round() as u32;
+            #[cfg(not(target_arch = "wasm32"))]
+            let height = (height as f64 * scale_factor).round() as u32;
+
             self.context.config.width = width;
             self.context.config.height = height;
             self.context

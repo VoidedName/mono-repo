@@ -33,7 +33,7 @@ impl<T: StateLogic> ApplicationHandler<RenderingContext<T>> for App<T> {
             log::info!("Window already exists, skipping creation");
             return;
         }
-        
+
         #[allow(unused_mut)]
         let mut window_attributes = Window::default_attributes();
 
