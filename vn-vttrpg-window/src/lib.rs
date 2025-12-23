@@ -1,7 +1,12 @@
 pub mod app;
+pub mod errors;
 pub mod graphics;
+pub mod input;
 pub mod logic;
+pub mod pipeline_builder;
+pub mod renderer;
 pub mod rendering_context;
+pub mod resource_manager;
 mod texture;
 
 pub use app::App;

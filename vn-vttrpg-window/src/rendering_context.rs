@@ -4,45 +4,56 @@ use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
 use crate::graphics::GraphicsContext;
+use crate::input::InputState;
 use crate::logic::StateLogic;
+use crate::renderer::{Renderer, WgpuRenderer};
+use crate::resource_manager::ResourceManager;
 
-pub struct RenderingContext<T: StateLogic> {
+pub struct RenderingContext<T: StateLogic, R: Renderer = WgpuRenderer> {
     pub context: GraphicsContext,
+    pub resource_manager: ResourceManager,
+    pub renderer: R,
+    pub input: InputState,
     pub logic: T,
 }
 
-impl<T: StateLogic> RenderingContext<T> {
+impl<T: StateLogic> RenderingContext<T, WgpuRenderer> {
     pub async fn new(window: Arc<Window>) -> anyhow::Result<Self> {
         let context = GraphicsContext::new(window).await?;
-        let logic = T::new_from_graphics_context(&context).await?;
-        
-        Ok(Self { context, logic })
-    }
+        let mut resource_manager = ResourceManager::new(context.wgpu.clone());
+        let renderer = WgpuRenderer::new();
+        let input = InputState::new();
+        let logic = T::new_from_graphics_context(&context, &mut resource_manager).await?;
 
+        Ok(Self {
+            context,
+            resource_manager,
+            renderer,
+            input,
+            logic,
+        })
+    }
+}
+
+impl<T: StateLogic, R: Renderer> RenderingContext<T, R> {
     /// !!! EXPECTS LOGICAL NOT PHYSICAL PIXELS !!!
-    pub fn resize(&mut self, width: u32, height: u32) {
+    pub fn resize(&mut self, mut width: u32, mut height: u32) {
         if width > 0 && height > 0 {
             log::info!("Resizing window to {}x{}", width, height);
 
-            let scale_factor = self.context.window.scale_factor();
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                let scale_factor = self.context.window.scale_factor();
 
-            // Remark (platform differences): This is a bit of a hack. The web canvas appears to
-            //  expect logical pixel sizes while the native one wants physical ones.
-            //  I may refactor this later to be prettier... Maybe there is something I can do on
-            //  the web side i.e. in the CSS / HTML? Or did I fuck up some setting somewhere?
-            //  LLMs are in their typical way of being wrong completely useless for figuring this
-            //  out either. (Thx LLM for suggesting that you are "useless" yourself with just the
-            //  input of "LLMs are ")
-            #[cfg(not(target_arch = "wasm32"))]
-            let width = (width as f64 * scale_factor).round() as u32;
-            #[cfg(not(target_arch = "wasm32"))]
-            let height = (height as f64 * scale_factor).round() as u32;
+                width = (width as f64 * scale_factor).round() as u32;
+                height = (height as f64 * scale_factor).round() as u32;
+            }
 
             self.context.config.width = width;
             self.context.config.height = height;
             self.context
                 .surface
-                .configure(&self.context.device, &self.context.config);
+                .configure(self.context.device(), &self.context.config);
             self.context.surface_ready_for_rendering = true;
         }
     }
@@ -57,7 +68,8 @@ impl<T: StateLogic> RenderingContext<T> {
         (size.width.max(1), size.height.max(1))
     }
 
-    pub fn handle_key(&self, event_loop: &ActiveEventLoop, event: &KeyEvent) {
+    pub fn handle_key(&mut self, event_loop: &ActiveEventLoop, event: &KeyEvent) {
+        self.input.handle_key(event);
         self.logic.handle_key(event_loop, event);
     }
 
@@ -72,6 +84,8 @@ impl<T: StateLogic> RenderingContext<T> {
             return Ok(());
         }
 
-        self.logic.render(&self.context)
+        self.renderer.render(&self.context, |render_pass| {
+            self.logic.draw(render_pass);
+        })
     }
 }

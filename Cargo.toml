@@ -10,7 +10,7 @@ wgpu = { version = "28.0.0" }
 env_logger = "0.11.8"
 pollster = "0.4.0"
 console_error_panic_hook = "0.1.7"
-console_log = "1.0"
+console_log = "1.0.0"
 wasm-bindgen = "0.2.106"
 wasm-bindgen-futures = "0.4.56"
 web-sys = { version = "0.3.83", features = [
@@ -20,3 +20,4 @@ web-sys = { version = "0.3.83", features = [
 ] }
 bytemuck = "1.24.0"
 image = { version = "0.25.9", default-features = false }
+thiserror = "2.0.17"

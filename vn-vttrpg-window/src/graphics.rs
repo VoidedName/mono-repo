@@ -1,10 +1,15 @@
 use std::sync::Arc;
 use winit::window::Window;
+use crate::errors::RenderError;
 
-pub struct GraphicsContext {
-    pub surface: wgpu::Surface<'static>,
+pub struct WgpuContext {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
+}
+
+pub struct GraphicsContext {
+    pub wgpu: Arc<WgpuContext>,
+    pub surface: wgpu::Surface<'static>,
     pub config: wgpu::SurfaceConfiguration,
     pub surface_ready_for_rendering: bool,
     pub window: Arc<Window>,
@@ -30,7 +35,12 @@ impl GraphicsContext {
                 compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
             })
-            .await?;
+            .await;
+
+        let adapter = match adapter {
+            Ok(a) => a,
+            Err(_) => return Err(RenderError::AdapterRequestFailed.into()),
+        };
 
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
@@ -72,12 +82,19 @@ impl GraphicsContext {
         };
 
         Ok(Self {
+            wgpu: Arc::new(WgpuContext { device, queue }),
             surface,
-            device,
-            queue,
             config,
             surface_ready_for_rendering: false,
             window,
         })
+    }
+
+    pub fn device(&self) -> &wgpu::Device {
+        &self.wgpu.device
+    }
+
+    pub fn queue(&self) -> &wgpu::Queue {
+        &self.wgpu.queue
     }
 }
