@@ -6,7 +6,7 @@ pub mod state;
 pub use app::App;
 pub use graphics::GraphicsContext;
 pub use logic::{DefaultStateLogic, StateLogic};
-pub use state::State;
+pub use state::RenderingContext;
 
 use winit::event_loop::EventLoop;
 
@@ -17,7 +17,7 @@ pub fn init() -> anyhow::Result<()> {
 pub fn init_with_logic<T: StateLogic>(logic: T) -> anyhow::Result<()> {
     log::info!("Initializing window");
 
-    let event_loop = EventLoop::<State<T>>::with_user_event().build()?;
+    let event_loop = EventLoop::<RenderingContext<T>>::with_user_event().build()?;
     let mut app = App::new(
         #[cfg(target_arch = "wasm32")]
         &event_loop,

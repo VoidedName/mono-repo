@@ -4,19 +4,19 @@ use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowId};
 use crate::logic::StateLogic;
-use crate::state::State;
+use crate::state::RenderingContext;
 
 pub struct App<T: StateLogic> {
     #[cfg(target_arch = "wasm32")]
-    proxy: Option<winit::event_loop::EventLoopProxy<State<T>>>,
+    proxy: Option<winit::event_loop::EventLoopProxy<RenderingContext<T>>>,
     // we just need to hold it temporarily as we need to use it in the resumed callback
     logic: Option<T>,
-    state: Option<State<T>>,
+    state: Option<RenderingContext<T>>,
 }
 
 impl<T: StateLogic> App<T> {
     pub fn new(
-        #[cfg(target_arch = "wasm32")] event_loop: &winit::event_loop::EventLoop<State<T>>,
+        #[cfg(target_arch = "wasm32")] event_loop: &winit::event_loop::EventLoop<RenderingContext<T>>,
         logic: T,
     ) -> Self {
         #[cfg(target_arch = "wasm32")]
@@ -31,7 +31,7 @@ impl<T: StateLogic> App<T> {
     }
 }
 
-impl<T: StateLogic> ApplicationHandler<State<T>> for App<T> {
+impl<T: StateLogic> ApplicationHandler<RenderingContext<T>> for App<T> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.state.is_some() {
             log::info!("Window already exists, skipping creation");
@@ -62,7 +62,7 @@ impl<T: StateLogic> ApplicationHandler<State<T>> for App<T> {
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            self.state = Some(pollster::block_on(State::new(window, logic)).unwrap());
+            self.state = Some(pollster::block_on(RenderingContext::new(window, logic)).unwrap());
         }
 
         #[cfg(target_arch = "wasm32")]
@@ -73,7 +73,7 @@ impl<T: StateLogic> ApplicationHandler<State<T>> for App<T> {
                         // send_event sends it to user_event
                         proxy
                             .send_event(
-                                State::new(window, logic)
+                                RenderingContext::new(window, logic)
                                     .await
                                     .expect("Failed to create canvas!")
                             )
@@ -85,7 +85,7 @@ impl<T: StateLogic> ApplicationHandler<State<T>> for App<T> {
     }
 
     #[allow(unused_mut)]
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, mut event: State<T>) {
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, mut event: RenderingContext<T>) {
         #[cfg(target_arch = "wasm32")]
         {
             event.context.window.request_redraw();
