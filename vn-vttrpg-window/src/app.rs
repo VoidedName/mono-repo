@@ -115,12 +115,8 @@ impl<T: StateLogic> ApplicationHandler<RenderingContext<T>> for App<T> {
                 match state.render() {
                     Ok(_) => {}
                     Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::OutOfMemory) => {
-                        let size = state
-                            .context
-                            .window
-                            .inner_size()
-                            .to_logical(state.context.window.scale_factor());
-                        state.resize(size.width, size.height);
+                        let (w, h) = state.logical_window_size();
+                        state.resize(w, h);
                     }
                     Err(e) => log::error!("Failed to render: {:?}", e),
                 }

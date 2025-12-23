@@ -2,11 +2,13 @@ pub mod app;
 pub mod graphics;
 pub mod logic;
 pub mod rendering_context;
+mod texture;
 
 pub use app::App;
 pub use graphics::GraphicsContext;
 pub use logic::{DefaultStateLogic, StateLogic};
 pub use rendering_context::RenderingContext;
+pub use texture::Texture;
 
 use winit::event_loop::EventLoop;
 

@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use winit::dpi::LogicalSize;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
@@ -44,6 +45,16 @@ impl<T: StateLogic> RenderingContext<T> {
                 .configure(&self.context.device, &self.context.config);
             self.context.surface_ready_for_rendering = true;
         }
+    }
+
+    pub fn logical_window_size(&self) -> (u32, u32) {
+        let size: LogicalSize<u32> = self
+            .context
+            .window
+            .inner_size()
+            .to_logical(self.context.window.scale_factor());
+
+        (size.width.max(1), size.height.max(1))
     }
 
     pub fn handle_key(&self, event_loop: &ActiveEventLoop, event: &KeyEvent) {
