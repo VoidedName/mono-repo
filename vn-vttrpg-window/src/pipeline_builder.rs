@@ -1,10 +1,11 @@
 use crate::errors::RenderError;
+use crate::graphics::VertexLayout;
 
 pub struct PipelineBuilder<'a> {
     device: &'a wgpu::Device,
     label: Option<&'a str>,
     shader: Option<&'a wgpu::ShaderModule>,
-    vertex_buffers: Vec<wgpu::VertexBufferLayout<'static>>,
+    vertex_layouts: Vec<VertexLayout>,
     bind_group_layouts: Vec<&'a wgpu::BindGroupLayout>,
     color_format: wgpu::TextureFormat,
     primitive: wgpu::PrimitiveState,
@@ -18,7 +19,7 @@ impl<'a> PipelineBuilder<'a> {
             device,
             label: None,
             shader: None,
-            vertex_buffers: Vec::new(),
+            vertex_layouts: Vec::new(),
             bind_group_layouts: Vec::new(),
             color_format,
             primitive: wgpu::PrimitiveState {
@@ -49,8 +50,8 @@ impl<'a> PipelineBuilder<'a> {
         self
     }
 
-    pub fn add_vertex_buffer(mut self, layout: wgpu::VertexBufferLayout<'static>) -> Self {
-        self.vertex_buffers.push(layout);
+    pub fn add_vertex_layout(mut self, layout: VertexLayout) -> Self {
+        self.vertex_layouts.push(layout);
         self
     }
 
@@ -68,6 +69,14 @@ impl<'a> PipelineBuilder<'a> {
             immediate_size: 0,
         });
 
+        let vertex_buffers: Vec<wgpu::VertexBufferLayout> = self.vertex_layouts.iter().map(|l| {
+            wgpu::VertexBufferLayout {
+                array_stride: l.array_stride,
+                step_mode: l.step_mode,
+                attributes: &l.attributes,
+            }
+        }).collect();
+
         let pipeline = self.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: self.label,
             layout: Some(&layout),
@@ -75,7 +84,7 @@ impl<'a> PipelineBuilder<'a> {
                 module: shader,
                 entry_point: Some("vs_main"),
                 compilation_options: Default::default(),
-                buffers: &self.vertex_buffers,
+                buffers: &vertex_buffers,
             },
             fragment: Some(wgpu::FragmentState {
                 module: shader,

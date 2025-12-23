@@ -9,7 +9,7 @@ use crate::logic::StateLogic;
 use crate::renderer::{Renderer, WgpuRenderer};
 use crate::resource_manager::ResourceManager;
 
-pub struct RenderingContext<T: StateLogic, R: Renderer = WgpuRenderer> {
+pub struct RenderingContext<T: StateLogic<R>, R: Renderer = WgpuRenderer> {
     pub context: GraphicsContext,
     pub resource_manager: ResourceManager,
     pub renderer: R,
@@ -17,11 +17,11 @@ pub struct RenderingContext<T: StateLogic, R: Renderer = WgpuRenderer> {
     pub logic: T,
 }
 
-impl<T: StateLogic> RenderingContext<T, WgpuRenderer> {
+impl<T: StateLogic<WgpuRenderer>> RenderingContext<T, WgpuRenderer> {
     pub async fn new(window: Arc<Window>) -> anyhow::Result<Self> {
         let context = GraphicsContext::new(window).await?;
         let mut resource_manager = ResourceManager::new(context.wgpu.clone());
-        let renderer = WgpuRenderer::new();
+        let renderer = WgpuRenderer::new(&context);
         let input = InputState::new();
         let logic = T::new_from_graphics_context(&context, &mut resource_manager).await?;
 
@@ -35,7 +35,7 @@ impl<T: StateLogic> RenderingContext<T, WgpuRenderer> {
     }
 }
 
-impl<T: StateLogic, R: Renderer> RenderingContext<T, R> {
+impl<T: StateLogic<R>, R: Renderer> RenderingContext<T, R> {
     /// !!! EXPECTS LOGICAL NOT PHYSICAL PIXELS !!!
     pub fn resize(&mut self, mut width: u32, mut height: u32) {
         if width > 0 && height > 0 {
@@ -84,8 +84,7 @@ impl<T: StateLogic, R: Renderer> RenderingContext<T, R> {
             return Ok(());
         }
 
-        self.renderer.render(&self.context, |render_pass| {
-            self.logic.draw(render_pass);
-        })
+        let render_target = self.logic.render_target();
+        self.renderer.render(&self.context, &render_target)
     }
 }

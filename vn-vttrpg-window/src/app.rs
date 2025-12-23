@@ -4,15 +4,16 @@ use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowId};
 use crate::logic::StateLogic;
+use crate::renderer::WgpuRenderer;
 use crate::rendering_context::RenderingContext;
 
-pub struct App<T: StateLogic> {
+pub struct App<T: StateLogic<WgpuRenderer>> {
     #[cfg(target_arch = "wasm32")]
     proxy: Option<winit::event_loop::EventLoopProxy<RenderingContext<T>>>,
     state: Option<RenderingContext<T>>,
 }
 
-impl<T: StateLogic> App<T> {
+impl<T: StateLogic<WgpuRenderer>> App<T> {
     pub fn new(
         #[cfg(target_arch = "wasm32")] event_loop: &winit::event_loop::EventLoop<RenderingContext<T>>,
     ) -> Self {
@@ -27,7 +28,7 @@ impl<T: StateLogic> App<T> {
     }
 }
 
-impl<T: StateLogic> ApplicationHandler<RenderingContext<T>> for App<T> {
+impl<T: StateLogic<WgpuRenderer>> ApplicationHandler<RenderingContext<T>> for App<T> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.state.is_some() {
             log::info!("Window already exists, skipping creation");

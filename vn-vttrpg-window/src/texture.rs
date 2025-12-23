@@ -1,5 +1,6 @@
 // Probably will need to extend texture creation to handle various other things, but simple starts...
 
+#[derive(Debug)]
 pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,

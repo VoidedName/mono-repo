@@ -98,3 +98,32 @@ impl GraphicsContext {
         &self.wgpu.queue
     }
 }
+
+pub struct VertexLayout {
+    pub array_stride: wgpu::BufferAddress,
+    pub step_mode: wgpu::VertexStepMode,
+    pub attributes: Vec<wgpu::VertexAttribute>,
+}
+
+pub trait VertexDescription {
+    fn stride() -> wgpu::BufferAddress;
+    fn location_count() -> u32;
+    fn size_in_buffer() -> wgpu::BufferAddress;
+
+    fn attributes(
+        shader_location_start: u32,
+        offset: wgpu::BufferAddress,
+    ) -> Vec<wgpu::VertexAttribute>;
+
+    fn vertex_description(
+        shader_location_start: Option<u32>,
+        offset: Option<wgpu::BufferAddress>,
+        step_mode: wgpu::VertexStepMode,
+    ) -> VertexLayout {
+        VertexLayout {
+            array_stride: Self::stride(),
+            step_mode,
+            attributes: Self::attributes(shader_location_start.unwrap_or(0), offset.unwrap_or(0)),
+        }
+    }
+}

@@ -1,11 +1,12 @@
-use crate::graphics::GraphicsContext;
+use crate::graphics::{GraphicsContext, VertexDescription};
+use crate::renderer::{Renderer, WgpuRenderer};
 use crate::resource_manager::ResourceManager;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
 
 mod vertex;
 
-pub trait StateLogic: Sized + 'static {
+pub trait StateLogic<R: Renderer>: Sized + 'static {
     #[allow(async_fn_in_trait)]
     async fn new_from_graphics_context(
         graphics_context: &GraphicsContext,
@@ -18,33 +19,30 @@ pub trait StateLogic: Sized + 'static {
     #[allow(unused_variables)]
     fn update(&mut self) {}
 
-    #[allow(unused_variables)]
-    fn draw(&self, render_pass: &mut wgpu::RenderPass) {}
+    fn render_target(&self) -> R::RenderTarget;
 }
 
 pub struct DefaultStateLogic {
-    render_pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    num_vertices: u32,
     pub diffuse_bind_group: wgpu::BindGroup,
 }
 
-impl StateLogic for DefaultStateLogic {
+impl StateLogic<WgpuRenderer> for DefaultStateLogic {
     async fn new_from_graphics_context(
         graphics_context: &GraphicsContext,
         resource_manager: &mut ResourceManager,
     ) -> anyhow::Result<Self> {
-        use crate::logic::vertex::{Vertex, INDICES, VERTICES};
+        use crate::logic::vertex::INDICES;
         use wgpu::include_wgsl;
         use wgpu::util::DeviceExt;
         use crate::pipeline_builder::PipelineBuilder;
+        use crate::logic::vertex::Vertex;
+        use crate::logic::vertex::VERTICES;
 
         let shader = graphics_context
             .device()
             .create_shader_module(include_wgsl!("shader.wgsl"));
 
-        let vertex_buffer =
+        let _vertex_buffer =
             graphics_context
                 .device()
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -53,7 +51,7 @@ impl StateLogic for DefaultStateLogic {
                     usage: wgpu::BufferUsages::VERTEX,
                 });
 
-        let index_buffer =
+        let _index_buffer =
             graphics_context
                 .device()
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -98,18 +96,14 @@ impl StateLogic for DefaultStateLogic {
             }],
         });
 
-        let render_pipeline = PipelineBuilder::new(graphics_context.device(), graphics_context.config.format)
+        let _render_pipeline = PipelineBuilder::new(graphics_context.device(), graphics_context.config.format)
             .label("Render Pipeline")
             .shader(&shader)
-            .add_vertex_buffer(Vertex::vertex_description())
+            .add_vertex_layout(Vertex::vertex_description(None, None, wgpu::VertexStepMode::Vertex))
             .add_bind_group_layout(&texture_bind_group_layout)
             .build()?;
 
         Ok(Self {
-            render_pipeline,
-            vertex_buffer,
-            index_buffer,
-            num_vertices: INDICES.len() as u32,
             diffuse_bind_group,
         })
     }
@@ -124,12 +118,39 @@ impl StateLogic for DefaultStateLogic {
         }
     }
 
-    fn draw(&self, render_pass: &mut wgpu::RenderPass) {
-        render_pass.set_pipeline(&self.render_pipeline);
-        render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-
-        render_pass.draw_indexed(0..self.num_vertices, 0, 0..1);
+    fn render_target(&self) -> crate::scene::Scene {
+        use crate::primitives::{BoxPrimitive, Color, PrimitiveProperties, Rect, Transform};
+        let mut scene = crate::scene::Scene::new();
+        scene.add_box(BoxPrimitive {
+            common: PrimitiveProperties {
+                transform: Transform {
+                    position: [-0.5, -0.5],
+                    size: [1.0, 1.0],
+                    rotation: 0.0,
+                    scale: [1.0, 1.0],
+                },
+                clip_area: Rect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 1.0,
+                    height: 1.0,
+                },
+            },
+            color: Color {
+                r: 1.0,
+                g: 0.0,
+                b: 0.0,
+                a: 1.0,
+            },
+            border_color: Color {
+                r: 1.0,
+                g: 1.0,
+                b: 1.0,
+                a: 1.0,
+            },
+            border_thickness: 0.05,
+            corner_radius: 0.1,
+        });
+        scene
     }
 }

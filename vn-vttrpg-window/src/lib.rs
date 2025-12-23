@@ -4,15 +4,20 @@ pub mod graphics;
 pub mod input;
 pub mod logic;
 pub mod pipeline_builder;
+pub mod primitives;
 pub mod renderer;
 pub mod rendering_context;
 pub mod resource_manager;
+pub mod scene;
 mod texture;
 
 pub use app::App;
 pub use graphics::GraphicsContext;
 pub use logic::{DefaultStateLogic, StateLogic};
+pub use primitives::{BoxPrimitive, Color, ImagePrimitive, Rect, TextPrimitive, TexturePrimitive, Transform};
+pub use renderer::{Renderer, WgpuRenderer};
 pub use rendering_context::RenderingContext;
+pub use scene::{Layer, Scene};
 pub use texture::Texture;
 
 use winit::event_loop::EventLoop;
@@ -21,7 +26,7 @@ pub fn init() -> anyhow::Result<()> {
     init_with_logic::<DefaultStateLogic>()
 }
 
-pub fn init_with_logic<T: StateLogic>() -> anyhow::Result<()> {
+pub fn init_with_logic<T: StateLogic<WgpuRenderer>>() -> anyhow::Result<()> {
     log::info!("Initializing window");
 
     let event_loop = EventLoop::<RenderingContext<T>>::with_user_event().build()?;
