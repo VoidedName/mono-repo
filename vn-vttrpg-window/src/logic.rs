@@ -4,12 +4,17 @@ use winit::keyboard::{KeyCode, PhysicalKey};
 use crate::graphics::GraphicsContext;
 
 pub trait StateLogic: Sized + 'static {
+    #[allow(async_fn_in_trait)]
+    async fn new_from_graphics_context(graphics_context: &GraphicsContext) -> anyhow::Result<Self>;
+
     #[allow(unused_variables)]
     fn handle_key(&self, event_loop: &ActiveEventLoop, event: &KeyEvent) {}
+
     #[allow(unused_variables)]
     fn update(&mut self) {}
+
     #[allow(unused_variables)]
-    fn render(&mut self, state: &GraphicsContext) -> Result<(), wgpu::SurfaceError> {
+    fn render(&mut self, graphics_context: &GraphicsContext) -> Result<(), wgpu::SurfaceError> {
         Ok(())
     }
 }
@@ -17,6 +22,10 @@ pub trait StateLogic: Sized + 'static {
 pub struct DefaultStateLogic;
 
 impl StateLogic for DefaultStateLogic {
+    async fn new_from_graphics_context(_graphics_context: &GraphicsContext) -> anyhow::Result<Self> {
+        Ok(Self)
+    }
+
     fn handle_key(&self, event_loop: &ActiveEventLoop, event: &KeyEvent) {
         match (event.physical_key, event.state.is_pressed()) {
             (PhysicalKey::Code(KeyCode::Escape), true) => event_loop.exit(),

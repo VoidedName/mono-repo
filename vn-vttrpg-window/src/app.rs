@@ -4,20 +4,17 @@ use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowId};
 use crate::logic::StateLogic;
-use crate::state::RenderingContext;
+use crate::rendering_context::RenderingContext;
 
 pub struct App<T: StateLogic> {
     #[cfg(target_arch = "wasm32")]
     proxy: Option<winit::event_loop::EventLoopProxy<RenderingContext<T>>>,
-    // we just need to hold it temporarily as we need to use it in the resumed callback
-    logic: Option<T>,
     state: Option<RenderingContext<T>>,
 }
 
 impl<T: StateLogic> App<T> {
     pub fn new(
         #[cfg(target_arch = "wasm32")] event_loop: &winit::event_loop::EventLoop<RenderingContext<T>>,
-        logic: T,
     ) -> Self {
         #[cfg(target_arch = "wasm32")]
         let proxy = Some(event_loop.create_proxy());
@@ -26,7 +23,6 @@ impl<T: StateLogic> App<T> {
             #[cfg(target_arch = "wasm32")]
             proxy,
             state: None,
-            logic: Some(logic),
         }
     }
 }
@@ -37,8 +33,7 @@ impl<T: StateLogic> ApplicationHandler<RenderingContext<T>> for App<T> {
             log::info!("Window already exists, skipping creation");
             return;
         }
-
-        let logic = self.logic.take().expect("Logic should be present");
+        
         #[allow(unused_mut)]
         let mut window_attributes = Window::default_attributes();
 
@@ -62,7 +57,7 @@ impl<T: StateLogic> ApplicationHandler<RenderingContext<T>> for App<T> {
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            self.state = Some(pollster::block_on(RenderingContext::new(window, logic)).unwrap());
+            self.state = Some(pollster::block_on(RenderingContext::new(window)).unwrap());
         }
 
         #[cfg(target_arch = "wasm32")]
@@ -73,7 +68,7 @@ impl<T: StateLogic> ApplicationHandler<RenderingContext<T>> for App<T> {
                         // send_event sends it to user_event
                         proxy
                             .send_event(
-                                RenderingContext::new(window, logic)
+                                RenderingContext::new(window)
                                     .await
                                     .expect("Failed to create canvas!")
                             )

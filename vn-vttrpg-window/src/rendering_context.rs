@@ -11,9 +11,10 @@ pub struct RenderingContext<T: StateLogic> {
 }
 
 impl<T: StateLogic> RenderingContext<T> {
-    pub async fn new(window: Arc<Window>, logic: T) -> anyhow::Result<Self> {
+    pub async fn new(window: Arc<Window>) -> anyhow::Result<Self> {
         let context = GraphicsContext::new(window).await?;
-
+        let logic = T::new_from_graphics_context(&context).await?;
+        
         Ok(Self { context, logic })
     }
 
