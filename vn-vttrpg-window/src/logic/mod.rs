@@ -124,32 +124,18 @@ impl StateLogic<WgpuRenderer> for DefaultStateLogic {
         scene.add_box(BoxPrimitive {
             common: PrimitiveProperties {
                 transform: Transform {
-                    position: [-0.5, -0.5],
-                    size: [1.0, 1.0],
-                    rotation: 0.0,
+                    translation: [200.0, 200.0],
+                    rotation: 1.0,
                     scale: [1.0, 1.0],
+                    origin: [0.5, 0.5],
                 },
-                clip_area: Rect {
-                    x: 0.0,
-                    y: 0.0,
-                    width: 1.0,
-                    height: 1.0,
-                },
+                clip_area: Rect::NO_CLIP,
             },
-            color: Color {
-                r: 1.0,
-                g: 0.0,
-                b: 0.0,
-                a: 1.0,
-            },
-            border_color: Color {
-                r: 1.0,
-                g: 1.0,
-                b: 1.0,
-                a: 1.0,
-            },
-            border_thickness: 0.05,
-            corner_radius: 0.1,
+            size: [200.0, 150.0],
+            color: Color::RED,
+            border_color: Color::WHITE,
+            border_thickness: 5.0,
+            corner_radius: 10.0,
         });
         scene
     }

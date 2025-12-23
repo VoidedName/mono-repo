@@ -3,16 +3,25 @@ use crate::graphics::VertexDescription;
 #[repr(C)]
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Rect {
-    pub x: f32,
-    pub y: f32,
-    pub width: f32,
-    pub height: f32,
+    pub position: [f32; 2],
+    pub size: [f32; 2],
+}
+
+impl Default for Rect {
+    fn default() -> Self {
+        Self::NO_CLIP
+    }
 }
 
 impl Rect {
-    pub fn full_screen() -> Self {
-        Self { x: -1.0, y: -1.0, width: 2.0, height: 2.0 }
-    }
+    // might be worth thinking about "flags" to send to the shader to enable clipping
+    // instead of defining a huge clip area... realistically, we should never exceed these limits
+    // as f32s completely break down in precision here anyway and anything rendered at such huge
+    // translations would be completely incomprehensible due to imprecision anyway.
+    pub const NO_CLIP: Self = Self {
+        position: [f32::MIN / 2.0, f32::MIN / 2.0],
+        size: [f32::MAX, f32::MAX],
+    };
 }
 
 impl VertexDescription for Rect {

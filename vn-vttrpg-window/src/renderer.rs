@@ -14,13 +14,58 @@ pub trait Renderer {
     ) -> Result<(), wgpu::SurfaceError>;
 }
 
+#[repr(C)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+struct Globals {
+    resolution: [f32; 2],
+    _padding: [f32; 2],
+}
+
 pub struct WgpuRenderer {
     box_pipeline: wgpu::RenderPipeline,
     quad_vertex_buffer: wgpu::Buffer,
+    globals_buffer: wgpu::Buffer,
+    globals_bind_group: wgpu::BindGroup,
 }
 
 impl WgpuRenderer {
     pub fn new(graphics_context: &GraphicsContext) -> Self {
+        let device = graphics_context.device();
+
+        let globals = Globals {
+            resolution: [graphics_context.config.width as f32, graphics_context.config.height as f32],
+            _padding: [0.0; 2],
+        };
+
+        let globals_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Globals Buffer"),
+            contents: bytemuck::cast_slice(&[globals]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let globals_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Globals Bind Group Layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        });
+
+        let globals_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Globals Bind Group"),
+            layout: &globals_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: globals_buffer.as_entire_binding(),
+            }],
+        });
+
         let box_shader = graphics_context
             .device()
             .create_shader_module(include_wgsl!("primitives\\box_shader.wgsl"));
@@ -38,12 +83,13 @@ impl WgpuRenderer {
                 }],
             })
             .add_vertex_layout(BoxPrimitive::vertex_description(Some(1), None, wgpu::VertexStepMode::Instance))
+            .add_bind_group_layout(&globals_bind_group_layout)
             .build()
             .expect("Failed to build box pipeline");
 
         let quad_vertices: [[f32; 2]; 6] = [
-            [0.0, 0.0], [1.0, 0.0], [0.0, 1.0],
-            [0.0, 1.0], [1.0, 0.0], [1.0, 1.0],
+            [0.0, 0.0], [0.0, 1.0], [1.0, 0.0],
+            [0.0, 1.0], [1.0, 1.0], [1.0, 0.0],
         ];
 
         let quad_vertex_buffer = graphics_context.device().create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -55,6 +101,8 @@ impl WgpuRenderer {
         Self {
             box_pipeline,
             quad_vertex_buffer,
+            globals_buffer,
+            globals_bind_group,
         }
     }
 }
@@ -72,6 +120,12 @@ impl Renderer for WgpuRenderer {
         let mut encoder = graphics_context.device().create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Render Encoder"),
         });
+
+        let globals = Globals {
+            resolution: [graphics_context.config.width as f32, graphics_context.config.height as f32],
+            _padding: [0.0; 2],
+        };
+        graphics_context.queue().write_buffer(&self.globals_buffer, 0, bytemuck::cast_slice(&[globals]));
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -97,6 +151,7 @@ impl Renderer for WgpuRenderer {
             });
 
             render_pass.set_pipeline(&self.box_pipeline);
+            render_pass.set_bind_group(0, &self.globals_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.quad_vertex_buffer.slice(..));
 
             for layer in &scene.layers {

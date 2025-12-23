@@ -3,19 +3,10 @@ use crate::primitives::rect::Rect;
 use crate::primitives::transform::Transform;
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable, Default)]
 pub struct PrimitiveProperties {
     pub transform: Transform,
     pub clip_area: Rect,
-}
-
-impl Default for PrimitiveProperties {
-    fn default() -> Self {
-        Self {
-            transform: Transform::default(),
-            clip_area: Rect::full_screen(),
-        }
-    }
 }
 
 impl VertexDescription for PrimitiveProperties {

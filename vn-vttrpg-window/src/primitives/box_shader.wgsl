@@ -1,17 +1,26 @@
+struct Globals {
+    resolution: vec2<f32>,
+    _padding: vec2<f32>,
+}
+
+@group(0) @binding(0)
+var<uniform> globals: Globals;
+
 struct VertexInput {
     @location(0) v_position: vec2<f32>,
 }
 
 struct InstanceInput {
-    @location(1) i_pos: vec2<f32>,
-    @location(2) i_size: vec2<f32>,
-    @location(3) i_rotation: f32,
-    @location(4) i_scale: vec2<f32>,
+    @location(1) i_translation: vec2<f32>,
+    @location(2) i_rotation: f32,
+    @location(3) i_scale: vec2<f32>,
+    @location(4) i_origin: vec2<f32>,
     @location(5) i_clip_area: vec4<f32>,
-    @location(6) i_color: vec4<f32>,
-    @location(7) i_border_color: vec4<f32>,
-    @location(8) i_border_thickness: f32,
-    @location(9) i_corner_radius: f32,
+    @location(6) i_size: vec2<f32>,
+    @location(7) i_color: vec4<f32>,
+    @location(8) i_border_color: vec4<f32>,
+    @location(9) i_border_thickness: f32,
+    @location(10) i_corner_radius: f32,
 }
 
 struct VertexOutput {
@@ -22,6 +31,8 @@ struct VertexOutput {
     @location(3) border_color: vec4<f32>,
     @location(4) border_thickness: f32,
     @location(5) corner_radius: f32,
+    @location(6) clip_area: vec4<f32>,
+    @location(7) world_pos: vec2<f32>,
 }
 
 @vertex
@@ -38,21 +49,21 @@ fn vs_main(
         -sin_r, cos_r
     );
 
-    // Vertex position is in [0, 1] range
-    // We want to center it for rotation, or just use the pivot.
-    // Let's assume vertex position [0, 1] and we scale it by instance size and scale.
-    let scaled_pos = vertex.v_position * instance.i_size * instance.i_scale;
+    // Vertex translation is in [0, 1] range.
+    // We offset it by the instance origin to define the pivot point.
+    let origin_offset_pos = (vertex.v_position - instance.i_origin) * instance.i_size * instance.i_scale;
     
-    // Rotate around (0,0) - which is the top-left of the box if v_position starts at 0,0
-    let rotated_pos = rot_mat * scaled_pos;
+    // Rotate around the origin
+    let rotated_pos = rot_mat * origin_offset_pos;
     
-    let final_pos = rotated_pos + instance.i_pos;
+    // Move it to the world translation
+    let final_pos = rotated_pos + instance.i_translation;
 
     // Convert to clip space. 
-    // For now, let's assume a simple orthographic projection or just NDC.
-    // Actually, we might need a camera/view uniform, but for now we'll just pass it through.
-    // Assuming NDC for simplicity, we might need to adjust this later.
-    out.clip_position = vec4<f32>(final_pos, 0.0, 1.0);
+    // Pixel coordinates to NDC:
+    let ndc_x = (final_pos.x / globals.resolution.x) * 2.0 - 1.0;
+    let ndc_y = 1.0 - (final_pos.y / globals.resolution.y) * 2.0;
+    out.clip_position = vec4<f32>(ndc_x, ndc_y, 0.0, 1.0);
     
     out.local_pos = vertex.v_position * instance.i_size; // Pos in pixels/units relative to top-left
     out.size = instance.i_size;
@@ -60,6 +71,8 @@ fn vs_main(
     out.border_color = instance.i_border_color;
     out.border_thickness = instance.i_border_thickness;
     out.corner_radius = instance.i_corner_radius;
+    out.clip_area = instance.i_clip_area;
+    out.world_pos = final_pos;
 
     return out;
 }
@@ -77,6 +90,14 @@ fn sd_rounded_box(p: vec2<f32>, b: vec2<f32>, r: vec4<f32>) -> f32 {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    // Clip area check (relative to transform origin/local space)
+    let clip_pos = in.clip_area.xy;
+    let clip_size = in.clip_area.zw;
+    if (in.local_pos.x < clip_pos.x || in.local_pos.x > clip_pos.x + clip_size.x ||
+        in.local_pos.y < clip_pos.y || in.local_pos.y > clip_pos.y + clip_size.y) {
+        discard;
+    }
+
     // Center of the box for SDF
     let half_size = in.size * 0.5;
     let p = in.local_pos - half_size;

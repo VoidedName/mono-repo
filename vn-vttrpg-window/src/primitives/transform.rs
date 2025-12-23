@@ -3,19 +3,19 @@ use crate::graphics::VertexDescription;
 #[repr(C)]
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Transform {
-    pub position: [f32; 2],
-    pub size: [f32; 2],
+    pub translation: [f32; 2],
     pub rotation: f32, // In radians
     pub scale: [f32; 2],
+    pub origin: [f32; 2],
 }
 
 impl Default for Transform {
     fn default() -> Self {
         Self {
-            position: [0.0, 0.0],
-            size: [1.0, 1.0],
+            translation: [0.0, 0.0],
             rotation: 0.0,
             scale: [1.0, 1.0],
+            origin: [0.5, 0.5],
         }
     }
 }
@@ -46,15 +46,15 @@ impl VertexDescription for Transform {
             wgpu::VertexAttribute {
                 offset: offset + size_of::<[f32; 2]>() as wgpu::BufferAddress,
                 shader_location: shader_location_start + 1,
-                format: wgpu::VertexFormat::Float32x2,
-            },
-            wgpu::VertexAttribute {
-                offset: offset + size_of::<[f32; 4]>() as wgpu::BufferAddress,
-                shader_location: shader_location_start + 2,
                 format: wgpu::VertexFormat::Float32,
             },
             wgpu::VertexAttribute {
-                offset: offset + size_of::<[f32; 5]>() as wgpu::BufferAddress,
+                offset: offset + (size_of::<[f32; 2]>() + size_of::<f32>()) as wgpu::BufferAddress,
+                shader_location: shader_location_start + 2,
+                format: wgpu::VertexFormat::Float32x2,
+            },
+            wgpu::VertexAttribute {
+                offset: offset + (size_of::<[f32; 2]>() * 2 + size_of::<f32>()) as wgpu::BufferAddress,
                 shader_location: shader_location_start + 3,
                 format: wgpu::VertexFormat::Float32x2,
             },
