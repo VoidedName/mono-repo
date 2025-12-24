@@ -14,7 +14,7 @@ mod texture;
 pub use app::App;
 pub use graphics::GraphicsContext;
 pub use logic::StateLogic;
-pub use primitives::{BoxPrimitive, Color, ImagePrimitive, Rect, TextPrimitive, TexturePrimitive, Transform};
+pub use primitives::{BoxPrimitive, Color, Globals, ImagePrimitive, Rect, TextPrimitive, TexturePrimitive, Transform};
 pub use renderer::{Renderer, SceneRenderer};
 pub use rendering_context::RenderingContext;
 pub use scene::{Layer, Scene};
