@@ -1,11 +1,11 @@
+use crate::logic::StateLogic;
+use crate::renderer::WgpuRenderer;
+use crate::rendering_context::RenderingContext;
 use std::sync::Arc;
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowId};
-use crate::logic::StateLogic;
-use crate::renderer::WgpuRenderer;
-use crate::rendering_context::RenderingContext;
 
 pub struct App<T: StateLogic<WgpuRenderer>> {
     #[cfg(target_arch = "wasm32")]
@@ -15,7 +15,9 @@ pub struct App<T: StateLogic<WgpuRenderer>> {
 
 impl<T: StateLogic<WgpuRenderer>> App<T> {
     pub fn new(
-        #[cfg(target_arch = "wasm32")] event_loop: &winit::event_loop::EventLoop<RenderingContext<T>>,
+        #[cfg(target_arch = "wasm32")] event_loop: &winit::event_loop::EventLoop<
+            RenderingContext<T>,
+        >,
     ) -> Self {
         #[cfg(target_arch = "wasm32")]
         let proxy = Some(event_loop.create_proxy());
@@ -107,17 +109,14 @@ impl<T: StateLogic<WgpuRenderer>> ApplicationHandler<RenderingContext<T>> for Ap
 
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
-            WindowEvent::Resized(size) => {
-                let size = size.to_logical(state.context.window.scale_factor());
-                state.resize(size.width, size.height)
-            }
+            WindowEvent::Resized(size) => state.resize(size.width, size.height),
             WindowEvent::RedrawRequested => {
                 state.update();
                 match state.render() {
                     Ok(_) => {}
                     Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::OutOfMemory) => {
-                        let (w, h) = state.logical_window_size();
-                        state.resize(w, h);
+                        let size = state.context.window.inner_size();
+                        state.resize(size.width, size.height)
                     }
                     Err(e) => log::error!("Failed to render: {:?}", e),
                 }

@@ -1,3 +1,4 @@
+use std::f32::consts::PI;
 use crate::graphics::{GraphicsContext, VertexDescription};
 use crate::renderer::{Renderer, WgpuRenderer};
 use crate::resource_manager::ResourceManager;
@@ -125,7 +126,7 @@ impl StateLogic<WgpuRenderer> for DefaultStateLogic {
             common: PrimitiveProperties {
                 transform: Transform {
                     translation: [200.0, 200.0],
-                    rotation: 1.0,
+                    rotation: PI / 4.0,
                     scale: [1.0, 1.0],
                     origin: [0.5, 0.5],
                 },
