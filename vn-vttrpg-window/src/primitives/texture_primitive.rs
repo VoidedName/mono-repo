@@ -12,16 +12,8 @@ pub struct TexturePrimitive {
 }
 
 impl VertexDescription for TexturePrimitive {
-    fn stride() -> wgpu::BufferAddress {
-        size_of::<Self>() as wgpu::BufferAddress
-    }
-
     fn location_count() -> u32 {
         PrimitiveProperties::location_count() + 1 + Color::location_count()
-    }
-
-    fn size_in_buffer() -> wgpu::BufferAddress {
-        size_of::<Self>() as wgpu::BufferAddress
     }
 
     fn attributes(
@@ -68,8 +60,9 @@ impl ImagePrimitive {
 pub struct TextPrimitive {
     pub common: PrimitiveProperties,
     pub size: [f32; 2],
-    // For now, text is expected to be rendered to a texture (e.g. SVG or glyph cache)
-    pub texture: TextureDescriptor,
+    pub text: String,
+    pub font: String, // font name in resource manager
+    pub font_size: f32,
     pub tint: Color,
 }
 

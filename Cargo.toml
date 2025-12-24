@@ -22,3 +22,4 @@ bytemuck = "1.24.0"
 image = { version = "0.25.9", default-features = false }
 thiserror = "2.0.17"
 web-time = "1.1.0"
+ttf-parser = "0.25.1"

@@ -1962,6 +1962,7 @@ dependencies = [
  "log",
  "pollster",
  "thiserror 2.0.17",
+ "ttf-parser",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",

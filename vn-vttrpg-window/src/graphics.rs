@@ -105,10 +105,16 @@ pub struct VertexLayout {
     pub attributes: Vec<wgpu::VertexAttribute>,
 }
 
-pub trait VertexDescription {
-    fn stride() -> wgpu::BufferAddress;
+pub trait VertexDescription: Sized {
+    fn stride() -> wgpu::BufferAddress {
+        size_of::<Self>() as wgpu::BufferAddress
+    }
+    
     fn location_count() -> u32;
-    fn size_in_buffer() -> wgpu::BufferAddress;
+    
+    fn size_in_buffer() -> wgpu::BufferAddress {
+        size_of::<Self>() as wgpu::BufferAddress
+    }
 
     fn attributes(
         shader_location_start: u32,

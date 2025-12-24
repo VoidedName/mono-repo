@@ -22,16 +22,8 @@ impl Color {
 }
 
 impl VertexDescription for Color {
-    fn stride() -> wgpu::BufferAddress {
-        size_of::<Self>() as wgpu::BufferAddress
-    }
-
     fn location_count() -> u32 {
         1
-    }
-
-    fn size_in_buffer() -> wgpu::BufferAddress {
-        size_of::<Self>() as wgpu::BufferAddress
     }
 
     fn attributes(

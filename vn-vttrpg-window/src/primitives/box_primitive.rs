@@ -14,16 +14,8 @@ pub struct BoxPrimitive {
 }
 
 impl VertexDescription for BoxPrimitive {
-    fn stride() -> wgpu::BufferAddress {
-        size_of::<Self>() as wgpu::BufferAddress
-    }
-
     fn location_count() -> u32 {
         PrimitiveProperties::location_count() + 1 + Color::location_count() * 2 + 2 // size (1) + color (1) + border_color (1) + thickness (1) + radius (1) = 5 locations
-    }
-
-    fn size_in_buffer() -> wgpu::BufferAddress {
-        size_of::<Self>() as wgpu::BufferAddress
     }
 
     fn attributes(

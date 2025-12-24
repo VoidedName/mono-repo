@@ -9,6 +9,7 @@ pub mod renderer;
 pub mod rendering_context;
 pub mod resource_manager;
 pub mod scene;
+pub mod text;
 mod texture;
 
 pub use app::App;

@@ -10,16 +10,8 @@ pub struct PrimitiveProperties {
 }
 
 impl VertexDescription for PrimitiveProperties {
-    fn stride() -> wgpu::BufferAddress {
-        size_of::<Self>() as wgpu::BufferAddress
-    }
-
     fn location_count() -> u32 {
         Transform::location_count() + Rect::location_count()
-    }
-
-    fn size_in_buffer() -> wgpu::BufferAddress {
-        size_of::<Self>() as wgpu::BufferAddress
     }
 
     fn attributes(

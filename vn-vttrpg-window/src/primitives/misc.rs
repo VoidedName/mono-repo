@@ -1,12 +1,6 @@
 use crate::graphics::VertexDescription;
 
-#[repr(C)]
-#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Globals {
-    pub resolution: [f32; 2],
-}
-
-impl VertexDescription for Globals {
+impl VertexDescription for [f32; 2] {
     fn location_count() -> u32 {
         1
     }

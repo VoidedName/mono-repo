@@ -115,6 +115,18 @@ impl SceneRenderer {
             PipelineBuilder::new(graphics_context.device(), graphics_context.config.format)
                 .label("Box Pipeline")
                 .shader(&box_shader)
+                .blend(wgpu::BlendState {
+                    color: wgpu::BlendComponent {
+                        src_factor: wgpu::BlendFactor::SrcAlpha,
+                        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                        operation: wgpu::BlendOperation::Add,
+                    },
+                    alpha: wgpu::BlendComponent {
+                        src_factor: wgpu::BlendFactor::One,
+                        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                        operation: wgpu::BlendOperation::Add,
+                    },
+                })
                 .add_vertex_layout(Globals::vertex_description(
                     None,
                     None,
@@ -162,6 +174,18 @@ impl SceneRenderer {
             PipelineBuilder::new(graphics_context.device(), graphics_context.config.format)
                 .label("Texture Pipeline")
                 .shader(&texture_shader)
+                .blend(wgpu::BlendState {
+                    color: wgpu::BlendComponent {
+                        src_factor: wgpu::BlendFactor::SrcAlpha,
+                        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                        operation: wgpu::BlendOperation::Add,
+                    },
+                    alpha: wgpu::BlendComponent {
+                        src_factor: wgpu::BlendFactor::One,
+                        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                        operation: wgpu::BlendOperation::Add,
+                    },
+                })
                 .add_vertex_layout(Globals::vertex_description(
                     None,
                     None,
@@ -283,6 +307,49 @@ impl SceneRenderer {
                     current_texture = Some(texture);
                 }
                 batch.push(image.to_texture_primitive());
+            }
+        }
+
+        if let Some(ref current) = current_texture {
+            self.draw_texture_batch(graphics_context, render_pass, current, &mut batch);
+        }
+    }
+
+    fn render_texts<'a>(
+        &'a self,
+        graphics_context: &GraphicsContext,
+        render_pass: &mut wgpu::RenderPass<'a>,
+        texts: &[crate::primitives::TextPrimitive],
+    ) {
+        if texts.is_empty() {
+            return;
+        }
+
+        render_pass.set_pipeline(&self.texture_pipeline.pipeline);
+        self.globals.set(render_pass);
+
+        let mut current_texture: Option<Arc<Texture>> = None;
+        let mut batch = Vec::new();
+
+        for text in texts {
+            let resolved = self.resource_manager.get_or_render_text(
+                graphics_context,
+                &text.text,
+                &text.font,
+                text.font_size,
+            );
+
+            if let Some(texture) = resolved {
+                if let Some(ref current) = current_texture {
+                    if !Arc::ptr_eq(current, &texture) {
+                        self.draw_texture_batch(graphics_context, render_pass, current, &mut batch);
+                        batch.clear();
+                        current_texture = Some(texture);
+                    }
+                } else {
+                    current_texture = Some(texture);
+                }
+                batch.push(text.to_texture_primitive());
             }
         }
 
@@ -413,6 +480,7 @@ impl Renderer for SceneRenderer {
             for layer in &scene.layers {
                 self.render_boxes(graphics_context, &mut render_pass, &layer.boxes);
                 self.render_images(graphics_context, &mut render_pass, &layer.images);
+                self.render_texts(graphics_context, &mut render_pass, &layer.texts);
             }
         }
 

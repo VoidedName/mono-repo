@@ -3,10 +3,14 @@ use std::sync::Arc;
 use std::cell::RefCell;
 use crate::graphics::WgpuContext;
 use crate::texture::Texture;
+use crate::text::Font;
 
 pub struct ResourceManager {
     wgpu: Arc<WgpuContext>,
     textures: RefCell<HashMap<String, Arc<Texture>>>,
+    fonts: RefCell<HashMap<String, Arc<Font>>>,
+    text_cache: RefCell<HashMap<String, Arc<Texture>>>,
+    text_renderer: RefCell<Option<crate::text::renderer::TextRenderer>>,
 }
 
 impl ResourceManager {
@@ -14,6 +18,9 @@ impl ResourceManager {
         Self {
             wgpu,
             textures: RefCell::new(HashMap::new()),
+            fonts: RefCell::new(HashMap::new()),
+            text_cache: RefCell::new(HashMap::new()),
+            text_renderer: RefCell::new(None),
         }
     }
 
@@ -66,5 +73,59 @@ impl ResourceManager {
 
     pub fn get_texture(&self, name: &str) -> Option<Arc<Texture>> {
         self.textures.borrow().get(name).cloned()
+    }
+
+    pub fn load_font_from_bytes(&self, name: &str, bytes: &[u8]) -> Result<Arc<Font>, anyhow::Error> {
+        {
+            let fonts = self.fonts.borrow();
+            if let Some(font) = fonts.get(name) {
+                return Ok(font.clone());
+            }
+        }
+
+        let font = Arc::new(Font::new(bytes.to_vec()));
+        let mut fonts = self.fonts.borrow_mut();
+        fonts.insert(name.to_string(), font.clone());
+        Ok(font)
+    }
+
+    pub fn get_font(&self, name: &str) -> Option<Arc<Font>> {
+        self.fonts.borrow().get(name).cloned()
+    }
+
+    pub fn get_or_render_text(
+        &self,
+        graphics_context: &crate::graphics::GraphicsContext,
+        text: &str,
+        font_name: &str,
+        font_size: f32,
+    ) -> Option<Arc<Texture>> {
+        let key = format!("{}:{}:{}", text, font_name, font_size);
+        {
+            let cache = self.text_cache.borrow();
+            if let Some(texture) = cache.get(&key) {
+                return Some(texture.clone());
+            }
+        }
+
+        let font = self.get_font(font_name)?;
+
+        let mut text_renderer = self.text_renderer.borrow_mut();
+        if text_renderer.is_none() {
+            *text_renderer = Some(crate::text::renderer::TextRenderer::new(&self.wgpu.device));
+        }
+        let renderer = text_renderer.as_mut().unwrap();
+
+        match renderer.render_string(graphics_context, &font, text, font_size) {
+            Ok(texture) => {
+                let texture = Arc::new(texture);
+                self.text_cache.borrow_mut().insert(key, texture.clone());
+                Some(texture)
+            }
+            Err(e) => {
+                log::error!("Failed to render text: {}", e);
+                None
+            }
+        }
     }
 }

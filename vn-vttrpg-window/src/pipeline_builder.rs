@@ -11,6 +11,7 @@ pub struct PipelineBuilder<'a> {
     primitive: wgpu::PrimitiveState,
     depth_stencil: Option<wgpu::DepthStencilState>,
     multisample: wgpu::MultisampleState,
+    blend: Option<wgpu::BlendState>,
 }
 
 impl<'a> PipelineBuilder<'a> {
@@ -37,6 +38,7 @@ impl<'a> PipelineBuilder<'a> {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
+            blend: None,
         }
     }
 
@@ -47,6 +49,11 @@ impl<'a> PipelineBuilder<'a> {
 
     pub fn shader(mut self, shader: &'a wgpu::ShaderModule) -> Self {
         self.shader = Some(shader);
+        self
+    }
+
+    pub fn blend(mut self, blend: wgpu::BlendState) -> Self {
+        self.blend = Some(blend);
         self
     }
 
@@ -92,7 +99,7 @@ impl<'a> PipelineBuilder<'a> {
                 compilation_options: Default::default(),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: self.color_format,
-                    blend: Some(wgpu::BlendState::REPLACE),
+                    blend: self.blend,
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
             }),

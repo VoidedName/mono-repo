@@ -5,6 +5,7 @@ pub mod properties;
 pub mod box_primitive;
 pub mod texture_primitive;
 pub mod globals;
+pub mod misc;
 
 pub use color::Color;
 pub use transform::Transform;
@@ -13,4 +14,4 @@ pub use properties::PrimitiveProperties;
 pub use box_primitive::BoxPrimitive;
 pub use texture_primitive::{TexturePrimitive, ImagePrimitive, TextPrimitive};
 pub use globals::Globals;
-
+use crate::graphics::VertexDescription;
