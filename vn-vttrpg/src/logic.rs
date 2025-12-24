@@ -1,6 +1,7 @@
 use vn_vttrpg_window::graphics::GraphicsContext;
 use vn_vttrpg_window::renderer::SceneRenderer;
 use vn_vttrpg_window::resource_manager::ResourceManager;
+use vn_vttrpg_window::input::InputState;
 use vn_vttrpg_window::StateLogic;
 use std::f32::consts::PI;
 use std::sync::Arc;
@@ -10,6 +11,7 @@ use winit::event_loop::ActiveEventLoop;
 
 pub struct MainLogic {
     pub resource_manager: Arc<ResourceManager>,
+    pub input: InputState,
     application_start: Instant,
 }
 
@@ -23,11 +25,14 @@ impl StateLogic<SceneRenderer> for MainLogic {
 
         Ok(Self {
             resource_manager,
+            input: InputState::new(),
             application_start: Instant::now(),
         })
     }
 
     fn handle_key(&mut self, event_loop: &ActiveEventLoop, event: &KeyEvent) {
+        self.input.handle_key(event);
+
         use winit::keyboard::{KeyCode, PhysicalKey};
         match (event.physical_key, event.state.is_pressed()) {
             (PhysicalKey::Code(KeyCode::Escape), true) => event_loop.exit(),
