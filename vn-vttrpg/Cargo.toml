@@ -10,3 +10,5 @@ crate-type = ["cdylib", "rlib"]
 vn-vttrpg-window = { path = "../vn-vttrpg-window" }
 log = { workspace = true }
 anyhow = { workspace = true }
+winit = { workspace = true }
+web-time = { workspace = true }

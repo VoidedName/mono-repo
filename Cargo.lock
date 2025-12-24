@@ -1928,6 +1928,8 @@ dependencies = [
  "anyhow",
  "log",
  "vn-vttrpg-window",
+ "web-time",
+ "winit",
 ]
 
 [[package]]

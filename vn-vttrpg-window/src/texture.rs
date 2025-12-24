@@ -1,5 +1,12 @@
 // Probably will need to extend texture creation to handle various other things, but simple starts...
 
+#[derive(Debug, Clone)]
+pub enum TextureDescriptor {
+    Name(String),
+    Path(std::path::PathBuf),
+    Bytes { name: String, bytes: Vec<u8> },
+}
+
 #[derive(Debug)]
 pub struct Texture {
     pub texture: wgpu::Texture,

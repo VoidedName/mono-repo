@@ -1,6 +1,5 @@
-use std::sync::Arc;
 use crate::graphics::VertexDescription;
-use crate::Texture;
+use crate::TextureDescriptor;
 use crate::primitives::color::Color;
 use crate::primitives::properties::PrimitiveProperties;
 
@@ -51,7 +50,7 @@ impl VertexDescription for TexturePrimitive {
 pub struct ImagePrimitive {
     pub common: PrimitiveProperties,
     pub size: [f32; 2],
-    pub texture: Arc<Texture>,
+    pub texture: TextureDescriptor,
     pub tint: Color,
 }
 
@@ -70,7 +69,7 @@ pub struct TextPrimitive {
     pub common: PrimitiveProperties,
     pub size: [f32; 2],
     // For now, text is expected to be rendered to a texture (e.g. SVG or glyph cache)
-    pub texture: Arc<Texture>,
+    pub texture: TextureDescriptor,
     pub tint: Color,
 }
 

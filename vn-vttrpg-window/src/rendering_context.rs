@@ -5,24 +5,24 @@ use winit::window::Window;
 use crate::graphics::GraphicsContext;
 use crate::input::InputState;
 use crate::logic::StateLogic;
-use crate::renderer::{Renderer, WgpuRenderer};
+use crate::renderer::{Renderer, SceneRenderer};
 use crate::resource_manager::ResourceManager;
 
-pub struct RenderingContext<T: StateLogic<R>, R: Renderer = WgpuRenderer> {
+pub struct RenderingContext<T: StateLogic<R>, R: Renderer = SceneRenderer> {
     pub context: GraphicsContext,
-    pub resource_manager: ResourceManager,
+    pub resource_manager: Arc<ResourceManager>,
     pub renderer: R,
     pub input: InputState,
     pub logic: T,
 }
 
-impl<T: StateLogic<WgpuRenderer>> RenderingContext<T, WgpuRenderer> {
+impl<T: StateLogic<SceneRenderer>> RenderingContext<T, SceneRenderer> {
     pub async fn new(window: Arc<Window>) -> anyhow::Result<Self> {
         let context = GraphicsContext::new(window).await?;
-        let mut resource_manager = ResourceManager::new(context.wgpu.clone());
-        let renderer = WgpuRenderer::new(&context);
+        let resource_manager = Arc::new(ResourceManager::new(context.wgpu.clone()));
+        let renderer = SceneRenderer::new(&context, resource_manager.clone());
         let input = InputState::new();
-        let logic = T::new_from_graphics_context(&context, &mut resource_manager).await?;
+        let logic = T::new_from_graphics_context(&context, resource_manager.clone()).await?;
 
         Ok(Self {
             context,

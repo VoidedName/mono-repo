@@ -13,20 +13,16 @@ mod texture;
 
 pub use app::App;
 pub use graphics::GraphicsContext;
-pub use logic::{DefaultStateLogic, StateLogic};
+pub use logic::StateLogic;
 pub use primitives::{BoxPrimitive, Color, ImagePrimitive, Rect, TextPrimitive, TexturePrimitive, Transform};
-pub use renderer::{Renderer, WgpuRenderer};
+pub use renderer::{Renderer, SceneRenderer};
 pub use rendering_context::RenderingContext;
 pub use scene::{Layer, Scene};
-pub use texture::Texture;
+pub use texture::{Texture, TextureDescriptor};
 
 use winit::event_loop::EventLoop;
 
-pub fn init() -> anyhow::Result<()> {
-    init_with_logic::<DefaultStateLogic>()
-}
-
-pub fn init_with_logic<T: StateLogic<WgpuRenderer>>() -> anyhow::Result<()> {
+pub fn init_with_logic<T: StateLogic<SceneRenderer>>() -> anyhow::Result<()> {
     log::info!("Initializing window");
 
     let event_loop = EventLoop::<RenderingContext<T>>::with_user_event().build()?;
