@@ -59,8 +59,7 @@ fn vs_main(
     // Move it to the world translation
     let final_pos = rotated_pos + instance.i_translation;
 
-    // Convert to clip space. 
-    // Pixel coordinates to NDC:
+    // Convert to clip space. (NDC)
     let ndc_x = (final_pos.x / globals.resolution.x) * 2.0 - 1.0;
     let ndc_y = 1.0 - (final_pos.y / globals.resolution.y) * 2.0;
     out.clip_position = vec4<f32>(ndc_x, ndc_y, 0.0, 1.0);
@@ -114,8 +113,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     if (in.border_thickness > 0.0) {
         let border_d = d + in.border_thickness;
         if (border_d > 0.0) {
-            // Anti-aliasing could be added here
-            color = in.border_color;
+            // anti aliasing
+            let aa = smoothstep(0.0, 1.0, border_d);
+            color = mix(in.color, in.border_color, aa);
         }
     }
     

@@ -1,6 +1,6 @@
 use crate::graphics::{GraphicsContext, VertexDescription};
 use crate::pipeline_builder::PipelineBuilder;
-use crate::primitives::BoxPrimitive;
+use crate::primitives::{BoxPrimitive, TexturePrimitive};
 use wgpu::include_wgsl;
 use wgpu::util::DeviceExt;
 
@@ -23,6 +23,8 @@ struct Globals {
 
 pub struct WgpuRenderer {
     box_pipeline: wgpu::RenderPipeline,
+    texture_pipeline: wgpu::RenderPipeline,
+    texture_bind_group_layout: wgpu::BindGroupLayout,
     quad_vertex_buffer: wgpu::Buffer,
     globals_buffer: wgpu::Buffer,
     globals_bind_group: wgpu::BindGroup,
@@ -68,7 +70,7 @@ impl WgpuRenderer {
 
         let box_shader = graphics_context
             .device()
-            .create_shader_module(include_wgsl!("primitives\\box_shader.wgsl"));
+            .create_shader_module(include_wgsl!("shaders\\box_shader.wgsl"));
 
         let box_pipeline = PipelineBuilder::new(graphics_context.device(), graphics_context.config.format)
             .label("Box Pipeline")
@@ -87,6 +89,53 @@ impl WgpuRenderer {
             .build()
             .expect("Failed to build box pipeline");
 
+        let texture_shader = graphics_context
+            .device()
+            .create_shader_module(include_wgsl!("shaders\\texture_shader.wgsl"));
+
+        let texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Texture Bind Group Layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler {
+                            0: wgpu::SamplerBindingType::Filtering,
+                        },
+                        count: None,
+                    },
+                ],
+            });
+
+        let texture_pipeline = PipelineBuilder::new(graphics_context.device(), graphics_context.config.format)
+            .label("Texture Pipeline")
+            .shader(&texture_shader)
+            .add_vertex_layout(crate::graphics::VertexLayout {
+                array_stride: size_of::<[f32; 2]>() as wgpu::BufferAddress,
+                step_mode: wgpu::VertexStepMode::Vertex,
+                attributes: vec![wgpu::VertexAttribute {
+                    offset: 0,
+                    shader_location: 0,
+                    format: wgpu::VertexFormat::Float32x2,
+                }],
+            })
+            .add_vertex_layout(TexturePrimitive::vertex_description(Some(1), None, wgpu::VertexStepMode::Instance))
+            .add_bind_group_layout(&globals_bind_group_layout)
+            .add_bind_group_layout(&texture_bind_group_layout)
+            .build()
+            .expect("Failed to build texture pipeline");
+
         let quad_vertices: [[f32; 2]; 6] = [
             [0.0, 0.0], [0.0, 1.0], [1.0, 0.0],
             [0.0, 1.0], [1.0, 1.0], [1.0, 0.0],
@@ -100,6 +149,8 @@ impl WgpuRenderer {
 
         Self {
             box_pipeline,
+            texture_pipeline,
+            texture_bind_group_layout,
             quad_vertex_buffer,
             globals_buffer,
             globals_bind_group,
@@ -150,12 +201,12 @@ impl Renderer for WgpuRenderer {
                 multiview_mask: None,
             });
 
-            render_pass.set_pipeline(&self.box_pipeline);
-            render_pass.set_bind_group(0, &self.globals_bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.quad_vertex_buffer.slice(..));
-
             for layer in &scene.layers {
                 if !layer.boxes.is_empty() {
+                    render_pass.set_pipeline(&self.box_pipeline);
+                    render_pass.set_bind_group(0, &self.globals_bind_group, &[]);
+                    render_pass.set_vertex_buffer(0, self.quad_vertex_buffer.slice(..));
+
                     let instance_buffer = graphics_context.device().create_buffer_init(&wgpu::util::BufferInitDescriptor {
                         label: Some("Box Instance Buffer"),
                         contents: bytemuck::cast_slice(&layer.boxes),
@@ -163,6 +214,61 @@ impl Renderer for WgpuRenderer {
                     });
                     render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
                     render_pass.draw(0..6, 0..layer.boxes.len() as u32);
+                }
+
+                if !layer.images.is_empty() {
+                    render_pass.set_pipeline(&self.texture_pipeline);
+                    render_pass.set_bind_group(0, &self.globals_bind_group, &[]);
+                    render_pass.set_vertex_buffer(0, self.quad_vertex_buffer.slice(..));
+
+                    // Group by texture to minimize bind group changes and buffer creation
+                    // For now, let's just do it simple: one draw call per image or group by texture if they are contiguous
+                    let mut current_texture: Option<std::sync::Arc<crate::Texture>> = None;
+                    let mut batch = Vec::new();
+
+                    let draw_batch = |texture: &std::sync::Arc<crate::Texture>, batch: &Vec<TexturePrimitive>, render_pass: &mut wgpu::RenderPass| {
+                        let bind_group = graphics_context.device().create_bind_group(&wgpu::BindGroupDescriptor {
+                            label: Some("Texture Bind Group"),
+                            layout: &self.texture_bind_group_layout,
+                            entries: &[
+                                wgpu::BindGroupEntry {
+                                    binding: 0,
+                                    resource: wgpu::BindingResource::TextureView(&texture.view),
+                                },
+                                wgpu::BindGroupEntry {
+                                    binding: 1,
+                                    resource: wgpu::BindingResource::Sampler(&texture.sampler),
+                                },
+                            ],
+                        });
+
+                        let instance_buffer = graphics_context.device().create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                            label: Some("Texture Instance Buffer"),
+                            contents: bytemuck::cast_slice(batch),
+                            usage: wgpu::BufferUsages::VERTEX,
+                        });
+
+                        render_pass.set_bind_group(1, &bind_group, &[]);
+                        render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
+                        render_pass.draw(0..6, 0..batch.len() as u32);
+                    };
+
+                    for image in &layer.images {
+                        if let Some(ref current) = current_texture {
+                            if !std::sync::Arc::ptr_eq(current, &image.texture) {
+                                draw_batch(current, &batch, &mut render_pass);
+                                batch.clear();
+                                current_texture = Some(image.texture.clone());
+                            }
+                        } else {
+                            current_texture = Some(image.texture.clone());
+                        }
+                        batch.push(image.to_texture_primitive());
+                    }
+
+                    if let Some(ref current) = current_texture {
+                        draw_batch(current, &batch, &mut render_pass);
+                    }
                 }
             }
         }
