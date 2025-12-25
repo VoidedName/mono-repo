@@ -1,21 +1,28 @@
 // Probably will need to extend texture creation to handle various other things, but simple starts...
 
+/// Describes how to load or reference a texture.
 #[derive(Debug, Clone)]
 pub enum TextureDescriptor {
+    /// Reference a texture already loaded in the [`ResourceManager`](crate::resource_manager::ResourceManager) by name.
     Name(String),
+    /// Load a texture from the specified file path.
     Path(std::path::PathBuf),
+    /// Load a texture from raw bytes.
     Bytes { name: String, bytes: Vec<u8> },
 }
 
 impl TextureDescriptor {
+    /// Creates a descriptor that references a texture by name.
     pub fn name(name: impl Into<String>) -> Self {
         Self::Name(name.into())
     }
 
+    /// Creates a descriptor that loads a texture from a file path.
     pub fn path(path: impl Into<std::path::PathBuf>) -> Self {
         Self::Path(path.into())
     }
 
+    /// Creates a descriptor that loads a texture from raw bytes.
     pub fn bytes(name: impl Into<String>, bytes: Vec<u8>) -> Self {
         Self::Bytes {
             name: name.into(),
@@ -24,6 +31,7 @@ impl TextureDescriptor {
     }
 }
 
+/// Represents a loaded GPU texture with its view and sampler.
 #[derive(Debug)]
 pub struct Texture {
     pub texture: wgpu::Texture,
@@ -32,6 +40,7 @@ pub struct Texture {
 }
 
 impl Texture {
+    /// Loads a texture from raw bytes (supports various image formats).
     pub fn from_bytes(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -42,6 +51,7 @@ impl Texture {
         Self::from_image(device, queue, &img, label)
     }
 
+    /// Loads a texture from a file path.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn from_file(
         device: &wgpu::Device,
@@ -53,6 +63,7 @@ impl Texture {
         Self::from_image(device, queue, &img, label)
     }
 
+    /// Loads a texture from a [`DynamicImage`].
     pub fn from_image(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -65,6 +76,7 @@ impl Texture {
         Self::from_rgba(device, queue, &rgba, dimensions, label)
     }
 
+    /// Loads a texture from raw RGBA pixel data.
     pub fn from_rgba(
         device: &wgpu::Device,
         queue: &wgpu::Queue,

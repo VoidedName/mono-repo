@@ -1,23 +1,28 @@
 use crate::graphics::VertexDescription;
 
+/// Represents a 2D transformation including translation, rotation, scale, and origin.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Transform {
     pub translation: [f32; 2],
-    pub rotation: f32, // In radians
+    /// Rotation in radians.
+    pub rotation: f32,
     pub scale: [f32; 2],
+    /// The pivot point for rotation and scaling, typically in normalized coordinates [0, 1].
     pub origin: [f32; 2],
 }
 
 impl Transform {
+    /// Identity transform: no translation, no rotation, unit scale, origin at top left.
     pub const DEFAULT: Self = Self {
         translation: [0.0, 0.0],
         rotation: 0.0,
         scale: [1.0, 1.0],
-        origin: [0.5, 0.5],
+        origin: [0.0, 0.0],
     };
 }
 
+/// A builder for creating [`Transform`] instances.
 pub struct TransformBuilder {
     transform: Transform,
 }

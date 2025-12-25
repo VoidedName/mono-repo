@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::sync::Arc;
-use vn_vttrpg_ui::{Anchor, Element, Label, Size, SizeConstraints};
+use vn_vttrpg_ui::{Anchor, Border, Element, Label, Size, SizeConstraints};
 use vn_vttrpg_window::StateLogic;
 use vn_vttrpg_window::graphics::GraphicsContext;
 use vn_vttrpg_window::input::InputState;
@@ -10,6 +10,7 @@ use web_time::Instant;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
 
+/// Tracks and calculates frames per second.
 struct FpsStats {
     key_frame_time: RefCell<Option<Instant>>,
     frame_count: RefCell<u32>,
@@ -25,6 +26,7 @@ impl FpsStats {
         }
     }
 
+    /// Ticks the tracker, updating the FPS value if enough time has passed.
     fn tick(&self) {
         let mut key_frame_time = self.key_frame_time.borrow_mut();
         if key_frame_time.is_none() {
@@ -55,7 +57,6 @@ pub struct MainLogic {
     pub resource_manager: Arc<ResourceManager>,
     pub graphics_context: Arc<GraphicsContext>,
     pub input: InputState,
-    application_start: Instant,
     fps_stats: FpsStats,
     size: (u32, u32),
 }
@@ -77,7 +78,6 @@ impl StateLogic<SceneRenderer> for MainLogic {
             size: graphics_context.size(),
             graphics_context,
             input: InputState::new(),
-            application_start: Instant::now(),
             fps_stats: FpsStats::new(),
         })
     }
@@ -104,18 +104,14 @@ impl StateLogic<SceneRenderer> for MainLogic {
         let t = match self.fps_stats.current_fps() {
             Some(fps) => {
                 format!("FPS:{:>8.2}", fps)
-            },
-            None => {
-                "Initializing...".to_string()
             }
+            None => "Initializing...".to_string(),
         };
 
-        let text = self.resource_manager.get_or_render_text(
-            &self.graphics_context,
-            &t,
-            "jetbrains-bold",
-            48.0,
-        ).unwrap();
+        let text = self
+            .resource_manager
+            .get_or_render_text(&self.graphics_context, &t, "jetbrains-bold", 48.0)
+            .unwrap();
 
         let ui = Label {
             text: t,
@@ -127,6 +123,13 @@ impl StateLogic<SceneRenderer> for MainLogic {
             },
             color: vn_vttrpg_window::Color::WHITE.with_alpha(0.5),
         };
+
+        let ui = Border::new(
+            Box::new(ui),
+            2.5,
+            5.0,
+            vn_vttrpg_window::Color::RED.with_alpha(0.5),
+        );
 
         let mut ui = Anchor::new(Box::new(ui), vn_vttrpg_ui::AnchorLocation::TopRight);
 

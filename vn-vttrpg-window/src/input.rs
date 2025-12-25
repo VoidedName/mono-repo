@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use winit::event::{ElementState, KeyEvent};
 use winit::keyboard::PhysicalKey;
 
+/// Tracks the current state of keyboard input.
 pub struct InputState {
     keys_pressed: HashSet<PhysicalKey>,
 }
@@ -13,6 +14,7 @@ impl InputState {
         }
     }
 
+    /// Updates the input state based on a keyboard event.
     pub fn handle_key(&mut self, event: &KeyEvent) {
         match event.state {
             ElementState::Pressed => {

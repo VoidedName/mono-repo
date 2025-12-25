@@ -2,9 +2,11 @@ use crate::graphics::VertexDescription;
 use crate::primitives::color::Color;
 use crate::primitives::properties::PrimitiveProperties;
 
+/// A rendering primitive representing a rectangle with optional border and rounded corners.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct BoxPrimitive {
+    /// Common properties shared by all primitives (transform, clipping).
     pub common: PrimitiveProperties,
     pub size: [f32; 2],
     pub color: Color,
@@ -13,6 +15,7 @@ pub struct BoxPrimitive {
     pub corner_radius: f32,
 }
 
+/// A builder for creating [`BoxPrimitive`] instances with a fluent API.
 pub struct BoxPrimitiveBuilder {
     primitive: BoxPrimitive,
 }
@@ -33,6 +36,25 @@ impl BoxPrimitiveBuilder {
 
     pub fn common(mut self, common: PrimitiveProperties) -> Self {
         self.primitive.common = common;
+        self
+    }
+
+    pub fn transform<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(
+            crate::primitives::transform::TransformBuilder,
+        ) -> crate::primitives::transform::TransformBuilder,
+    {
+        self.primitive.common.transform =
+            f(crate::primitives::transform::Transform::builder()).build();
+        self
+    }
+
+    pub fn clip_area<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(crate::primitives::rect::RectBuilder) -> crate::primitives::rect::RectBuilder,
+    {
+        self.primitive.common.clip_area = f(crate::primitives::rect::Rect::builder()).build();
         self
     }
 
@@ -67,6 +89,7 @@ impl BoxPrimitiveBuilder {
 }
 
 impl BoxPrimitive {
+    /// Creates a new builder for a [`BoxPrimitive`].
     pub fn builder() -> BoxPrimitiveBuilder {
         BoxPrimitiveBuilder::new()
     }

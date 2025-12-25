@@ -1,14 +1,18 @@
 use crate::GraphicsContext;
 
+/// A trait for types that can render a specific target using a [`GraphicsContext`].
 pub trait Renderer {
+    /// The type that this renderer can draw.
     type RenderTarget;
 
+    /// Renders the target to the current surface.
     fn render(
         &mut self,
         graphics_context: &GraphicsContext,
-        scene: &Self::RenderTarget,
+        target: &Self::RenderTarget,
     ) -> Result<(), wgpu::SurfaceError>;
 
+    /// Prepares the graphics context for a new frame, returning the surface texture, view, and encoder.
     fn begin_render_frame(
         graphics_context: &GraphicsContext,
     ) -> Result<

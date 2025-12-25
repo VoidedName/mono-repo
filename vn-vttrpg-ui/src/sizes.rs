@@ -9,7 +9,8 @@ impl Size {
         width: 0.0,
         height: 0.0,
     };
-    pub fn clip_to_constraints(self, constraints: SizeConstraints) -> Size {
+
+    pub fn clamp_to_constraints(self, constraints: SizeConstraints) -> Size {
         Size {
             width: self
                 .width
@@ -23,12 +24,8 @@ impl Size {
     }
 }
 
-// should I support infinite size?
-// scrollable areas technically have an infinite internal size along the scroll axis
-// there are components that expand to fit the container size,
-// and there are containers that shrink to their children
+/// Defines the minimum and maximum size constraints for layout.
 #[derive(Debug, Clone, Copy)]
-
 pub struct SizeConstraints {
     pub min_size: Size,
     pub max_size: Size,

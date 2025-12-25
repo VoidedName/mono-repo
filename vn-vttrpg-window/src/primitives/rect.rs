@@ -1,5 +1,6 @@
 use crate::graphics::VertexDescription;
 
+/// A simple 2D rectangle defined by position and size.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Rect {
@@ -7,6 +8,7 @@ pub struct Rect {
     pub size: [f32; 2],
 }
 
+/// A builder for creating [`Rect`] instances.
 pub struct RectBuilder {
     rect: Rect,
 }
@@ -34,15 +36,13 @@ impl RectBuilder {
 }
 
 impl Rect {
-    // might be worth thinking about "flags" to send to the shader to enable clipping
-    // instead of defining a huge clip area... realistically, we should never exceed these limits
-    // as f32s completely break down in precision here anyway and anything rendered at such huge
-    // translations would be completely incomprehensible due to imprecision anyway.
+    /// A rectangle that effectively disables clipping by covering a massive area.
     pub const NO_CLIP: Self = Self {
         position: [f32::MIN / 2.0, f32::MIN / 2.0],
         size: [f32::MAX, f32::MAX],
     };
 
+    /// Creates a new builder for a [`Rect`].
     pub fn builder() -> RectBuilder {
         RectBuilder::new()
     }

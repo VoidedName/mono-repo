@@ -6,6 +6,7 @@ use std::collections::{HashMap, HashSet};
 use std::mem::swap;
 use std::sync::Arc;
 
+/// Manages textures, fonts, and cached text rendering.
 pub struct ResourceManager {
     wgpu: Arc<WgpuContext>,
     textures: RefCell<HashMap<String, Arc<Texture>>>,

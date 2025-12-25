@@ -1,5 +1,6 @@
 use crate::graphics::VertexDescription;
 
+/// Represents an RGBA color.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Color {
@@ -58,6 +59,7 @@ impl Color {
         b: 0.0,
         a: 1.0,
     };
+    /// A fully transparent color.
     pub const TRANSPARENT: Self = Self {
         r: 0.0,
         g: 0.0,
@@ -65,6 +67,7 @@ impl Color {
         a: 0.0,
     };
 
+    /// Returns a new color with the specified opacity, adjusting RGB values for premultiplied alpha.
     pub fn with_alpha(self, opacity: f32) -> Self {
         Self {
             r: self.r / self.a * opacity,

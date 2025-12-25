@@ -8,6 +8,7 @@ use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
 
+/// The main context for rendering the application, binding together graphics, resources, renderer, and logic.
 pub struct RenderingContext<T: StateLogic<R>, R: Renderer = SceneRenderer> {
     pub context: Arc<GraphicsContext>,
     pub resource_manager: Arc<ResourceManager>,
@@ -16,6 +17,7 @@ pub struct RenderingContext<T: StateLogic<R>, R: Renderer = SceneRenderer> {
 }
 
 impl<T: StateLogic<SceneRenderer>> RenderingContext<T, SceneRenderer> {
+    /// Creates a new rendering context for the given window.
     pub async fn new(window: Arc<Window>) -> anyhow::Result<Self> {
         let context = Arc::new(GraphicsContext::new(window).await?);
         let resource_manager = Arc::new(ResourceManager::new(context.wgpu.clone()));

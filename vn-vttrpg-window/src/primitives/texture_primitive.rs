@@ -3,14 +3,17 @@ use crate::graphics::VertexDescription;
 use crate::primitives::color::Color;
 use crate::primitives::properties::PrimitiveProperties;
 
+/// Internal representation of a textured primitive sent to the GPU.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct _TexturePrimitive {
+    /// Common properties shared by all primitives (transform, clipping).
     pub common: PrimitiveProperties,
     pub size: [f32; 2],
     pub tint: Color,
 }
 
+/// A builder for creating [`_TexturePrimitive`] instances.
 pub struct TexturePrimitiveBuilder {
     primitive: _TexturePrimitive,
 }
@@ -28,6 +31,25 @@ impl TexturePrimitiveBuilder {
 
     pub fn common(mut self, common: PrimitiveProperties) -> Self {
         self.primitive.common = common;
+        self
+    }
+
+    pub fn transform<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(
+            crate::primitives::transform::TransformBuilder,
+        ) -> crate::primitives::transform::TransformBuilder,
+    {
+        self.primitive.common.transform =
+            f(crate::primitives::transform::Transform::builder()).build();
+        self
+    }
+
+    pub fn clip_area<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(crate::primitives::rect::RectBuilder) -> crate::primitives::rect::RectBuilder,
+    {
+        self.primitive.common.clip_area = f(crate::primitives::rect::Rect::builder()).build();
         self
     }
 
@@ -79,19 +101,23 @@ impl VertexDescription for _TexturePrimitive {
     }
 }
 
+/// A primitive for rendering images with a texture.
 #[derive(Debug, Clone)]
 pub struct ImagePrimitive {
+    /// Common properties shared by all primitives (transform, clipping).
     pub common: PrimitiveProperties,
     pub size: [f32; 2],
     pub texture: TextureDescriptor,
     pub tint: Color,
 }
 
+/// A builder for creating [`ImagePrimitive`] instances.
 pub struct ImagePrimitiveBuilder {
     primitive: ImagePrimitive,
 }
 
 impl ImagePrimitiveBuilder {
+    /// Creates a new builder for an [`ImagePrimitive`] with the specified texture.
     pub fn new(texture: TextureDescriptor) -> Self {
         Self {
             primitive: ImagePrimitive {
@@ -105,6 +131,25 @@ impl ImagePrimitiveBuilder {
 
     pub fn common(mut self, common: PrimitiveProperties) -> Self {
         self.primitive.common = common;
+        self
+    }
+
+    pub fn transform<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(
+            crate::primitives::transform::TransformBuilder,
+        ) -> crate::primitives::transform::TransformBuilder,
+    {
+        self.primitive.common.transform =
+            f(crate::primitives::transform::Transform::builder()).build();
+        self
+    }
+
+    pub fn clip_area<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(crate::primitives::rect::RectBuilder) -> crate::primitives::rect::RectBuilder,
+    {
+        self.primitive.common.clip_area = f(crate::primitives::rect::Rect::builder()).build();
         self
     }
 
@@ -129,21 +174,26 @@ impl ImagePrimitive {
     }
 }
 
+/// A primitive for rendering text with a specific font and size.
 #[derive(Debug, Clone)]
 pub struct TextPrimitive {
+    /// Common properties shared by all primitives (transform, clipping).
     pub common: PrimitiveProperties,
     pub size: [f32; 2],
     pub text: String,
-    pub font: String, // font name in resource manager
+    /// Font name as registered in the [`ResourceManager`](crate::resource_manager::ResourceManager).
+    pub font: String,
     pub font_size: f32,
     pub tint: Color,
 }
 
+/// A builder for creating [`TextPrimitive`] instances.
 pub struct TextPrimitiveBuilder {
     primitive: TextPrimitive,
 }
 
 impl TextPrimitiveBuilder {
+    /// Creates a new builder for a [`TextPrimitive`] with the specified text and font.
     pub fn new(text: String, font: String) -> Self {
         Self {
             primitive: TextPrimitive {
@@ -159,6 +209,25 @@ impl TextPrimitiveBuilder {
 
     pub fn common(mut self, common: PrimitiveProperties) -> Self {
         self.primitive.common = common;
+        self
+    }
+
+    pub fn transform<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(
+            crate::primitives::transform::TransformBuilder,
+        ) -> crate::primitives::transform::TransformBuilder,
+    {
+        self.primitive.common.transform =
+            f(crate::primitives::transform::Transform::builder()).build();
+        self
+    }
+
+    pub fn clip_area<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(crate::primitives::rect::RectBuilder) -> crate::primitives::rect::RectBuilder,
+    {
+        self.primitive.common.clip_area = f(crate::primitives::rect::Rect::builder()).build();
         self
     }
 

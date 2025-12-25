@@ -19,8 +19,7 @@ mod sizes;
 pub use element::*;
 pub use layout::*;
 pub use sizes::*;
-use vn_vttrpg_window::primitives::PrimitiveProperties;
-use vn_vttrpg_window::{BoxPrimitive, Color, Scene, TextPrimitive, Transform};
+use vn_vttrpg_window::{BoxPrimitive, Color, Scene, TextPrimitive};
 
 pub struct Card {
     pub size: Size,
@@ -28,22 +27,13 @@ pub struct Card {
 
 impl Element for Card {
     fn layout(&mut self, constraints: SizeConstraints) -> Size {
-        self.size.clip_to_constraints(constraints)
+        self.size.clamp_to_constraints(constraints)
     }
 
     fn draw(&mut self, origin: (f32, f32), size: Size, scene: &mut Scene) {
         scene.add_box(
             BoxPrimitive::builder()
-                .common(
-                    PrimitiveProperties::builder()
-                        .transform(
-                            Transform::builder()
-                                .origin([0.0, 0.0])
-                                .translation([origin.0, origin.1])
-                                .build(),
-                        )
-                        .build(),
-                )
+                .transform(|t| t.translation([origin.0, origin.1]))
                 .size([size.width, size.height])
                 .color(Color::WHITE)
                 .build(),
@@ -51,8 +41,10 @@ impl Element for Card {
     }
 }
 
+/// A UI element that renders a string of text.
 pub struct Label {
     pub text: String,
+    /// Font name as registered in the resource manager.
     pub font: String,
     pub font_size: f32,
     pub size: Size,
@@ -61,22 +53,13 @@ pub struct Label {
 
 impl Element for Label {
     fn layout(&mut self, constraints: SizeConstraints) -> Size {
-        self.size.clip_to_constraints(constraints)
+        self.size.clamp_to_constraints(constraints)
     }
 
     fn draw(&mut self, origin: (f32, f32), size: Size, scene: &mut Scene) {
         scene.add_text(
             TextPrimitive::builder(self.text.clone(), self.font.clone())
-                .common(
-                    PrimitiveProperties::builder()
-                        .transform(
-                            Transform::builder()
-                                .origin([0.0, 0.0])
-                                .translation([origin.0, origin.1])
-                                .build(),
-                        )
-                        .build(),
-                )
+                .transform(|t| t.translation([origin.0, origin.1]))
                 .size([size.width, size.height])
                 .font_size(self.font_size)
                 .tint(self.color)

@@ -33,7 +33,10 @@ pub struct SceneRenderer {
 }
 
 impl SceneRenderer {
-    pub fn new(graphics_context: Arc<GraphicsContext>, resource_manager: Arc<ResourceManager>) -> Self {
+    pub fn new(
+        graphics_context: Arc<GraphicsContext>,
+        resource_manager: Arc<ResourceManager>,
+    ) -> Self {
         let device = graphics_context.device();
 
         let globals = {
@@ -82,32 +85,32 @@ impl SceneRenderer {
             graphics_context.config.borrow().format,
         )
         .label("Box Pipeline")
-                .shader(&box_shader)
-                .blend(wgpu::BlendState {
-                    color: wgpu::BlendComponent {
-                        src_factor: wgpu::BlendFactor::SrcAlpha,
-                        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                        operation: wgpu::BlendOperation::Add,
-                    },
-                    alpha: wgpu::BlendComponent {
-                        src_factor: wgpu::BlendFactor::One,
-                        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                        operation: wgpu::BlendOperation::Add,
-                    },
-                })
-                .add_vertex_layout(Vertex::vertex_description(
-                    None,
-                    None,
-                    wgpu::VertexStepMode::Vertex,
-                ))
-                .add_vertex_layout(BoxPrimitive::vertex_description(
-                    Some(Globals::location_count()),
-                    None,
-                    wgpu::VertexStepMode::Instance,
-                ))
-                .add_bind_group_layout(&globals_bind_group_layout)
-                .build()
-                .expect("Failed to build box pipeline");
+        .shader(&box_shader)
+        .blend(wgpu::BlendState {
+            color: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::SrcAlpha,
+                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                operation: wgpu::BlendOperation::Add,
+            },
+            alpha: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::One,
+                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                operation: wgpu::BlendOperation::Add,
+            },
+        })
+        .add_vertex_layout(Vertex::vertex_description(
+            None,
+            None,
+            wgpu::VertexStepMode::Vertex,
+        ))
+        .add_vertex_layout(BoxPrimitive::vertex_description(
+            Some(Globals::location_count()),
+            None,
+            wgpu::VertexStepMode::Instance,
+        ))
+        .add_bind_group_layout(&globals_bind_group_layout)
+        .build()
+        .expect("Failed to build box pipeline");
 
         let texture_shader = graphics_context
             .device()
@@ -143,33 +146,33 @@ impl SceneRenderer {
             graphics_context.config.borrow().format,
         )
         .label("Texture Pipeline")
-                .shader(&texture_shader)
-                .blend(wgpu::BlendState {
-                    color: wgpu::BlendComponent {
-                        src_factor: wgpu::BlendFactor::SrcAlpha,
-                        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                        operation: wgpu::BlendOperation::Add,
-                    },
-                    alpha: wgpu::BlendComponent {
-                        src_factor: wgpu::BlendFactor::One,
-                        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                        operation: wgpu::BlendOperation::Add,
-                    },
-                })
-                .add_vertex_layout(Vertex::vertex_description(
-                    None,
-                    None,
-                    wgpu::VertexStepMode::Vertex,
-                ))
-                .add_vertex_layout(_TexturePrimitive::vertex_description(
-                    Some(Globals::location_count()),
-                    None,
-                    wgpu::VertexStepMode::Instance,
-                ))
-                .add_bind_group_layout(&globals_bind_group_layout)
-                .add_bind_group_layout(&texture_bind_group_layout)
-                .build()
-                .expect("Failed to build texture pipeline");
+        .shader(&texture_shader)
+        .blend(wgpu::BlendState {
+            color: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::SrcAlpha,
+                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                operation: wgpu::BlendOperation::Add,
+            },
+            alpha: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::One,
+                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                operation: wgpu::BlendOperation::Add,
+            },
+        })
+        .add_vertex_layout(Vertex::vertex_description(
+            None,
+            None,
+            wgpu::VertexStepMode::Vertex,
+        ))
+        .add_vertex_layout(_TexturePrimitive::vertex_description(
+            Some(Globals::location_count()),
+            None,
+            wgpu::VertexStepMode::Instance,
+        ))
+        .add_bind_group_layout(&globals_bind_group_layout)
+        .add_bind_group_layout(&texture_bind_group_layout)
+        .build()
+        .expect("Failed to build texture pipeline");
 
         let quad_vertex_buffer =
             graphics_context

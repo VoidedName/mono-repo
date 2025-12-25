@@ -2,20 +2,24 @@ use crate::graphics::VertexDescription;
 use crate::primitives::rect::Rect;
 use crate::primitives::transform::Transform;
 
+/// Common properties shared by all rendering primitives.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct PrimitiveProperties {
     pub transform: Transform,
+    /// The rectangular area where the primitive is visible.
     pub clip_area: Rect,
 }
 
 impl PrimitiveProperties {
+    /// The default set of properties: identity transform and no clipping.
     pub const DEFAULT: Self = Self {
         transform: Transform::DEFAULT,
         clip_area: Rect::NO_CLIP,
     };
 }
 
+/// A builder for creating [`PrimitiveProperties`] instances.
 pub struct PrimitivePropertiesBuilder {
     properties: PrimitiveProperties,
 }
@@ -27,13 +31,21 @@ impl PrimitivePropertiesBuilder {
         }
     }
 
-    pub fn transform(mut self, transform: Transform) -> Self {
-        self.properties.transform = transform;
+    pub fn transform<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(
+            crate::primitives::transform::TransformBuilder,
+        ) -> crate::primitives::transform::TransformBuilder,
+    {
+        self.properties.transform = f(Transform::builder()).build();
         self
     }
 
-    pub fn clip_area(mut self, clip_area: Rect) -> Self {
-        self.properties.clip_area = clip_area;
+    pub fn clip_area<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(crate::primitives::rect::RectBuilder) -> crate::primitives::rect::RectBuilder,
+    {
+        self.properties.clip_area = f(Rect::builder()).build();
         self
     }
 
