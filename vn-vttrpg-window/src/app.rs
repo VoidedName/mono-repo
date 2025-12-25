@@ -1,6 +1,6 @@
 use crate::logic::StateLogic;
-use crate::renderer::SceneRenderer;
 use crate::rendering_context::RenderingContext;
+use crate::scene_renderer::SceneRenderer;
 use std::sync::Arc;
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;

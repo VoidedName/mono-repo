@@ -46,7 +46,8 @@ impl VertexDescription for Transform {
                 format: wgpu::VertexFormat::Float32x2,
             },
             wgpu::VertexAttribute {
-                offset: offset + (size_of::<[f32; 2]>() * 2 + size_of::<f32>()) as wgpu::BufferAddress,
+                offset: offset
+                    + (size_of::<[f32; 2]>() * 2 + size_of::<f32>()) as wgpu::BufferAddress,
                 shader_location: shader_location_start + 3,
                 format: wgpu::VertexFormat::Float32x2,
             },

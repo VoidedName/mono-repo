@@ -1,6 +1,7 @@
-use crate::graphics::{GraphicsContext, VertexDescription, VertexLayout};
+use crate::graphics::{GraphicsContext, VertexDescription};
 use crate::pipeline_builder::PipelineBuilder;
-use crate::primitives::Globals;
+use crate::primitives::QUAD_VERTICES;
+use crate::primitives::{Globals, Vertex};
 use crate::text::Font;
 use crate::texture::Texture;
 use bytemuck::{Pod, Zeroable};
@@ -106,7 +107,7 @@ impl TextRenderer {
                     operation: wgpu::BlendOperation::Add,
                 },
             })
-            .add_vertex_layout(<[f32; 2]>::vertex_description(
+            .add_vertex_layout(Vertex::vertex_description(
                 None,
                 None,
                 wgpu::VertexStepMode::Vertex,
@@ -117,18 +118,9 @@ impl TextRenderer {
             .build()
             .expect("Failed to build text pipeline");
 
-        let quad_vertices: [[f32; 2]; 6] = [
-            [0.0, 0.0],
-            [0.0, 1.0],
-            [1.0, 0.0],
-            [0.0, 1.0],
-            [1.0, 1.0],
-            [1.0, 0.0],
-        ];
-
         let quad_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Text Quad Vertex Buffer"),
-            contents: bytemuck::cast_slice(&quad_vertices),
+            contents: bytemuck::cast_slice(&QUAD_VERTICES),
             usage: wgpu::BufferUsages::VERTEX,
         });
 

@@ -1,11 +1,12 @@
+use crate::Renderer;
+use crate::graphics::GraphicsContext;
+use crate::logic::StateLogic;
+use crate::resource_manager::ResourceManager;
+use crate::scene_renderer::SceneRenderer;
 use std::sync::Arc;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
-use crate::graphics::GraphicsContext;
-use crate::logic::StateLogic;
-use crate::renderer::{Renderer, SceneRenderer};
-use crate::resource_manager::ResourceManager;
 
 pub struct RenderingContext<T: StateLogic<R>, R: Renderer = SceneRenderer> {
     pub context: GraphicsContext,

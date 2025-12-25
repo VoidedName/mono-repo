@@ -68,47 +68,55 @@ impl<'a> PipelineBuilder<'a> {
     }
 
     pub fn build(self) -> Result<wgpu::RenderPipeline, RenderError> {
-        let shader = self.shader.ok_or_else(|| RenderError::PipelineError("Shader not set".to_string()))?;
+        let shader = self
+            .shader
+            .ok_or_else(|| RenderError::PipelineError("Shader not set".to_string()))?;
 
-        let layout = self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: self.label,
-            bind_group_layouts: &self.bind_group_layouts,
-            immediate_size: 0,
-        });
+        let layout = self
+            .device
+            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: self.label,
+                bind_group_layouts: &self.bind_group_layouts,
+                immediate_size: 0,
+            });
 
-        let vertex_buffers: Vec<wgpu::VertexBufferLayout> = self.vertex_layouts.iter().map(|l| {
-            wgpu::VertexBufferLayout {
+        let vertex_buffers: Vec<wgpu::VertexBufferLayout> = self
+            .vertex_layouts
+            .iter()
+            .map(|l| wgpu::VertexBufferLayout {
                 array_stride: l.array_stride,
                 step_mode: l.step_mode,
                 attributes: &l.attributes,
-            }
-        }).collect();
+            })
+            .collect();
 
-        let pipeline = self.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: self.label,
-            layout: Some(&layout),
-            vertex: wgpu::VertexState {
-                module: shader,
-                entry_point: Some("vs_main"),
-                compilation_options: Default::default(),
-                buffers: &vertex_buffers,
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: shader,
-                entry_point: Some("fs_main"),
-                compilation_options: Default::default(),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: self.color_format,
-                    blend: self.blend,
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-            }),
-            primitive: self.primitive,
-            depth_stencil: self.depth_stencil,
-            multisample: self.multisample,
-            multiview_mask: None,
-            cache: None,
-        });
+        let pipeline = self
+            .device
+            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: self.label,
+                layout: Some(&layout),
+                vertex: wgpu::VertexState {
+                    module: shader,
+                    entry_point: Some("vs_main"),
+                    compilation_options: Default::default(),
+                    buffers: &vertex_buffers,
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: shader,
+                    entry_point: Some("fs_main"),
+                    compilation_options: Default::default(),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: self.color_format,
+                        blend: self.blend,
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                primitive: self.primitive,
+                depth_stencil: self.depth_stencil,
+                multisample: self.multisample,
+                multiview_mask: None,
+                cache: None,
+            });
 
         Ok(pipeline)
     }

@@ -1,5 +1,5 @@
-use crate::graphics::VertexDescription;
 use crate::TextureDescriptor;
+use crate::graphics::VertexDescription;
 use crate::primitives::color::Color;
 use crate::primitives::properties::PrimitiveProperties;
 

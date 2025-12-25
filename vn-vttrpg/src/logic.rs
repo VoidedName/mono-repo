@@ -1,10 +1,10 @@
-use vn_vttrpg_window::graphics::GraphicsContext;
-use vn_vttrpg_window::renderer::SceneRenderer;
-use vn_vttrpg_window::resource_manager::ResourceManager;
-use vn_vttrpg_window::input::InputState;
-use vn_vttrpg_window::StateLogic;
 use std::f32::consts::PI;
 use std::sync::Arc;
+use vn_vttrpg_window::StateLogic;
+use vn_vttrpg_window::graphics::GraphicsContext;
+use vn_vttrpg_window::input::InputState;
+use vn_vttrpg_window::resource_manager::ResourceManager;
+use vn_vttrpg_window::scene_renderer::SceneRenderer;
 use web_time::Instant;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
@@ -23,7 +23,8 @@ impl StateLogic<SceneRenderer> for MainLogic {
         let diffuse_bytes = include_bytes!("vn_dk_white_square_better_n.png");
         resource_manager.load_texture_from_bytes("vn_dk_white_square", diffuse_bytes)?;
 
-        let font_bytes = include_bytes!("../../vn-vttrpg-window/src/text/fonts/JetBrainsMono-Bold.ttf");
+        let font_bytes =
+            include_bytes!("../../vn-vttrpg-window/src/text/fonts/JetBrainsMono-Bold.ttf");
         resource_manager.load_font_from_bytes("jetbrains-bold", font_bytes)?;
 
         Ok(Self {
@@ -47,7 +48,8 @@ impl StateLogic<SceneRenderer> for MainLogic {
 
     fn render_target(&self) -> vn_vttrpg_window::scene::Scene {
         use vn_vttrpg_window::primitives::{
-            BoxPrimitive, Color, ImagePrimitive, PrimitiveProperties, Rect, Transform, TextPrimitive,
+            BoxPrimitive, Color, ImagePrimitive, PrimitiveProperties, Rect, TextPrimitive,
+            Transform,
         };
         let mut scene = vn_vttrpg_window::scene::Scene::new();
         scene.add_box(BoxPrimitive {
@@ -85,7 +87,10 @@ impl StateLogic<SceneRenderer> for MainLogic {
         scene.add_text(TextPrimitive {
             common: PrimitiveProperties {
                 transform: Transform {
-                    translation: [300.0 + (self.application_start.elapsed().as_secs_f32() * PI).sin() * 200.0, 300.0],
+                    translation: [
+                        300.0 + (self.application_start.elapsed().as_secs_f32() * PI).sin() * 200.0,
+                        300.0,
+                    ],
                     rotation: -self.application_start.elapsed().as_secs_f32() * 0.5 * PI,
                     scale: [1.0, 1.0],
                     origin: [0.0, 0.5],

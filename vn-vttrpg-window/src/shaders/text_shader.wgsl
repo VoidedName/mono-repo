@@ -1,6 +1,13 @@
+struct Globals {
+    resolution: vec2<f32>,
+}
+
+@group(0) @binding(0)
+var<uniform> globals: Globals;
+
 struct VertexInput {
     @location(0) v_position: vec2<f32>,
-};
+}
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
@@ -20,11 +27,6 @@ struct Segment {
     p1: vec2<f32>,
 };
 
-struct Globals {
-    resolution: vec2<f32>,
-};
-
-@group(0) @binding(0) var<uniform> globals: Globals;
 @group(1) @binding(0) var<storage, read> glyphs: array<GlyphData>;
 @group(2) @binding(0) var<storage, read> segments: array<Segment>;
 

@@ -5,14 +5,14 @@ struct Globals {
 @group(0) @binding(0)
 var<uniform> globals: Globals;
 
+struct VertexInput {
+    @location(0) v_position: vec2<f32>,
+}
+
 @group(1) @binding(0)
 var t_diffuse: texture_2d<f32>;
 @group(1) @binding(1)
 var s_diffuse: sampler;
-
-struct VertexInput {
-    @location(0) v_position: vec2<f32>,
-}
 
 struct InstanceInput {
     @location(1) i_translation: vec2<f32>,

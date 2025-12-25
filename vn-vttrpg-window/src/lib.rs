@@ -5,20 +5,24 @@ pub mod input;
 pub mod logic;
 pub mod pipeline_builder;
 pub mod primitives;
-pub mod renderer;
+mod renderer;
 pub mod rendering_context;
 pub mod resource_manager;
 pub mod scene;
+pub mod scene_renderer;
 pub mod text;
 mod texture;
 
 pub use app::App;
 pub use graphics::GraphicsContext;
 pub use logic::StateLogic;
-pub use primitives::{BoxPrimitive, Color, Globals, ImagePrimitive, Rect, TextPrimitive, TexturePrimitive, Transform};
-pub use renderer::{Renderer, SceneRenderer};
+pub use primitives::{
+    BoxPrimitive, Color, Globals, ImagePrimitive, Rect, TextPrimitive, TexturePrimitive, Transform,
+};
+pub use renderer::Renderer;
 pub use rendering_context::RenderingContext;
 pub use scene::{Layer, Scene};
+pub use scene_renderer::SceneRenderer;
 pub use texture::{Texture, TextureDescriptor};
 
 use winit::event_loop::EventLoop;

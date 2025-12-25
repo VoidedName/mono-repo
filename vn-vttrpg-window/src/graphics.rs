@@ -1,6 +1,6 @@
+use crate::errors::RenderError;
 use std::sync::Arc;
 use winit::window::Window;
-use crate::errors::RenderError;
 
 pub struct WgpuContext {
     pub device: wgpu::Device,
@@ -109,9 +109,9 @@ pub trait VertexDescription: Sized {
     fn stride() -> wgpu::BufferAddress {
         size_of::<Self>() as wgpu::BufferAddress
     }
-    
+
     fn location_count() -> u32;
-    
+
     fn size_in_buffer() -> wgpu::BufferAddress {
         size_of::<Self>() as wgpu::BufferAddress
     }

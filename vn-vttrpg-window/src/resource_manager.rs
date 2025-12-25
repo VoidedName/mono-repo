@@ -1,9 +1,9 @@
+use crate::graphics::WgpuContext;
+use crate::text::Font;
+use crate::texture::Texture;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::cell::RefCell;
-use crate::graphics::WgpuContext;
-use crate::texture::Texture;
-use crate::text::Font;
 
 pub struct ResourceManager {
     wgpu: Arc<WgpuContext>,
@@ -24,7 +24,11 @@ impl ResourceManager {
         }
     }
 
-    pub fn load_texture_from_bytes(&self, name: &str, bytes: &[u8]) -> Result<Arc<Texture>, anyhow::Error> {
+    pub fn load_texture_from_bytes(
+        &self,
+        name: &str,
+        bytes: &[u8],
+    ) -> Result<Arc<Texture>, anyhow::Error> {
         {
             let textures = self.textures.borrow();
             if let Some(texture) = textures.get(name) {
@@ -32,12 +36,7 @@ impl ResourceManager {
             }
         }
 
-        let texture = Texture::from_bytes(
-            &self.wgpu.device,
-            &self.wgpu.queue,
-            bytes,
-            Some(name),
-        )?;
+        let texture = Texture::from_bytes(&self.wgpu.device, &self.wgpu.queue, bytes, Some(name))?;
 
         let texture = Arc::new(texture);
         let mut textures = self.textures.borrow_mut();
@@ -58,12 +57,7 @@ impl ResourceManager {
             }
         }
 
-        let texture = Texture::from_file(
-            &self.wgpu.device,
-            &self.wgpu.queue,
-            path,
-            Some(name),
-        )?;
+        let texture = Texture::from_file(&self.wgpu.device, &self.wgpu.queue, path, Some(name))?;
 
         let texture = Arc::new(texture);
         let mut textures = self.textures.borrow_mut();
@@ -75,7 +69,11 @@ impl ResourceManager {
         self.textures.borrow().get(name).cloned()
     }
 
-    pub fn load_font_from_bytes(&self, name: &str, bytes: &[u8]) -> Result<Arc<Font>, anyhow::Error> {
+    pub fn load_font_from_bytes(
+        &self,
+        name: &str,
+        bytes: &[u8],
+    ) -> Result<Arc<Font>, anyhow::Error> {
         {
             let fonts = self.fonts.borrow();
             if let Some(font) = fonts.get(name) {

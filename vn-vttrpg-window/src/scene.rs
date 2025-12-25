@@ -49,7 +49,10 @@ impl Scene {
     }
 
     fn active_layer(&mut self) -> &mut Layer {
-        let index = *self.active_layers.last().expect("No active layer! Did you pop too many times?");
+        let index = *self
+            .active_layers
+            .last()
+            .expect("No active layer! Did you pop too many times?");
         &mut self.layers[index]
     }
 
