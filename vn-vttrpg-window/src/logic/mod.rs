@@ -8,12 +8,15 @@ use winit::event_loop::ActiveEventLoop;
 pub trait StateLogic<R: Renderer>: Sized + 'static {
     #[allow(async_fn_in_trait)]
     async fn new_from_graphics_context(
-        graphics_context: &GraphicsContext,
+        graphics_context: Arc<GraphicsContext>,
         resource_manager: Arc<ResourceManager>,
     ) -> anyhow::Result<Self>;
 
     #[allow(unused_variables)]
     fn handle_key(&mut self, event_loop: &ActiveEventLoop, event: &KeyEvent) {}
+
+    #[allow(unused_variables)]
+    fn resized(&mut self, width: u32, height: u32) {}
 
     #[allow(unused_variables)]
     fn update(&mut self) {}

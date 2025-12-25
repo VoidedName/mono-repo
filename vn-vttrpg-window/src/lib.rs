@@ -17,7 +17,7 @@ pub use app::App;
 pub use graphics::GraphicsContext;
 pub use logic::StateLogic;
 pub use primitives::{
-    BoxPrimitive, Color, Globals, ImagePrimitive, Rect, TextPrimitive, TexturePrimitive, Transform,
+    _TexturePrimitive, BoxPrimitive, Color, Globals, ImagePrimitive, Rect, TextPrimitive, Transform,
 };
 pub use renderer::Renderer;
 pub use rendering_context::RenderingContext;

@@ -9,14 +9,54 @@ pub struct Transform {
     pub origin: [f32; 2],
 }
 
-impl Default for Transform {
-    fn default() -> Self {
+impl Transform {
+    pub const DEFAULT: Self = Self {
+        translation: [0.0, 0.0],
+        rotation: 0.0,
+        scale: [1.0, 1.0],
+        origin: [0.5, 0.5],
+    };
+}
+
+pub struct TransformBuilder {
+    transform: Transform,
+}
+
+impl TransformBuilder {
+    pub fn new() -> Self {
         Self {
-            translation: [0.0, 0.0],
-            rotation: 0.0,
-            scale: [1.0, 1.0],
-            origin: [0.5, 0.5],
+            transform: Transform::DEFAULT,
         }
+    }
+
+    pub fn translation(mut self, translation: [f32; 2]) -> Self {
+        self.transform.translation = translation;
+        self
+    }
+
+    pub fn rotation(mut self, rotation: f32) -> Self {
+        self.transform.rotation = rotation;
+        self
+    }
+
+    pub fn scale(mut self, scale: [f32; 2]) -> Self {
+        self.transform.scale = scale;
+        self
+    }
+
+    pub fn origin(mut self, origin: [f32; 2]) -> Self {
+        self.transform.origin = origin;
+        self
+    }
+
+    pub fn build(self) -> Transform {
+        self.transform
+    }
+}
+
+impl Transform {
+    pub fn builder() -> TransformBuilder {
+        TransformBuilder::new()
     }
 }
 

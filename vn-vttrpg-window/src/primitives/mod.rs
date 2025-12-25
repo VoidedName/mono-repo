@@ -15,6 +15,6 @@ pub use consts::QUAD_VERTICES;
 pub use globals::Globals;
 pub use properties::PrimitiveProperties;
 pub use rect::Rect;
-pub use texture_primitive::{ImagePrimitive, TextPrimitive, TexturePrimitive};
+pub use texture_primitive::{_TexturePrimitive, ImagePrimitive, TextPrimitive};
 pub use transform::Transform;
 pub use vertex::Vertex;

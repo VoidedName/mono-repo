@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["vn-vttrpg", "vn-vttrpg-native", "vn-vttrpg-window", "vn-vttrpg-web"]
+members = ["vn-vttrpg", "vn-vttrpg-native", "vn-vttrpg-window", "vn-vttrpg-web", "vn-vttrpg-ui"]
 
 [workspace.dependencies]
 log = "0.4.29"

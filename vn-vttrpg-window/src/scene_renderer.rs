@@ -1,6 +1,6 @@
 use crate::graphics::{GraphicsContext, VertexDescription};
 use crate::pipeline_builder::PipelineBuilder;
-use crate::primitives::{BoxPrimitive, Globals, QUAD_VERTICES, TexturePrimitive, Vertex};
+use crate::primitives::{_TexturePrimitive, BoxPrimitive, Globals, QUAD_VERTICES, Vertex};
 use crate::resource_manager::ResourceManager;
 use crate::{Renderer, Texture, TextureDescriptor};
 use std::sync::Arc;
@@ -33,14 +33,14 @@ pub struct SceneRenderer {
 }
 
 impl SceneRenderer {
-    pub fn new(graphics_context: &GraphicsContext, resource_manager: Arc<ResourceManager>) -> Self {
+    pub fn new(graphics_context: Arc<GraphicsContext>, resource_manager: Arc<ResourceManager>) -> Self {
         let device = graphics_context.device();
 
-        let globals = Globals {
-            resolution: [
-                graphics_context.config.width as f32,
-                graphics_context.config.height as f32,
-            ],
+        let globals = {
+            let config = graphics_context.config.borrow();
+            Globals {
+                resolution: [config.width as f32, config.height as f32],
+            }
         };
 
         let globals_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -77,9 +77,11 @@ impl SceneRenderer {
             .device()
             .create_shader_module(include_wgsl!("shaders\\box_shader.wgsl"));
 
-        let box_pipeline =
-            PipelineBuilder::new(graphics_context.device(), graphics_context.config.format)
-                .label("Box Pipeline")
+        let box_pipeline = PipelineBuilder::new(
+            graphics_context.device(),
+            graphics_context.config.borrow().format,
+        )
+        .label("Box Pipeline")
                 .shader(&box_shader)
                 .blend(wgpu::BlendState {
                     color: wgpu::BlendComponent {
@@ -136,9 +138,11 @@ impl SceneRenderer {
                 ],
             });
 
-        let texture_pipeline =
-            PipelineBuilder::new(graphics_context.device(), graphics_context.config.format)
-                .label("Texture Pipeline")
+        let texture_pipeline = PipelineBuilder::new(
+            graphics_context.device(),
+            graphics_context.config.borrow().format,
+        )
+        .label("Texture Pipeline")
                 .shader(&texture_shader)
                 .blend(wgpu::BlendState {
                     color: wgpu::BlendComponent {
@@ -157,7 +161,7 @@ impl SceneRenderer {
                     None,
                     wgpu::VertexStepMode::Vertex,
                 ))
-                .add_vertex_layout(TexturePrimitive::vertex_description(
+                .add_vertex_layout(_TexturePrimitive::vertex_description(
                     Some(Globals::location_count()),
                     None,
                     wgpu::VertexStepMode::Instance,
@@ -195,11 +199,11 @@ impl SceneRenderer {
     }
 
     fn update_globals(&self, graphics_context: &GraphicsContext) {
-        let globals = Globals {
-            resolution: [
-                graphics_context.config.width as f32,
-                graphics_context.config.height as f32,
-            ],
+        let globals = {
+            let config = graphics_context.config.borrow();
+            Globals {
+                resolution: [config.width as f32, config.height as f32],
+            }
         };
         graphics_context.queue().write_buffer(
             &self.globals.globals_buffer,
@@ -361,7 +365,7 @@ impl SceneRenderer {
         graphics_context: &GraphicsContext,
         render_pass: &mut wgpu::RenderPass<'a>,
         texture: &Arc<Texture>,
-        batch: &mut Vec<TexturePrimitive>,
+        batch: &mut Vec<_TexturePrimitive>,
     ) {
         if batch.is_empty() {
             return;

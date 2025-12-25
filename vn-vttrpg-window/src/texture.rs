@@ -7,6 +7,23 @@ pub enum TextureDescriptor {
     Bytes { name: String, bytes: Vec<u8> },
 }
 
+impl TextureDescriptor {
+    pub fn name(name: impl Into<String>) -> Self {
+        Self::Name(name.into())
+    }
+
+    pub fn path(path: impl Into<std::path::PathBuf>) -> Self {
+        Self::Path(path.into())
+    }
+
+    pub fn bytes(name: impl Into<String>, bytes: Vec<u8>) -> Self {
+        Self::Bytes {
+            name: name.into(),
+            bytes,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Texture {
     pub texture: wgpu::Texture,

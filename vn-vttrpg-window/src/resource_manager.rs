@@ -2,7 +2,8 @@ use crate::graphics::WgpuContext;
 use crate::text::Font;
 use crate::texture::Texture;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::mem::swap;
 use std::sync::Arc;
 
 pub struct ResourceManager {
@@ -11,6 +12,8 @@ pub struct ResourceManager {
     fonts: RefCell<HashMap<String, Arc<Font>>>,
     text_cache: RefCell<HashMap<String, Arc<Texture>>>,
     text_renderer: RefCell<Option<crate::text::renderer::TextRenderer>>,
+    text_used: RefCell<HashSet<String>>,
+    text_unused: RefCell<HashSet<String>>,
 }
 
 impl ResourceManager {
@@ -21,6 +24,8 @@ impl ResourceManager {
             fonts: RefCell::new(HashMap::new()),
             text_cache: RefCell::new(HashMap::new()),
             text_renderer: RefCell::new(None),
+            text_used: RefCell::new(Default::default()),
+            text_unused: RefCell::new(Default::default()),
         }
     }
 
@@ -102,6 +107,7 @@ impl ResourceManager {
         {
             let cache = self.text_cache.borrow();
             if let Some(texture) = cache.get(&key) {
+                self.text_used.borrow_mut().insert(key.clone());
                 return Some(texture.clone());
             }
         }
@@ -117,6 +123,7 @@ impl ResourceManager {
         match renderer.render_string(graphics_context, &font, text, font_size) {
             Ok(texture) => {
                 let texture = Arc::new(texture);
+                self.text_used.borrow_mut().insert(key.clone());
                 self.text_cache.borrow_mut().insert(key, texture.clone());
                 Some(texture)
             }
@@ -125,5 +132,16 @@ impl ResourceManager {
                 None
             }
         }
+    }
+
+    pub fn cleanup_unused_text(&self) {
+        let mut texts = self.text_cache.borrow_mut();
+        for key in self.text_unused.borrow_mut().drain() {
+            texts.remove(&key);
+        }
+        swap(
+            &mut self.text_used.borrow_mut(),
+            &mut self.text_unused.borrow_mut(),
+        );
     }
 }

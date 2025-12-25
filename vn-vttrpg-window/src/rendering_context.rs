@@ -9,7 +9,7 @@ use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
 
 pub struct RenderingContext<T: StateLogic<R>, R: Renderer = SceneRenderer> {
-    pub context: GraphicsContext,
+    pub context: Arc<GraphicsContext>,
     pub resource_manager: Arc<ResourceManager>,
     pub renderer: R,
     pub logic: T,
@@ -17,10 +17,10 @@ pub struct RenderingContext<T: StateLogic<R>, R: Renderer = SceneRenderer> {
 
 impl<T: StateLogic<SceneRenderer>> RenderingContext<T, SceneRenderer> {
     pub async fn new(window: Arc<Window>) -> anyhow::Result<Self> {
-        let context = GraphicsContext::new(window).await?;
+        let context = Arc::new(GraphicsContext::new(window).await?);
         let resource_manager = Arc::new(ResourceManager::new(context.wgpu.clone()));
-        let renderer = SceneRenderer::new(&context, resource_manager.clone());
-        let logic = T::new_from_graphics_context(&context, resource_manager.clone()).await?;
+        let renderer = SceneRenderer::new(context.clone(), resource_manager.clone());
+        let logic = T::new_from_graphics_context(context.clone(), resource_manager.clone()).await?;
 
         Ok(Self {
             context,
@@ -37,12 +37,16 @@ impl<T: StateLogic<R>, R: Renderer> RenderingContext<T, R> {
         if width > 0 && height > 0 {
             log::info!("Resizing window to {}x{}", width, height);
 
-            self.context.config.width = width;
-            self.context.config.height = height;
-            self.context
-                .surface
-                .configure(self.context.device(), &self.context.config);
-            self.context.surface_ready_for_rendering = true;
+            {
+                let mut config = self.context.config.borrow_mut();
+                config.width = width;
+                config.height = height;
+                self.context
+                    .surface
+                    .configure(self.context.device(), &config);
+            }
+            *self.context.surface_ready_for_rendering.borrow_mut() = true;
+            self.logic.resized(width, height);
         }
     }
 
@@ -57,11 +61,13 @@ impl<T: StateLogic<R>, R: Renderer> RenderingContext<T, R> {
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         self.context.window.request_redraw();
 
-        if !self.context.surface_ready_for_rendering {
+        if !*self.context.surface_ready_for_rendering.borrow() {
             return Ok(());
         }
 
         let render_target = self.logic.render_target();
+
+        self.resource_manager.cleanup_unused_text();
         self.renderer.render(&self.context, &render_target)
     }
 }

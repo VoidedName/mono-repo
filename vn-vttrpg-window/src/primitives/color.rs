@@ -64,6 +64,15 @@ impl Color {
         b: 0.0,
         a: 0.0,
     };
+
+    pub fn with_alpha(self, opacity: f32) -> Self {
+        Self {
+            r: self.r / self.a * opacity,
+            g: self.g / self.a * opacity,
+            b: self.b / self.a * opacity,
+            a: opacity,
+        }
+    }
 }
 
 impl VertexDescription for Color {

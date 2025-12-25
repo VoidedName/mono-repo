@@ -5,13 +5,54 @@ use crate::primitives::properties::PrimitiveProperties;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct TexturePrimitive {
+pub struct _TexturePrimitive {
     pub common: PrimitiveProperties,
     pub size: [f32; 2],
     pub tint: Color,
 }
 
-impl VertexDescription for TexturePrimitive {
+pub struct TexturePrimitiveBuilder {
+    primitive: _TexturePrimitive,
+}
+
+impl TexturePrimitiveBuilder {
+    pub fn new() -> Self {
+        Self {
+            primitive: _TexturePrimitive {
+                common: PrimitiveProperties::DEFAULT,
+                size: [1.0, 1.0],
+                tint: Color::WHITE,
+            },
+        }
+    }
+
+    pub fn common(mut self, common: PrimitiveProperties) -> Self {
+        self.primitive.common = common;
+        self
+    }
+
+    pub fn size(mut self, size: [f32; 2]) -> Self {
+        self.primitive.size = size;
+        self
+    }
+
+    pub fn tint(mut self, tint: Color) -> Self {
+        self.primitive.tint = tint;
+        self
+    }
+
+    pub fn build(self) -> _TexturePrimitive {
+        self.primitive
+    }
+}
+
+impl _TexturePrimitive {
+    pub fn builder() -> TexturePrimitiveBuilder {
+        TexturePrimitiveBuilder::new()
+    }
+}
+
+impl VertexDescription for _TexturePrimitive {
     fn location_count() -> u32 {
         PrimitiveProperties::location_count() + 1 + Color::location_count()
     }
@@ -46,13 +87,45 @@ pub struct ImagePrimitive {
     pub tint: Color,
 }
 
-impl ImagePrimitive {
-    pub fn to_texture_primitive(&self) -> TexturePrimitive {
-        TexturePrimitive {
-            common: self.common,
-            size: self.size,
-            tint: self.tint,
+pub struct ImagePrimitiveBuilder {
+    primitive: ImagePrimitive,
+}
+
+impl ImagePrimitiveBuilder {
+    pub fn new(texture: TextureDescriptor) -> Self {
+        Self {
+            primitive: ImagePrimitive {
+                common: PrimitiveProperties::DEFAULT,
+                size: [1.0, 1.0],
+                texture,
+                tint: Color::WHITE,
+            },
         }
+    }
+
+    pub fn common(mut self, common: PrimitiveProperties) -> Self {
+        self.primitive.common = common;
+        self
+    }
+
+    pub fn size(mut self, size: [f32; 2]) -> Self {
+        self.primitive.size = size;
+        self
+    }
+
+    pub fn tint(mut self, tint: Color) -> Self {
+        self.primitive.tint = tint;
+        self
+    }
+
+    pub fn build(self) -> ImagePrimitive {
+        self.primitive
+    }
+}
+
+impl ImagePrimitive {
+    pub fn builder(texture: TextureDescriptor) -> ImagePrimitiveBuilder {
+        ImagePrimitiveBuilder::new(texture)
     }
 }
 
@@ -66,9 +139,66 @@ pub struct TextPrimitive {
     pub tint: Color,
 }
 
+pub struct TextPrimitiveBuilder {
+    primitive: TextPrimitive,
+}
+
+impl TextPrimitiveBuilder {
+    pub fn new(text: String, font: String) -> Self {
+        Self {
+            primitive: TextPrimitive {
+                common: PrimitiveProperties::DEFAULT,
+                size: [1.0, 1.0],
+                text,
+                font,
+                font_size: 16.0,
+                tint: Color::WHITE,
+            },
+        }
+    }
+
+    pub fn common(mut self, common: PrimitiveProperties) -> Self {
+        self.primitive.common = common;
+        self
+    }
+
+    pub fn size(mut self, size: [f32; 2]) -> Self {
+        self.primitive.size = size;
+        self
+    }
+
+    pub fn font_size(mut self, font_size: f32) -> Self {
+        self.primitive.font_size = font_size;
+        self
+    }
+
+    pub fn tint(mut self, tint: Color) -> Self {
+        self.primitive.tint = tint;
+        self
+    }
+
+    pub fn build(self) -> TextPrimitive {
+        self.primitive
+    }
+}
+
 impl TextPrimitive {
-    pub fn to_texture_primitive(&self) -> TexturePrimitive {
-        TexturePrimitive {
+    pub fn builder(text: String, font: String) -> TextPrimitiveBuilder {
+        TextPrimitiveBuilder::new(text, font)
+    }
+
+    pub fn to_texture_primitive(&self) -> _TexturePrimitive {
+        _TexturePrimitive {
+            common: self.common,
+            size: self.size,
+            tint: self.tint,
+        }
+    }
+}
+
+impl ImagePrimitive {
+    pub fn to_texture_primitive(&self) -> _TexturePrimitive {
+        _TexturePrimitive {
             common: self.common,
             size: self.size,
             tint: self.tint,

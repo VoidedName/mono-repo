@@ -7,9 +7,29 @@ pub struct Rect {
     pub size: [f32; 2],
 }
 
-impl Default for Rect {
-    fn default() -> Self {
-        Self::NO_CLIP
+pub struct RectBuilder {
+    rect: Rect,
+}
+
+impl RectBuilder {
+    pub fn new() -> Self {
+        Self {
+            rect: Rect::NO_CLIP,
+        }
+    }
+
+    pub fn position(mut self, position: [f32; 2]) -> Self {
+        self.rect.position = position;
+        self
+    }
+
+    pub fn size(mut self, size: [f32; 2]) -> Self {
+        self.rect.size = size;
+        self
+    }
+
+    pub fn build(self) -> Rect {
+        self.rect
     }
 }
 
@@ -22,6 +42,10 @@ impl Rect {
         position: [f32::MIN / 2.0, f32::MIN / 2.0],
         size: [f32::MAX, f32::MAX],
     };
+
+    pub fn builder() -> RectBuilder {
+        RectBuilder::new()
+    }
 }
 
 impl VertexDescription for Rect {

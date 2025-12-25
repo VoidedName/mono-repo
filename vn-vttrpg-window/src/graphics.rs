@@ -1,4 +1,5 @@
 use crate::errors::RenderError;
+use std::cell::RefCell;
 use std::sync::Arc;
 use winit::window::Window;
 
@@ -10,8 +11,8 @@ pub struct WgpuContext {
 pub struct GraphicsContext {
     pub wgpu: Arc<WgpuContext>,
     pub surface: wgpu::Surface<'static>,
-    pub config: wgpu::SurfaceConfiguration,
-    pub surface_ready_for_rendering: bool,
+    pub config: RefCell<wgpu::SurfaceConfiguration>,
+    pub surface_ready_for_rendering: RefCell<bool>,
     pub window: Arc<Window>,
 }
 
@@ -84,8 +85,8 @@ impl GraphicsContext {
         Ok(Self {
             wgpu: Arc::new(WgpuContext { device, queue }),
             surface,
-            config,
-            surface_ready_for_rendering: false,
+            config: RefCell::new(config),
+            surface_ready_for_rendering: RefCell::new(false),
             window,
         })
     }
@@ -96,6 +97,11 @@ impl GraphicsContext {
 
     pub fn queue(&self) -> &wgpu::Queue {
         &self.wgpu.queue
+    }
+
+    pub fn size(&self) -> (u32, u32) {
+        let config = self.config.borrow();
+        (config.width, config.height)
     }
 }
 

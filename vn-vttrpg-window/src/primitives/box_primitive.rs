@@ -13,6 +13,65 @@ pub struct BoxPrimitive {
     pub corner_radius: f32,
 }
 
+pub struct BoxPrimitiveBuilder {
+    primitive: BoxPrimitive,
+}
+
+impl BoxPrimitiveBuilder {
+    pub fn new() -> Self {
+        Self {
+            primitive: BoxPrimitive {
+                common: PrimitiveProperties::DEFAULT,
+                size: [1.0, 1.0],
+                color: Color::TRANSPARENT,
+                border_color: Color::TRANSPARENT,
+                border_thickness: 0.0,
+                corner_radius: 0.0,
+            },
+        }
+    }
+
+    pub fn common(mut self, common: PrimitiveProperties) -> Self {
+        self.primitive.common = common;
+        self
+    }
+
+    pub fn size(mut self, size: [f32; 2]) -> Self {
+        self.primitive.size = size;
+        self
+    }
+
+    pub fn color(mut self, color: Color) -> Self {
+        self.primitive.color = color;
+        self
+    }
+
+    pub fn border_color(mut self, border_color: Color) -> Self {
+        self.primitive.border_color = border_color;
+        self
+    }
+
+    pub fn border_thickness(mut self, border_thickness: f32) -> Self {
+        self.primitive.border_thickness = border_thickness;
+        self
+    }
+
+    pub fn corner_radius(mut self, corner_radius: f32) -> Self {
+        self.primitive.corner_radius = corner_radius;
+        self
+    }
+
+    pub fn build(self) -> BoxPrimitive {
+        self.primitive
+    }
+}
+
+impl BoxPrimitive {
+    pub fn builder() -> BoxPrimitiveBuilder {
+        BoxPrimitiveBuilder::new()
+    }
+}
+
 impl VertexDescription for BoxPrimitive {
     fn location_count() -> u32 {
         PrimitiveProperties::location_count() + 1 + Color::location_count() * 2 + 2 // size (1) + color (1) + border_color (1) + thickness (1) + radius (1) = 5 locations

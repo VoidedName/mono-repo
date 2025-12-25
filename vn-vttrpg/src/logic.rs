@@ -1,5 +1,6 @@
-use std::f32::consts::PI;
+use std::cell::RefCell;
 use std::sync::Arc;
+use vn_vttrpg_ui::{Anchor, Element, Label, Size, SizeConstraints};
 use vn_vttrpg_window::StateLogic;
 use vn_vttrpg_window::graphics::GraphicsContext;
 use vn_vttrpg_window::input::InputState;
@@ -9,15 +10,59 @@ use web_time::Instant;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
 
+struct FpsStats {
+    key_frame_time: RefCell<Option<Instant>>,
+    frame_count: RefCell<u32>,
+    current_fps: RefCell<Option<f32>>,
+}
+
+impl FpsStats {
+    fn new() -> Self {
+        Self {
+            key_frame_time: RefCell::new(None),
+            frame_count: RefCell::new(0),
+            current_fps: RefCell::new(None),
+        }
+    }
+
+    fn tick(&self) {
+        let mut key_frame_time = self.key_frame_time.borrow_mut();
+        if key_frame_time.is_none() {
+            *key_frame_time = Some(Instant::now());
+        } else {
+            *self.frame_count.borrow_mut() += 1;
+        }
+
+        let elapsed = key_frame_time.map(|t| t.elapsed()).unwrap().as_secs_f32();
+
+        if elapsed >= 0.1 {
+            let fps = *self.frame_count.borrow() as f32 / elapsed;
+            self.current_fps.borrow_mut().replace(fps);
+
+            log::info!("FPS:{:>8.2}", fps);
+
+            *key_frame_time = Some(Instant::now());
+            *self.frame_count.borrow_mut() = 0;
+        }
+    }
+
+    fn current_fps(&self) -> Option<f32> {
+        self.current_fps.borrow().clone()
+    }
+}
+
 pub struct MainLogic {
     pub resource_manager: Arc<ResourceManager>,
+    pub graphics_context: Arc<GraphicsContext>,
     pub input: InputState,
     application_start: Instant,
+    fps_stats: FpsStats,
+    size: (u32, u32),
 }
 
 impl StateLogic<SceneRenderer> for MainLogic {
     async fn new_from_graphics_context(
-        _graphics_context: &GraphicsContext,
+        graphics_context: Arc<GraphicsContext>,
         resource_manager: Arc<ResourceManager>,
     ) -> anyhow::Result<Self> {
         let diffuse_bytes = include_bytes!("vn_dk_white_square_better_n.png");
@@ -29,8 +74,11 @@ impl StateLogic<SceneRenderer> for MainLogic {
 
         Ok(Self {
             resource_manager,
+            size: graphics_context.size(),
+            graphics_context,
             input: InputState::new(),
             application_start: Instant::now(),
+            fps_stats: FpsStats::new(),
         })
     }
 
@@ -46,68 +94,63 @@ impl StateLogic<SceneRenderer> for MainLogic {
         }
     }
 
+    fn resized(&mut self, width: u32, height: u32) {
+        self.size = (width, height);
+    }
+
     fn render_target(&self) -> vn_vttrpg_window::scene::Scene {
-        use vn_vttrpg_window::primitives::{
-            BoxPrimitive, Color, ImagePrimitive, PrimitiveProperties, Rect, TextPrimitive,
-            Transform,
+        self.fps_stats.tick();
+
+        let t = match self.fps_stats.current_fps() {
+            Some(fps) => {
+                format!("FPS:{:>8.2}", fps)
+            },
+            None => {
+                "Initializing...".to_string()
+            }
         };
-        let mut scene = vn_vttrpg_window::scene::Scene::new();
-        scene.add_box(BoxPrimitive {
-            common: PrimitiveProperties {
-                transform: Transform {
-                    translation: [250.0, 250.0],
-                    rotation: self.application_start.elapsed().as_secs_f32() * 0.5 * PI,
-                    scale: [1.0, 1.0],
-                    origin: [0.5, 0.5],
-                },
-                clip_area: Rect::NO_CLIP,
-            },
-            size: [400.0, 300.0],
-            color: Color::RED,
-            border_color: Color::WHITE,
-            border_thickness: 5.0,
-            corner_radius: 10.0,
-        });
 
-        scene.add_image(ImagePrimitive {
-            common: PrimitiveProperties {
-                transform: Transform {
-                    translation: [250.0, 250.0],
-                    rotation: self.application_start.elapsed().as_secs_f32() * 0.5 * PI,
-                    scale: [1.0, 1.0],
-                    origin: [0.5, 0.5],
-                },
-                clip_area: Rect::NO_CLIP,
-            },
-            size: [200.0, 200.0],
-            texture: vn_vttrpg_window::TextureDescriptor::Name("vn_dk_white_square".to_string()),
-            tint: Color::WHITE,
-        });
+        let text = self.resource_manager.get_or_render_text(
+            &self.graphics_context,
+            &t,
+            "jetbrains-bold",
+            48.0,
+        ).unwrap();
 
-        scene.add_text(TextPrimitive {
-            common: PrimitiveProperties {
-                transform: Transform {
-                    translation: [
-                        300.0 + (self.application_start.elapsed().as_secs_f32() * PI).sin() * 200.0,
-                        300.0,
-                    ],
-                    rotation: -self.application_start.elapsed().as_secs_f32() * 0.5 * PI,
-                    scale: [1.0, 1.0],
-                    origin: [0.0, 0.5],
-                },
-                clip_area: Rect::NO_CLIP,
-            },
-            size: [400.0, 100.0],
-            text: "Hello World! :)".to_string(),
+        let ui = Label {
+            text: t,
             font: "jetbrains-bold".to_string(),
             font_size: 48.0,
-            tint: Color {
-                r: (self.application_start.elapsed().as_secs_f32() / 5.0) % 1.0,
-                g: (self.application_start.elapsed().as_secs_f32() / 5.0 + 1.0 / 3.0) % 1.0,
-                b: (self.application_start.elapsed().as_secs_f32() / 5.0 + 2.0 / 3.0) % 1.0,
-                a: 1.0,
+            size: Size {
+                width: text.texture.width() as f32,
+                height: text.texture.height() as f32,
+            },
+            color: vn_vttrpg_window::Color::WHITE.with_alpha(0.5),
+        };
+
+        let mut ui = Anchor::new(Box::new(ui), vn_vttrpg_ui::AnchorLocation::TopRight);
+
+        let mut scene = vn_vttrpg_window::scene::Scene::new();
+
+        ui.layout(SizeConstraints {
+            min_size: Size {
+                width: 0.0,
+                height: 0.0,
+            },
+            max_size: Size {
+                width: self.size.0 as f32,
+                height: self.size.1 as f32,
             },
         });
+
+        ui.draw(
+            (0.0, 0.0),
+            Size {
+                width: self.size.0 as f32,
+                height: self.size.1 as f32,
+            },
+            &mut scene,
+        );
 
         scene
     }
