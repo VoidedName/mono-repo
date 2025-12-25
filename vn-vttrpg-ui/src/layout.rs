@@ -298,7 +298,7 @@ impl Element for Flex {
     }
 
     fn draw_impl(&mut self, origin: (f32, f32), _size: ConcreteSize, scene: &mut Scene) {
-        let mut offset = origin.0;
+        let mut offset = origin.1;
         for (idx, child) in self.children.iter_mut().enumerate() {
             match self.direction {
                 FlexDirection::Row => {

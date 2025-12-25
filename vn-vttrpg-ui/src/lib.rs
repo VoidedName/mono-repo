@@ -19,27 +19,7 @@ mod sizes;
 pub use element::*;
 pub use layout::*;
 pub use sizes::*;
-use vn_vttrpg_window::{BoxPrimitive, Color, Scene, TextPrimitive};
-
-pub struct Card {
-    pub size: ConcreteSize,
-}
-
-impl Element for Card {
-    fn layout(&mut self, constraints: SizeConstraints) -> ConcreteSize {
-        self.size.clamp_to_constraints(constraints)
-    }
-
-    fn draw_impl(&mut self, origin: (f32, f32), size: ConcreteSize, scene: &mut Scene) {
-        scene.add_box(
-            BoxPrimitive::builder()
-                .transform(|t| t.translation([origin.0, origin.1]))
-                .size([size.width, size.height])
-                .color(Color::WHITE)
-                .build(),
-        )
-    }
-}
+use vn_vttrpg_window::{Color, Scene, TextPrimitive};
 
 /// A UI element that renders a string of text.
 pub struct Label {

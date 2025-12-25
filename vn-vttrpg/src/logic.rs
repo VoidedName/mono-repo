@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::sync::Arc;
-use vn_vttrpg_ui::{Anchor, Element, Label, ConcreteSize, SizeConstraints, DynamicSize, Flex, Card};
-use vn_vttrpg_window::StateLogic;
+use vn_vttrpg_ui::{Anchor, Element, Label, ConcreteSize, SizeConstraints, DynamicSize, Flex, AnchorLocation};
+use vn_vttrpg_window::{Color, StateLogic};
 use vn_vttrpg_window::graphics::GraphicsContext;
 use vn_vttrpg_window::input::InputState;
 use vn_vttrpg_window::resource_manager::ResourceManager;
@@ -113,22 +113,60 @@ impl StateLogic<SceneRenderer> for MainLogic {
             .get_or_render_text(&self.graphics_context, &t, "jetbrains-bold", 48.0)
             .unwrap();
 
-        let fps = Label {
-            text: t,
+        let start = self
+            .resource_manager
+            .get_or_render_text(&self.graphics_context, "Start", "jetbrains-bold", 48.0)
+            .unwrap();
+
+        let options = self
+            .resource_manager
+            .get_or_render_text(&self.graphics_context, "Options", "jetbrains-bold", 48.0)
+            .unwrap();
+
+        let exit = self
+            .resource_manager
+            .get_or_render_text(&self.graphics_context, "Exit", "jetbrains-bold", 48.0)
+            .unwrap();
+
+        let start = Label {
+            text: "Start".to_string(),
             font: "jetbrains-bold".to_string(),
             font_size: 48.0,
             size: ConcreteSize {
-                width: text.texture.width() as f32,
-                height: text.texture.height() as f32,
+                width: start.texture.width() as f32,
+                height: start.texture.height() as f32,
             },
-            color: vn_vttrpg_window::Color::WHITE.with_alpha(0.5),
+            color: Color::WHITE,
         };
 
-        let card = Card { size: ConcreteSize { width: 100.0, height: 100.0 } };
+        let options = Label {
+            text: "Options".to_string(),
+            font: "jetbrains-bold".to_string(),
+            font_size: 48.0,
+            size: ConcreteSize {
+                width: options.texture.width() as f32,
+                height: options.texture.height() as f32,
+            },
+            color: Color::WHITE,
+        };
 
-        let fps = Anchor::new(Box::new(fps), vn_vttrpg_ui::AnchorLocation::TopRight);
+        let exit = Label {
+            text: "Exit".to_string(),
+            font: "jetbrains-bold".to_string(),
+            font_size: 48.0,
+            size: ConcreteSize {
+                width: exit.texture.width() as f32,
+                height: exit.texture.height() as f32,
+            },
+            color: Color::WHITE,
+        };
 
-        let mut ui = Flex::new_row(vec![Box::new(card), Box::new(fps)]);
+        let start = Anchor::new(Box::new(start), AnchorLocation::CENTER);
+        let options = Anchor::new(Box::new(options), AnchorLocation::CENTER);
+        let exit = Anchor::new(Box::new(exit), AnchorLocation::CENTER);
+
+        let menu = Flex::new_column(vec![Box::new(start), Box::new(options), Box::new(exit)]);
+        let mut ui = Anchor::new(Box::new(menu), AnchorLocation::CENTER);
 
         let mut scene = vn_vttrpg_window::scene::Scene::new();
 

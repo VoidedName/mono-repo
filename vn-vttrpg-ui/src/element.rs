@@ -15,14 +15,16 @@ pub trait Element {
         {
             use vn_vttrpg_window::BoxPrimitive;
 
-            scene.add_box(
-                BoxPrimitive::builder()
-                    .transform(|t| t.translation([origin.0, origin.1]))
-                    .size([size.width, size.height])
-                    .border_color(vn_vttrpg_window::Color::RED.with_alpha(0.8))
-                    .border_thickness(5.0)
-                    .build(),
-            )
+            scene.with_next_layer(|scene| {
+                scene.add_box(
+                    BoxPrimitive::builder()
+                        .transform(|t| t.translation([origin.0, origin.1]))
+                        .size([size.width, size.height])
+                        .color(vn_vttrpg_window::Color::GREEN.with_alpha(0.05))
+                        .border_color(vn_vttrpg_window::Color::RED.with_alpha(0.25))
+                        .border_thickness(5.0)
+                        .build())
+            });
         }
     }
 
