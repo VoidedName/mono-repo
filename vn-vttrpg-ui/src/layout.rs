@@ -205,18 +205,34 @@ impl Element for Border {
     }
 }
 
+pub enum FlexDirection {
+    Row,
+    Column,
+}
+
 pub struct Flex {
     children: Vec<Box<dyn Element>>,
     layout: Vec<ConcreteSize>,
-    // direction?
+    direction: FlexDirection,
 }
 
 impl Flex {
-    pub fn new(children: Vec<Box<dyn Element>>) -> Self {
+    pub fn new(children: Vec<Box<dyn Element>>, flex_direction: FlexDirection) -> Self {
         Self {
-            layout: std::iter::repeat(ConcreteSize::ZERO).take(children.len()).collect(),
+            layout: std::iter::repeat(ConcreteSize::ZERO)
+                .take(children.len())
+                .collect(),
             children,
+            direction: flex_direction,
         }
+    }
+
+    pub fn new_row(children: Vec<Box<dyn Element>>) -> Self {
+        Self::new(children, FlexDirection::Row)
+    }
+
+    pub fn new_column(children: Vec<Box<dyn Element>>) -> Self {
+        Self::new(children, FlexDirection::Column)
     }
 }
 
@@ -225,11 +241,11 @@ impl Element for Flex {
         // what do we do with containers that grow? like anchor?
         // do we extend constraints to denote that they should not grow along some axis?
 
-        let mut total_width: f32 = 0.0;
-        let mut max_height: f32 = 0.0;
+        let mut total_in_direction: f32 = 0.0;
+        let mut max_orthogonal: f32 = 0.0;
 
-        for (idx, child) in self.children.iter_mut().enumerate() {
-            let child_size = child.layout(SizeConstraints {
+        let child_constraints = match self.direction {
+            FlexDirection::Row => SizeConstraints {
                 min_size: ConcreteSize {
                     width: 0.0,
                     height: constraints.min_size.height,
@@ -238,32 +254,62 @@ impl Element for Flex {
                     width: None,
                     height: constraints.max_size.height,
                 },
-            });
+            },
+            FlexDirection::Column => SizeConstraints {
+                min_size: ConcreteSize {
+                    width: constraints.min_size.width,
+                    height: 0.0,
+                },
+                max_size: DynamicSize {
+                    width: constraints.max_size.width,
+                    height: None,
+                },
+            },
+        };
 
-            total_width += child_size.width;
-            max_height = max_height.max(child_size.height);
+        for (idx, child) in self.children.iter_mut().enumerate() {
+            let child_size = child.layout(child_constraints);
+
+            match self.direction {
+                FlexDirection::Row => {
+                    total_in_direction += child_size.width;
+                    max_orthogonal = max_orthogonal.max(child_size.height);
+                }
+                FlexDirection::Column => {
+                    total_in_direction += child_size.height;
+                    max_orthogonal = max_orthogonal.max(child_size.width);
+                }
+            }
 
             self.layout[idx] = child_size;
         }
 
-        ConcreteSize {
-            width: total_width,
-            height: max_height
-        }.clamp_to_constraints(constraints)
+        match self.direction {
+            FlexDirection::Row => ConcreteSize {
+                width: total_in_direction,
+                height: max_orthogonal,
+            },
+            FlexDirection::Column => ConcreteSize {
+                width: max_orthogonal,
+                height: total_in_direction,
+            },
+        }
+        .clamp_to_constraints(constraints)
     }
 
     fn draw_impl(&mut self, origin: (f32, f32), _size: ConcreteSize, scene: &mut Scene) {
-        // is this fine? we are ignoring the input size, assuming that we get something compatible
-        // with what we reported in layout?
         let mut offset = origin.0;
         for (idx, child) in self.children.iter_mut().enumerate() {
-            child.draw(
-                (offset, origin.1),
-                self.layout[idx],
-                scene,
-            );
-
-            offset += self.layout[idx].width;
+            match self.direction {
+                FlexDirection::Row => {
+                    child.draw((offset, origin.1), self.layout[idx], scene);
+                    offset += self.layout[idx].width;
+                }
+                FlexDirection::Column => {
+                    child.draw((origin.0, offset), self.layout[idx], scene);
+                    offset += self.layout[idx].height;
+                }
+            }
         }
     }
 }

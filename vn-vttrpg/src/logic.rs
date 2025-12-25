@@ -128,7 +128,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
 
         let fps = Anchor::new(Box::new(fps), vn_vttrpg_ui::AnchorLocation::TopRight);
 
-        let mut ui = Flex::new(vec![Box::new(card), Box::new(fps)]);
+        let mut ui = Flex::new_row(vec![Box::new(card), Box::new(fps)]);
 
         let mut scene = vn_vttrpg_window::scene::Scene::new();
 
