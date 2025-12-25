@@ -34,6 +34,7 @@ impl TexturePrimitiveBuilder {
         self
     }
 
+    //noinspection ALL (duplicate code)
     pub fn transform<F>(mut self, f: F) -> Self
     where
         F: FnOnce(
@@ -45,6 +46,7 @@ impl TexturePrimitiveBuilder {
         self
     }
 
+    //noinspection ALL (duplicate code)
     pub fn clip_area<F>(mut self, f: F) -> Self
     where
         F: FnOnce(crate::primitives::rect::RectBuilder) -> crate::primitives::rect::RectBuilder,
@@ -134,6 +136,7 @@ impl ImagePrimitiveBuilder {
         self
     }
 
+    //noinspection ALL (duplicate code)
     pub fn transform<F>(mut self, f: F) -> Self
     where
         F: FnOnce(
@@ -145,6 +148,7 @@ impl ImagePrimitiveBuilder {
         self
     }
 
+    //noinspection ALL (duplicate code)
     pub fn clip_area<F>(mut self, f: F) -> Self
     where
         F: FnOnce(crate::primitives::rect::RectBuilder) -> crate::primitives::rect::RectBuilder,
@@ -212,6 +216,7 @@ impl TextPrimitiveBuilder {
         self
     }
 
+    //noinspection ALL (duplicate code)
     pub fn transform<F>(mut self, f: F) -> Self
     where
         F: FnOnce(
@@ -223,6 +228,7 @@ impl TextPrimitiveBuilder {
         self
     }
 
+    //noinspection ALL (duplicate code)
     pub fn clip_area<F>(mut self, f: F) -> Self
     where
         F: FnOnce(crate::primitives::rect::RectBuilder) -> crate::primitives::rect::RectBuilder,

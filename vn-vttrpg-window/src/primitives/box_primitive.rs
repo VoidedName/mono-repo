@@ -2,7 +2,7 @@ use crate::graphics::VertexDescription;
 use crate::primitives::color::Color;
 use crate::primitives::properties::PrimitiveProperties;
 
-/// A rendering primitive representing a rectangle with optional border and rounded corners.
+/// A rendering primitive representing a rectangle with an optional border and rounded corners.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct BoxPrimitive {
@@ -39,6 +39,7 @@ impl BoxPrimitiveBuilder {
         self
     }
 
+    //noinspection ALL (duplicate code)
     pub fn transform<F>(mut self, f: F) -> Self
     where
         F: FnOnce(
@@ -50,6 +51,7 @@ impl BoxPrimitiveBuilder {
         self
     }
 
+    //noinspection ALL (duplicate code)
     pub fn clip_area<F>(mut self, f: F) -> Self
     where
         F: FnOnce(crate::primitives::rect::RectBuilder) -> crate::primitives::rect::RectBuilder,
