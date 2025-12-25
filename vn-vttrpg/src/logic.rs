@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::sync::Arc;
-use vn_vttrpg_ui::{Anchor, Border, Element, Label, Size, SizeConstraints};
+use vn_vttrpg_ui::{Anchor, Element, Label, ConcreteSize, SizeConstraints, DynamicSize, Flex, Card};
 use vn_vttrpg_window::StateLogic;
 use vn_vttrpg_window::graphics::GraphicsContext;
 use vn_vttrpg_window::input::InputState;
@@ -113,42 +113,39 @@ impl StateLogic<SceneRenderer> for MainLogic {
             .get_or_render_text(&self.graphics_context, &t, "jetbrains-bold", 48.0)
             .unwrap();
 
-        let ui = Label {
+        let fps = Label {
             text: t,
             font: "jetbrains-bold".to_string(),
             font_size: 48.0,
-            size: Size {
+            size: ConcreteSize {
                 width: text.texture.width() as f32,
                 height: text.texture.height() as f32,
             },
             color: vn_vttrpg_window::Color::WHITE.with_alpha(0.5),
         };
 
-        let ui = Border::new(
-            Box::new(ui),
-            2.5,
-            5.0,
-            vn_vttrpg_window::Color::RED.with_alpha(0.5),
-        );
+        let card = Card { size: ConcreteSize { width: 100.0, height: 100.0 } };
 
-        let mut ui = Anchor::new(Box::new(ui), vn_vttrpg_ui::AnchorLocation::TopRight);
+        let fps = Anchor::new(Box::new(fps), vn_vttrpg_ui::AnchorLocation::TopRight);
+
+        let mut ui = Flex::new(vec![Box::new(card), Box::new(fps)]);
 
         let mut scene = vn_vttrpg_window::scene::Scene::new();
 
         ui.layout(SizeConstraints {
-            min_size: Size {
+            min_size: ConcreteSize {
                 width: 0.0,
                 height: 0.0,
             },
-            max_size: Size {
-                width: self.size.0 as f32,
-                height: self.size.1 as f32,
+            max_size: DynamicSize {
+                width: Some(self.size.0 as f32),
+                height: Some(self.size.1 as f32),
             },
         });
 
         ui.draw(
             (0.0, 0.0),
-            Size {
+            ConcreteSize {
                 width: self.size.0 as f32,
                 height: self.size.1 as f32,
             },

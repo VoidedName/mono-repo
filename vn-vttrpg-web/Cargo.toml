@@ -5,6 +5,9 @@ authors = ["Voided Name"]
 categories = ["wasm"]
 edition = "2024"
 
+[features]
+debug_outlines = ["vn-vttrpg/debug_outlines"]
+
 [lib]
 crate-type = ["cdylib"]
 #

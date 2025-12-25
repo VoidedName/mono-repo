@@ -22,15 +22,15 @@ pub use sizes::*;
 use vn_vttrpg_window::{BoxPrimitive, Color, Scene, TextPrimitive};
 
 pub struct Card {
-    pub size: Size,
+    pub size: ConcreteSize,
 }
 
 impl Element for Card {
-    fn layout(&mut self, constraints: SizeConstraints) -> Size {
+    fn layout(&mut self, constraints: SizeConstraints) -> ConcreteSize {
         self.size.clamp_to_constraints(constraints)
     }
 
-    fn draw(&mut self, origin: (f32, f32), size: Size, scene: &mut Scene) {
+    fn draw_impl(&mut self, origin: (f32, f32), size: ConcreteSize, scene: &mut Scene) {
         scene.add_box(
             BoxPrimitive::builder()
                 .transform(|t| t.translation([origin.0, origin.1]))
@@ -47,16 +47,16 @@ pub struct Label {
     /// Font name as registered in the resource manager.
     pub font: String,
     pub font_size: f32,
-    pub size: Size,
+    pub size: ConcreteSize,
     pub color: Color,
 }
 
 impl Element for Label {
-    fn layout(&mut self, constraints: SizeConstraints) -> Size {
+    fn layout(&mut self, constraints: SizeConstraints) -> ConcreteSize {
         self.size.clamp_to_constraints(constraints)
     }
 
-    fn draw(&mut self, origin: (f32, f32), size: Size, scene: &mut Scene) {
+    fn draw_impl(&mut self, origin: (f32, f32), size: ConcreteSize, scene: &mut Scene) {
         scene.add_text(
             TextPrimitive::builder(self.text.clone(), self.font.clone())
                 .transform(|t| t.translation([origin.0, origin.1]))

@@ -3,8 +3,10 @@ name = "vn-vttrpg-native"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+debug_outlines = ["vn-vttrpg/debug_outlines"]
+
 [dependencies]
-vn-vttrpg = { path = "../vn-vttrpg" }
 env_logger = { workspace = true }
 log = { workspace = true }
-
+vn-vttrpg = { path = "../vn-vttrpg" }
