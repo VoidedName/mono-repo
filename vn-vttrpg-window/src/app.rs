@@ -122,6 +122,9 @@ impl<T: StateLogic<SceneRenderer>> ApplicationHandler<RenderingContext<T>> for A
                 }
             }
             WindowEvent::KeyboardInput { event, .. } => state.handle_key(event_loop, &event),
+            WindowEvent::CursorMoved { position, .. } => {
+                state.handle_mouse_position(position.x as f32, position.y as f32);
+            }
             _ => {}
         }
     }

@@ -32,7 +32,7 @@ module.exports = {
 
     new WasmPackPlugin({
       crateDirectory: __dirname,
-      extraArgs: "--target web"
+      extraArgs: "--target web --features debug_outlines"
     }),
   ]
 };

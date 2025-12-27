@@ -441,7 +441,7 @@ impl Renderer for SceneRenderer {
                 multiview_mask: None,
             });
 
-            for layer in &scene.layers {
+            for layer in scene.layers() {
                 self.render_boxes(graphics_context, &mut render_pass, &layer.boxes);
                 self.render_images(graphics_context, &mut render_pass, &layer.images);
                 self.render_texts(graphics_context, &mut render_pass, &layer.texts);

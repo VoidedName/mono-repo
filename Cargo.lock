@@ -1952,6 +1952,7 @@ version = "0.1.0"
 dependencies = [
  "vn-utils",
  "vn-vttrpg-window",
+ "web-time",
 ]
 
 [[package]]

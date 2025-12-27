@@ -1,3 +1,5 @@
+use vn_vttrpg_window::scene::SceneSize;
+
 /// A concrete size with a fixed width and height.
 #[derive(Debug, Clone, Copy)]
 pub struct ConcreteSize {
@@ -49,4 +51,5 @@ impl DynamicSize {
 pub struct SizeConstraints {
     pub min_size: ConcreteSize,
     pub max_size: DynamicSize,
+    pub scene_size: SceneSize,
 }

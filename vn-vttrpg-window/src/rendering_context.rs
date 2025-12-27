@@ -60,6 +60,10 @@ impl<T: StateLogic<R>, R: Renderer> RenderingContext<T, R> {
         self.logic.update();
     }
 
+    pub fn handle_mouse_position(&mut self, x: f32, y: f32) {
+        self.logic.handle_mouse_position(x, y);
+    }
+
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         self.context.window.request_redraw();
 

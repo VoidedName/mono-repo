@@ -16,6 +16,9 @@ pub trait StateLogic<R: Renderer>: Sized + 'static {
     fn handle_key(&mut self, event_loop: &ActiveEventLoop, event: &KeyEvent) {}
 
     #[allow(unused_variables)]
+    fn handle_mouse_position(&mut self, x: f32, y: f32) {}
+
+    #[allow(unused_variables)]
     fn resized(&mut self, width: u32, height: u32) {}
 
     #[allow(unused_variables)]

@@ -26,19 +26,35 @@ impl Layer {
     }
 }
 
+pub type SceneSize = (f32, f32);
+
 /// Represents the entire scene to be rendered, consisting of multiple layers.
 #[derive(Debug, Clone, Default)]
 pub struct Scene {
-    pub layers: Vec<Layer>,
+    layers: Vec<Layer>,
     active_layers: Vec<usize>,
+    scene_size: SceneSize,
 }
 
 impl Scene {
     /// Creates a new scene with a single initial layer.
-    pub fn new() -> Self {
+    pub fn new(size: SceneSize) -> Self {
         let mut scene = Self::default();
         scene.push_layer_on_top();
+        scene.scene_size = size;
         scene
+    }
+
+    pub fn scene_size(&self) -> SceneSize {
+        self.scene_size
+    }
+
+    pub fn layers(&self) -> &[Layer] {
+        &self.layers
+    }
+
+    pub fn current_layer_id(&self) -> u32 {
+        *self.active_layers.last().unwrap() as u32
     }
 
     fn push_layer_on_top(&mut self) {

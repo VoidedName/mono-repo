@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 vn-vttrpg-window = { path = "../vn-vttrpg-window" }
 vn-utils = { path = "../vn-utils" }
+web-time = { workspace = true }
 
 [features]
 debug_outlines = []
