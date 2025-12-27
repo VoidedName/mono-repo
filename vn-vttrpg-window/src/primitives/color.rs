@@ -76,6 +76,24 @@ impl Color {
             a: opacity,
         }
     }
+
+    pub fn lighten(self, amount: f32) -> Self {
+        Self {
+            r: (self.r + amount).min(1.0),
+            g: (self.g + amount).min(1.0),
+            b: (self.b + amount).min(1.0),
+            a: self.a,
+        }
+    }
+
+    pub fn darken(self, amount: f32) -> Self {
+        Self {
+            r: (self.r - amount).max(0.0),
+            g: (self.g - amount).max(0.0),
+            b: (self.b - amount).max(0.0),
+            a: self.a,
+        }
+    }
 }
 
 impl VertexDescription for Color {

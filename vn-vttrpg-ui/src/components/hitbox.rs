@@ -3,19 +3,23 @@ use vn_vttrpg_window::{Rect, Scene};
 use crate::utils::ToArray;
 
 pub struct ExtendedHitbox {
-    ui_id: ElementId,
+    id: ElementId,
     element: Box<dyn Element>,
 }
 
 impl ExtendedHitbox {
     pub fn new(element: Box<dyn Element>, ctx: &mut UiContext) -> Self {
         let ui_id = ctx.event_manager.next_id();
-        Self { ui_id, element }
+        Self { id: ui_id, element }
     }
 }
 
 impl Element for ExtendedHitbox {
-    fn layout(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
+    fn id(&self) -> ElementId {
+        self.id
+    }
+
+    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
         self.element.layout(ctx, constraints)
     }
 
@@ -27,7 +31,7 @@ impl Element for ExtendedHitbox {
         scene: &mut Scene,
     ) {
         ctx.with_hitbox_hierarchy(
-            self.ui_id,
+            self.id,
             scene.current_layer_id(),
             Rect {
                 position: origin.to_array(),

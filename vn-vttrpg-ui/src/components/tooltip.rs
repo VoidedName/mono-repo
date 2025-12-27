@@ -11,7 +11,7 @@ pub struct TooltipParams {
 }
 
 pub struct ToolTip {
-    ui_id: ElementId,
+    id: ElementId,
     element: Box<dyn Element>,
     tooltip: Box<dyn Element>,
     show_tooltip: bool,
@@ -29,13 +29,11 @@ impl ToolTip {
         params: TooltipParams,
         ctx: &mut UiContext,
     ) -> Self {
-        let ui_id = ctx.event_manager.next_id();
-
         let hover_delay = params.hover_delay.unwrap_or(Duration::from_secs_f32(0.1));
         let hover_retain = params.hover_retain.unwrap_or(Duration::from_secs_f32(0.1));
 
         Self {
-            ui_id,
+            id: ctx.event_manager.next_id(),
             element,
             tooltip: Box::new(ExtendedHitbox::new(tooltip, ctx)),
             show_tooltip: false,
@@ -49,8 +47,12 @@ impl ToolTip {
 }
 
 impl Element for ToolTip {
-    fn layout(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
-        let is_hovered = ctx.event_manager.is_hovered(self.ui_id);
+    fn id(&self) -> ElementId {
+        self.id
+    }
+    
+    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
+        let is_hovered = ctx.event_manager.is_hovered(self.id);
 
         match (self.show_tooltip, is_hovered, self.hovered_start_at) {
             // preparing to show tooltip
@@ -104,7 +106,7 @@ impl Element for ToolTip {
         scene: &mut Scene,
     ) {
         ctx.with_hitbox_hierarchy(
-            self.ui_id,
+            self.id,
             scene.current_layer_id(),
             Rect {
                 position: origin.to_array(),

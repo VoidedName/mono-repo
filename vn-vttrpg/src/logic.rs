@@ -1,8 +1,10 @@
 use std::cell::RefCell;
+use std::fmt::format;
 use std::sync::Arc;
 use vn_vttrpg_ui::{
     Anchor, AnchorLocation, Button, Card, CardParams, ConcreteSize, DynamicSize, Element,
-    EventManager, Flex, Label, SizeConstraints, TextMetrics, ToolTip, TooltipParams, UiContext,
+    EventManager, Flex, Label, LabelText, SimpleLayoutCache, SizeConstraints, TextMetrics, ToolTip,
+    TooltipParams, UiContext,
 };
 use vn_vttrpg_window::graphics::GraphicsContext;
 use vn_vttrpg_window::input::InputState;
@@ -61,7 +63,7 @@ pub struct MainLogic {
     pub resource_manager: Arc<ResourceManager>,
     pub graphics_context: Arc<GraphicsContext>,
     pub input: InputState,
-    fps_stats: FpsStats,
+    fps_stats: Arc<RefCell<FpsStats>>,
     size: (u32, u32),
     mouse_position: (f32, f32),
     ui: Option<RefCell<Box<dyn Element>>>,
@@ -86,7 +88,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
             size: graphics_context.size(),
             graphics_context,
             input: InputState::new(),
-            fps_stats: FpsStats::new(),
+            fps_stats: Arc::new(RefCell::new(FpsStats::new())),
             ui: None,
             event_manager: Arc::new(RefCell::new(EventManager::new())),
         })
@@ -108,6 +110,41 @@ impl StateLogic<SceneRenderer> for MainLogic {
         self.mouse_position = (x, y);
     }
 
+    fn handle_mouse_button(
+        &mut self,
+        button: winit::event::MouseButton,
+        state: winit::event::ElementState,
+    ) {
+        use vn_vttrpg_ui::MouseButton;
+        let button = match button {
+            winit::event::MouseButton::Left => MouseButton::Left,
+            winit::event::MouseButton::Right => MouseButton::Right,
+            winit::event::MouseButton::Middle => MouseButton::Middle,
+            _ => return,
+        };
+
+        let mut event_manager = self.event_manager.borrow_mut();
+        let events = match state {
+            winit::event::ElementState::Pressed => event_manager.handle_mouse_down(
+                self.mouse_position.0,
+                self.mouse_position.1,
+                button,
+            ),
+            winit::event::ElementState::Released => {
+                event_manager.handle_mouse_up(self.mouse_position.0, self.mouse_position.1, button)
+            }
+        };
+
+        for (id, event) in events {
+            match event {
+                vn_vttrpg_ui::InteractionEvent::Click { .. } => {
+                    log::info!("Element {:?} clicked!", id);
+                }
+                _ => {}
+            }
+        }
+    }
+
     fn resized(&mut self, width: u32, height: u32) {
         self.size = (width, height);
 
@@ -116,10 +153,10 @@ impl StateLogic<SceneRenderer> for MainLogic {
             gc: Arc<GraphicsContext>,
         }
 
-        let text_metric = TextMetric {
+        let text_metric = Arc::new(TextMetric {
             rm: self.resource_manager.clone(),
             gc: self.graphics_context.clone(),
-        };
+        });
 
         impl TextMetrics for TextMetric {
             fn size_of_text(&self, text: &str, font: &str, font_size: f32) -> (f32, f32) {
@@ -131,43 +168,47 @@ impl StateLogic<SceneRenderer> for MainLogic {
             }
         }
 
-        use vn_vttrpg_ui::{AnchorParams, ButtonParams, LabelParams};
-
-        let start = Label::new(
-            LabelParams {
-                text: "Start".to_string(),
-                font: "jetbrains-bold".to_string(),
-                font_size: 48.0,
-                color: Color::WHITE,
-            },
-            &text_metric,
-        );
-
-        let options = Label::new(
-            LabelParams {
-                text: "Options".to_string(),
-                font: "jetbrains-bold".to_string(),
-                font_size: 48.0,
-                color: Color::WHITE,
-            },
-            &text_metric,
-        );
-
-        let exit = Label::new(
-            LabelParams {
-                text: "Exit".to_string(),
-                font: "jetbrains-bold".to_string(),
-                font_size: 48.0,
-                color: Color::WHITE,
-            },
-            &text_metric,
-        );
-
         let mut event_manager = self.event_manager.borrow_mut();
         let mut ui_ctx = UiContext {
             event_manager: &mut event_manager,
             parent_id: None,
+            layout_cache: Box::new(SimpleLayoutCache::new()),
         };
+
+        use vn_vttrpg_ui::{AnchorParams, ButtonParams, LabelParams};
+
+        let start = Label::new(
+            LabelParams {
+                text: LabelText::Static("Start".to_string()),
+                font: "jetbrains-bold".to_string(),
+                font_size: 48.0,
+                color: Color::WHITE,
+            },
+            text_metric.clone(),
+            &mut ui_ctx,
+        );
+
+        let options = Label::new(
+            LabelParams {
+                text: LabelText::Static("Options".to_string()),
+                font: "jetbrains-bold".to_string(),
+                font_size: 48.0,
+                color: Color::WHITE,
+            },
+            text_metric.clone(),
+            &mut ui_ctx,
+        );
+
+        let exit = Label::new(
+            LabelParams {
+                text: LabelText::Static("Exit".to_string()),
+                font: "jetbrains-bold".to_string(),
+                font_size: 48.0,
+                color: Color::WHITE,
+            },
+            text_metric.clone(),
+            &mut ui_ctx,
+        );
 
         let start = Button::new(
             Box::new(start),
@@ -202,12 +243,13 @@ impl StateLogic<SceneRenderer> for MainLogic {
 
         let tooltip1 = Label::new(
             LabelParams {
-                text: "Start this thing".to_string(),
+                text: LabelText::Static("Start this thing".to_string()),
                 font: "jetbrains-bold".to_string(),
                 font_size: 24.0,
                 color: Color::WHITE,
             },
-            &text_metric,
+            text_metric.clone(),
+            &mut ui_ctx,
         );
 
         let tooltip1 = Card::new(
@@ -218,16 +260,29 @@ impl StateLogic<SceneRenderer> for MainLogic {
                 border_color: Color::WHITE,
                 corner_radius: 10.0,
             },
+            &mut ui_ctx,
         );
+
+        let fps = self.fps_stats.clone();
 
         let tooltip2 = Label::new(
             LabelParams {
-                text: "Tooltip of a tooltip for some reason".to_string(),
+                text: LabelText::Dynamic(Arc::new(Box::new(move || {
+                    format!(
+                        "FPS: {:>6.2?}",
+                        fps.borrow()
+                            .current_fps
+                            .borrow()
+                            .as_ref()
+                            .unwrap_or(&f32::NAN)
+                    )
+                }))),
                 font: "jetbrains-bold".to_string(),
                 font_size: 24.0,
                 color: Color::WHITE,
             },
-            &text_metric,
+            text_metric.clone(),
+            &mut ui_ctx,
         );
         let tooltip2 = Card::new(
             Box::new(tooltip2),
@@ -237,6 +292,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
                 border_color: Color::WHITE,
                 corner_radius: 10.0,
             },
+            &mut ui_ctx,
         );
 
         let tooltip = ToolTip::new(
@@ -259,21 +315,23 @@ impl StateLogic<SceneRenderer> for MainLogic {
             &mut ui_ctx,
         );
 
-        let start = Anchor::new(
-            Box::new(start),
-            AnchorParams {
-                location: AnchorLocation::CENTER,
-            },
-        );
+        // let start = Anchor::new(
+        //     Box::new(start),
+        //     AnchorParams {
+        //         location: AnchorLocation::CENTER,
+        //     },
+        //     &mut ui_ctx,
+        // );
 
         let tooltip = Label::new(
             LabelParams {
-                text: "Open the options".to_string(),
+                text: LabelText::Static("Open the options".to_string()),
                 font: "jetbrains-bold".to_string(),
                 font_size: 24.0,
                 color: Color::WHITE,
             },
-            &text_metric,
+            text_metric.clone(),
+            &mut ui_ctx,
         );
 
         let tooltip = Card::new(
@@ -284,46 +342,60 @@ impl StateLogic<SceneRenderer> for MainLogic {
                 border_color: Color::WHITE,
                 corner_radius: 10.0,
             },
+            &mut ui_ctx,
         );
-        
-        let options = ToolTip::new(Box::new(options), Box::new(tooltip), TooltipParams {
-            hover_delay: Some(Duration::from_secs_f32(0.1)),
-            hover_retain: Some(Duration::from_secs_f32(0.25)),
-        }, &mut ui_ctx);
-        let options = Anchor::new(
+
+        let options = ToolTip::new(
             Box::new(options),
-            AnchorParams {
-                location: AnchorLocation::CENTER,
+            Box::new(tooltip),
+            TooltipParams {
+                hover_delay: Some(Duration::from_secs_f32(0.1)),
+                hover_retain: Some(Duration::from_secs_f32(0.25)),
             },
+            &mut ui_ctx,
+        );
+        // let options = Anchor::new(
+        //     Box::new(options),
+        //     AnchorParams {
+        //         location: AnchorLocation::CENTER,
+        //     },
+        //     &mut ui_ctx,
+        // );
+
+        // let exit = Anchor::new(
+        //     Box::new(exit),
+        //     AnchorParams {
+        //         location: AnchorLocation::CENTER,
+        //     },
+        //     &mut ui_ctx,
+        // );
+
+        let menu = Flex::new_column(
+            vec![Box::new(start), Box::new(options), Box::new(exit)],
+            &mut ui_ctx,
         );
 
-        let exit = Anchor::new(
-            Box::new(exit),
-            AnchorParams {
-                location: AnchorLocation::CENTER,
-            },
-        );
-
-        let menu = Flex::new_column(vec![Box::new(start), Box::new(options), Box::new(exit)]);
-
-        let mut ui = Anchor::new(
+        let ui = Anchor::new(
             Box::new(menu),
             AnchorParams {
                 location: AnchorLocation::CENTER,
             },
+            &mut ui_ctx,
         );
 
         self.ui = Some(RefCell::new(Box::new(ui)));
     }
 
     fn render_target(&self) -> vn_vttrpg_window::scene::Scene {
-        self.fps_stats.tick();
-
-        let t = match self.fps_stats.current_fps() {
-            Some(fps) => {
-                format!("FPS:{:>8.2}", fps)
+        let t = {
+            let fps = self.fps_stats.borrow_mut();
+            fps.tick();
+            match fps.current_fps() {
+                Some(fps) => {
+                    format!("FPS:{:>8.2}", fps)
+                }
+                None => "Initializing...".to_string(),
             }
-            None => "Initializing...".to_string(),
         };
 
         let _text = self
@@ -344,6 +416,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
             let mut ctx = UiContext {
                 event_manager: &mut event_manager,
                 parent_id: None,
+                layout_cache: Box::new(SimpleLayoutCache::new()),
             };
 
             ui.layout(

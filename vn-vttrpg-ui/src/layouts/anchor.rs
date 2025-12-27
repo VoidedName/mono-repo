@@ -1,4 +1,4 @@
-use crate::{ConcreteSize, Element, SizeConstraints, UiContext};
+use crate::{ConcreteSize, Element, ElementId, SizeConstraints, UiContext};
 use vn_vttrpg_window::Scene;
 
 #[derive(Clone, Copy)]
@@ -22,14 +22,16 @@ pub struct AnchorParams {
 }
 
 pub struct Anchor {
+    id: ElementId,
     child: Box<dyn Element>,
     child_size: ConcreteSize,
     params: AnchorParams,
 }
 
 impl Anchor {
-    pub fn new(child: Box<dyn Element>, params: AnchorParams) -> Self {
+    pub fn new(child: Box<dyn Element>, params: AnchorParams, ctx: &mut UiContext) -> Self {
         Self {
+            id: ctx.event_manager.next_id(),
             child,
             child_size: ConcreteSize::ZERO,
             params,
@@ -38,7 +40,11 @@ impl Anchor {
 }
 
 impl Element for Anchor {
-    fn layout(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
+    fn id(&self) -> ElementId {
+        self.id
+    }
+
+    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
         let mut child_constraints = constraints;
         child_constraints.min_size = ConcreteSize::ZERO;
 

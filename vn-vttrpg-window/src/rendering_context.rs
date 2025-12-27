@@ -64,6 +64,10 @@ impl<T: StateLogic<R>, R: Renderer> RenderingContext<T, R> {
         self.logic.handle_mouse_position(x, y);
     }
 
+    pub fn handle_mouse_button(&mut self, button: winit::event::MouseButton, state: winit::event::ElementState) {
+        self.logic.handle_mouse_button(button, state);
+    }
+
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         self.context.window.request_redraw();
 

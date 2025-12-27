@@ -1,6 +1,6 @@
 use crate::utils::ToArray;
-use crate::{Card, CardParams, ConcreteSize, Element, ElementId, SizeConstraints, UiContext};
-use vn_vttrpg_window::{Color, Rect, Scene};
+use crate::{ConcreteSize, Element, ElementId, SizeConstraints, UiContext};
+use vn_vttrpg_window::{BoxPrimitive, Color, Rect, Scene};
 
 pub struct ButtonParams {
     pub background: Color,
@@ -18,30 +18,27 @@ pub struct ButtonParams {
 // component)
 pub struct Button {
     #[allow(dead_code)]
-    ui_id: ElementId,
+    id: ElementId,
     child: Box<dyn Element>,
+    params: ButtonParams,
 }
 
 impl Button {
     pub fn new(child: Box<dyn Element>, params: ButtonParams, ctx: &mut UiContext) -> Self {
-        let ui_id = ctx.event_manager.next_id();
         Self {
-            ui_id,
-            child: Box::new(Card::new(
-                child,
-                CardParams {
-                    background_color: params.background,
-                    border_color: params.border_color,
-                    border_size: params.border_width,
-                    corner_radius: params.corner_radius,
-                },
-            )),
+            id: ctx.event_manager.next_id(),
+            child,
+            params,
         }
     }
 }
 
 impl Element for Button {
-    fn layout(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
+    fn id(&self) -> ElementId {
+        self.id
+    }
+
+    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
         self.child.layout(ctx, constraints)
     }
 
@@ -52,15 +49,53 @@ impl Element for Button {
         size: ConcreteSize,
         scene: &mut Scene,
     ) {
+        let is_hovered = ctx.event_manager.is_hovered(self.id);
+        let is_focused = ctx.event_manager.is_focused(self.id);
+
+        let mut background = self.params.background;
+        let mut border_color = self.params.border_color;
+
+        if is_hovered {
+            background = background.lighten(0.1);
+        }
+
+        if is_focused {
+            background = background.darken(0.1);
+            border_color = Color::WHITE;
+        }
+
         ctx.with_hitbox_hierarchy(
-            self.ui_id,
+            self.id,
             scene.current_layer_id(),
             Rect {
                 position: origin.to_array(),
                 size: size.to_array(),
             },
             |ctx| {
-                self.child.draw(ctx, origin, size, scene);
+                scene.add_box(
+                    BoxPrimitive::builder()
+                        .transform(|t| t.translation([origin.0, origin.1]))
+                        .color(background)
+                        .border_color(border_color)
+                        .corner_radius(self.params.corner_radius)
+                        .border_thickness(self.params.border_width)
+                        .size([size.width, size.height])
+                        .build(),
+                );
+
+                let margin = self.params.border_width * 2.0;
+                self.child.draw(
+                    ctx,
+                    (
+                        origin.0 + self.params.border_width,
+                        origin.1 + self.params.border_width,
+                    ),
+                    ConcreteSize {
+                        width: size.width.max(margin) - margin,
+                        height: size.height.max(margin) - margin,
+                    },
+                    scene,
+                );
             },
         );
     }

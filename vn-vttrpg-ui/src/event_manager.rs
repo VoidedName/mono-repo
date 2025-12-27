@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use vn_vttrpg_window::Rect;
+use crate::LayoutCache;
 
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
 pub struct ElementId(pub u32);
@@ -16,6 +17,7 @@ pub enum InteractionEvent {
     MouseMove { x: f32, y: f32 },
     MouseDown { button: MouseButton, x: f32, y: f32 },
     MouseUp { button: MouseButton, x: f32, y: f32 },
+    Click { button: MouseButton, x: f32, y: f32 },
     MouseEnter,
     MouseLeave,
     FocusGained,
@@ -75,25 +77,7 @@ impl EventManager {
     }
 
     pub fn handle_mouse_move(&mut self, x: f32, y: f32) -> Vec<(ElementId, InteractionEvent)> {
-        let mut hits = self
-            .hitboxes
-            .iter()
-            .filter(|(_, (_, _, rect))| rect.contains([x, y]))
-            .map(|(id, (layer, order, _))| (*id, *layer, *order))
-            .collect::<Vec<_>>();
-
-        // Sort by layer (highest first, then newest)
-        hits.sort_by(|(_, layer1, order1), (_, layer2, order2)| {
-            let cmp = layer2.cmp(&layer1);
-            if cmp == std::cmp::Ordering::Equal {
-                order2.cmp(&order1)
-            } else {
-                cmp
-            }
-        });
-
-        // I need bubbling here...
-        let top_hit = hits.first().map(|(id, _, _)| *id);
+        let top_hit = self.get_top_hit(x, y);
 
         let mut new_hovered = HashSet::new();
         if let Some(mut current) = top_hit {
@@ -127,19 +111,56 @@ impl EventManager {
 
         self.hovered_elements = new_hovered;
 
-        // later going to get processed by the logic itself? or by the elements?
-        // i would like my ui to only be concerned with the ui -> that means the logic
-        // needs to be able to figure out something like element ids and what a click on one
-        // of those would mean?
-        // how do click animations then work? also via things like "is_clicked" or "is_triggered"?
-        // so ui elements all just poll their state.
-        // how far does this stretch? like a label / text, or arbitrary element information
-        // do elements draw them from the logic itself / some other state? certainly not from here?
-        // I guess i need to extend the ctx with some kind of logic state... or functions?
-        // like a label would use a "get_text" callback function... how far? like same for colors?
-        // Since the Ui elements actually hold state, i would not want to rebuild the tree...
-        // unless i want to do something like react where i can query the ctx for local state values.
-        // (either by call order or by element_id -> would require the Any trait though)
+        events
+    }
+
+    fn get_top_hit(&self, x: f32, y: f32) -> Option<ElementId> {
+        let mut hits = self
+            .hitboxes
+            .iter()
+            .filter(|(_, (_, _, rect))| rect.contains([x, y]))
+            .map(|(id, (layer, order, _))| (*id, *layer, *order))
+            .collect::<Vec<_>>();
+
+        // Sort by layer (highest first, then newest)
+        hits.sort_by(|(_, layer1, order1), (_, layer2, order2)| {
+            let cmp = layer2.cmp(&layer1);
+            if cmp == std::cmp::Ordering::Equal {
+                order2.cmp(&order1)
+            } else {
+                cmp
+            }
+        });
+
+        hits.first().map(|(id, _, _)| *id)
+    }
+
+    pub fn handle_mouse_down(&mut self, x: f32, y: f32, button: MouseButton) -> Vec<(ElementId, InteractionEvent)> {
+        let top_hit = self.get_top_hit(x, y);
+        let mut events = Vec::new();
+
+        if let Some(id) = top_hit {
+            events.push((id, InteractionEvent::MouseDown { button, x, y }));
+            self.focused_element = Some(id);
+        } else {
+            self.focused_element = None;
+        }
+
+        events
+    }
+
+    pub fn handle_mouse_up(&mut self, x: f32, y: f32, button: MouseButton) -> Vec<(ElementId, InteractionEvent)> {
+        let top_hit = self.get_top_hit(x, y);
+        let mut events = Vec::new();
+
+        if let Some(id) = top_hit {
+            events.push((id, InteractionEvent::MouseUp { button, x, y }));
+            
+            if self.focused_element == Some(id) {
+                events.push((id, InteractionEvent::Click { button, x, y }));
+            }
+        }
+
         events
     }
 }
@@ -147,6 +168,7 @@ impl EventManager {
 pub struct UiContext<'a> {
     pub event_manager: &'a mut EventManager,
     pub parent_id: Option<ElementId>,
+    pub layout_cache: Box<dyn LayoutCache>
 }
 
 impl UiContext<'_> {
