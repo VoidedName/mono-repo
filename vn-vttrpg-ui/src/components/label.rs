@@ -6,6 +6,7 @@ use vn_vttrpg_window::{Color, Scene, TextPrimitive};
 /// This keeps the UI agnostic to any specific graphics and resource management
 pub trait TextMetrics {
     fn size_of_text(&self, text: &str, font: &str, font_size: f32) -> (f32, f32);
+    fn line_height(&self, font: &str, font_size: f32) -> f32;
 }
 
 pub struct LabelParams {
@@ -24,9 +25,11 @@ pub struct Label {
     size: ElementSize,
 }
 
+pub struct DynamicString(pub Box<dyn Fn() -> String>);
+
 pub enum LabelText {
     Static(String),
-    Dynamic(Box<dyn Fn() -> String>),
+    Dynamic(DynamicString),
 }
 
 impl Label {
@@ -37,7 +40,7 @@ impl Label {
     ) -> Self {
         let text = match &params.text {
             LabelText::Static(text) => text.clone(),
-            LabelText::Dynamic(text) => text(),
+            LabelText::Dynamic(DynamicString(text)) => text(),
         };
 
         let (width, height) = text_metrics.size_of_text(&text, &params.font, params.font_size);
@@ -54,7 +57,7 @@ impl Label {
     pub fn update_text(&mut self) {
         match &self.params.text {
             LabelText::Static(_) => {}
-            LabelText::Dynamic(text) => {
+            LabelText::Dynamic(DynamicString(text)) => {
                 let new_text = text();
                 if new_text != self.text {
                     self.text = new_text;

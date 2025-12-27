@@ -79,7 +79,7 @@ pub trait Element {
                     BoxPrimitive::builder()
                         .transform(|t| t.translation([origin.0, origin.1]))
                         .size([size.width, size.height])
-                        .color(vn_vttrpg_window::Color::GREEN.with_alpha(0.05))
+                        .color(vn_vttrpg_window::Color::GREEN.with_alpha(0.01))
                         .border_color(vn_vttrpg_window::Color::RED.with_alpha(0.25))
                         .border_thickness(5.0)
                         .build(),

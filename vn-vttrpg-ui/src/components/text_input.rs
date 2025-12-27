@@ -1,0 +1,212 @@
+use crate::utils::ToArray;
+use crate::{
+    DynamicString, Element, ElementId, ElementSize, LabelParams, LabelText, SizeConstraints,
+    TextMetrics, UiContext,
+};
+use std::sync::Arc;
+use vn_vttrpg_window::{BoxPrimitive, Scene, TextPrimitive};
+use web_time::Instant;
+
+pub struct TextInputParams {
+    pub label: LabelParams,
+    pub text: LabelText,
+    pub caret_position: CaretSource,
+}
+
+pub enum CaretSource {
+    Static(usize),
+    Dynamic(Box<dyn Fn() -> usize>),
+}
+
+pub struct TextInput {
+    id: ElementId,
+    params: TextInputParams,
+    text: String,
+    caret_position: usize,
+    text_metrics: Arc<dyn TextMetrics>,
+    size: ElementSize,
+    gained_focus_at: Option<Instant>,
+    show_caret: bool,
+    caret_blink_duration: f32,
+    line_height: f32,
+}
+
+impl TextInput {
+    pub fn new<T: TextMetrics + 'static>(
+        params: TextInputParams,
+        text_metrics: Arc<T>,
+        ctx: &mut UiContext,
+    ) -> Self {
+        let text = match &params.text {
+            LabelText::Static(text) => text.clone(),
+            LabelText::Dynamic(DynamicString(text)) => text(),
+        };
+        let caret_position = match &params.caret_position {
+            CaretSource::Static(pos) => *pos,
+            CaretSource::Dynamic(f) => f(),
+        };
+
+        let (width, height) =
+            text_metrics.size_of_text(&text, &params.label.font, params.label.font_size);
+
+        Self {
+            id: ctx.event_manager.next_id(),
+            line_height: text_metrics.line_height(&params.label.font, params.label.font_size),
+            text,
+            caret_position,
+            params,
+            show_caret: false,
+            text_metrics,
+            caret_blink_duration: 2.0,
+            gained_focus_at: None,
+            size: ElementSize {
+                width: width.max(10.0),
+                height,
+            },
+        }
+    }
+
+    pub fn update_state(&mut self) {
+        let mut changed = false;
+        match &self.params.text {
+            LabelText::Static(_) => {}
+            LabelText::Dynamic(DynamicString(f)) => {
+                let new_text = f();
+                if new_text != self.text {
+                    self.text = new_text;
+                    changed = true;
+                }
+            }
+        }
+        match &self.params.caret_position {
+            CaretSource::Static(_) => {}
+            CaretSource::Dynamic(f) => {
+                let new_caret_position = f();
+
+                if self.caret_position != new_caret_position {
+                    changed = true;
+                }
+
+                self.caret_position = new_caret_position;
+            }
+        }
+
+        if changed {
+            let (width, height) = self.text_metrics.size_of_text(
+                &self.text,
+                &self.params.label.font,
+                self.params.label.font_size,
+            );
+
+            // Reset caret blink timer when changing
+            if self.gained_focus_at.is_some() {
+                self.gained_focus_at = Some(Instant::now());
+            }
+
+            self.size = ElementSize {
+                width: width.max(10.0),
+                height,
+            };
+        }
+    }
+}
+
+impl Element for TextInput {
+    fn id(&self) -> ElementId {
+        self.id
+    }
+
+    fn layout_impl(&mut self, _ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
+        self.update_state();
+
+        let is_focused = _ctx.event_manager.is_focused(self.id);
+        match (is_focused, self.gained_focus_at) {
+            (false, _) => {
+                self.gained_focus_at = None;
+                self.show_caret = false;
+            }
+            (true, None) => {
+                self.gained_focus_at = Some(Instant::now());
+                self.show_caret = true;
+            }
+            (true, Some(start_at)) => {
+                self.show_caret = start_at.elapsed().as_secs_f32() % self.caret_blink_duration
+                    < self.caret_blink_duration / 2.0;
+            }
+        }
+
+        let size = self.size.clamp_to_constraints(constraints);
+        size
+    }
+
+    fn draw_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        origin: (f32, f32),
+        size: ElementSize,
+        scene: &mut Scene,
+    ) {
+        ctx.with_hitbox_hierarchy(
+            self.id,
+            scene.current_layer_id(),
+            vn_vttrpg_window::Rect {
+                position: origin.to_array(),
+                size: size.to_array(),
+            },
+            |_ctx| {
+                scene.add_text(
+                    TextPrimitive::builder(self.text.clone(), self.params.label.font.clone())
+                        .transform(|t| t.translation(origin.to_array()))
+                        .size(self.size.to_array())
+                        .clip_area(|c| c.size(size.to_array()))
+                        .font_size(self.params.label.font_size)
+                        .tint(self.params.label.color)
+                        .build(),
+                );
+
+                if self.show_caret {
+                    // Calculate caret X position
+
+                    // todo: compute all of this in the layout phase
+                    let caret_x_offset = if self.caret_position == 0 {
+                        0.0
+                    } else {
+                        let text_up_to_caret = if self.caret_position >= self.text.len() {
+                            &self.text
+                        } else {
+                            &self.text[..self.caret_position]
+                        };
+                        self.text_metrics
+                            .size_of_text(
+                                text_up_to_caret,
+                                &self.params.label.font,
+                                self.params.label.font_size,
+                            )
+                            .0
+                    };
+
+                    let caret_width = 4.0;
+                    let caret_height = self.params.label.font_size;
+                    let caret_y_offset = self.line_height / 2.0 - caret_height / 2.0;
+
+                    let caret_x = (origin.0 + caret_x_offset - (caret_width / 2.0))
+                        .max(origin.0)
+                        .min(origin.0 + size.width - caret_width);
+                    let caret_y = origin.1 + caret_y_offset;
+
+                    let clip_x = origin.0 - caret_x;
+                    let clip_y = origin.1 - caret_y;
+
+                    scene.add_box(
+                        BoxPrimitive::builder()
+                            .transform(|t| t.translation([caret_x, caret_y]))
+                            .clip_area(|c| c.size(size.to_array()).position([clip_x, clip_y]))
+                            .size([caret_width, caret_height])
+                            .color(self.params.label.color)
+                            .build(),
+                    );
+                }
+            },
+        );
+    }
+}

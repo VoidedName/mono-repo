@@ -210,16 +210,19 @@ impl TextRenderer {
         let line_height =
             (face.ascender() as f32 - face.descender() as f32 + face.line_gap() as f32) * scale;
 
-        let mut current_y = ascender;
-        let mut min_x = f32::MAX;
-        let mut min_y = f32::MAX;
-        let mut max_x = f32::MIN;
-        let mut max_y = f32::MIN;
+        let mut current_y = 0.0;
+        let mut min_x: f32 = f32::INFINITY;
+        let mut max_x: f32 = f32::NEG_INFINITY;
+        let mut min_y: f32 = f32::INFINITY;
+        let mut max_y: f32 = f32::NEG_INFINITY;
+
+        let mut line_count = 1;
 
         for c in text.chars() {
             if c == '\n' {
                 current_x = 0.0;
                 current_y += line_height;
+                line_count += 1;
                 continue;
             }
 
@@ -230,15 +233,15 @@ impl TextRenderer {
             if let Some(glyph_id) = face.glyph_index(c) {
                 let segment_start = all_segments.len() as u32;
 
-                let mut collector = OutlineCollector::new([current_x, current_y], scale);
+                let mut collector = OutlineCollector::new([current_x, current_y + ascender], scale);
                 face.outline_glyph(glyph_id, &mut collector);
                 let segment_count = collector.segments.len() as u32;
 
                 if let Some(bbox) = face.glyph_bounding_box(glyph_id) {
-                    let r_min_x = current_x + bbox.x_min as f32 * scale;
-                    let r_max_x = current_x + bbox.x_max as f32 * scale;
-                    let r_min_y = current_y - bbox.y_max as f32 * scale;
-                    let r_max_y = current_y - bbox.y_min as f32 * scale;
+                    let r_min_x: f32 = current_x + bbox.x_min as f32 * scale;
+                    let r_max_x: f32 = current_x + bbox.x_max as f32 * scale;
+                    let r_min_y: f32 = (current_y + ascender) - bbox.y_max as f32 * scale;
+                    let r_max_y: f32 = (current_y + ascender) - bbox.y_min as f32 * scale;
 
                     glyph_instances.push(GpuGlyph {
                         rect_min: [r_min_x, r_min_y],
@@ -248,41 +251,43 @@ impl TextRenderer {
                     });
 
                     min_x = min_x.min(r_min_x);
-                    min_y = min_y.min(r_min_y);
                     max_x = max_x.max(r_max_x);
+                    min_y = min_y.min(r_min_y);
                     max_y = max_y.max(r_max_y);
                 }
 
                 all_segments.extend(collector.segments);
                 current_x += face.glyph_hor_advance(glyph_id).unwrap_or(0) as f32 * scale;
+                max_x = max_x.max(current_x);
             }
         }
 
-        if glyph_instances.is_empty() {
-            return Ok(Texture::create_render_target(
-                graphics_context.device(),
-                (1, 1),
-                Some("Empty Text"),
-            ));
+        if min_x == f32::INFINITY {
+            min_x = 0.0;
+        }
+        if max_x == f32::NEG_INFINITY {
+            max_x = 0.0;
         }
 
         let width = (max_x - min_x).ceil() as u32 + 2;
-        let height = (max_y - min_y).ceil() as u32 + 2;
+        let height = (line_height * line_count as f32).ceil() as u32 + 2;
 
         let offset_x = -min_x + 1.0;
-        let offset_y = -min_y + 1.0;
+        let offset_y = 1.0;
 
-        for glyph in &mut glyph_instances {
-            glyph.rect_min[0] += offset_x;
-            glyph.rect_min[1] += offset_y;
-            glyph.rect_max[0] += offset_x;
-            glyph.rect_max[1] += offset_y;
-        }
-        for seg in &mut all_segments {
-            seg.p0[0] += offset_x;
-            seg.p0[1] += offset_y;
-            seg.p1[0] += offset_x;
-            seg.p1[1] += offset_y;
+        if !glyph_instances.is_empty() {
+            for glyph in &mut glyph_instances {
+                glyph.rect_min[0] += offset_x;
+                glyph.rect_min[1] += offset_y;
+                glyph.rect_max[0] += offset_x;
+                glyph.rect_max[1] += offset_y;
+            }
+            for seg in &mut all_segments {
+                seg.p0[0] += offset_x;
+                seg.p0[1] += offset_y;
+                seg.p1[0] += offset_x;
+                seg.p1[1] += offset_y;
+            }
         }
 
         let device = graphics_context.device();

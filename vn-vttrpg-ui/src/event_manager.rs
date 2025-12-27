@@ -12,7 +12,7 @@ pub enum MouseButton {
     Middle,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum InteractionEvent {
     MouseMove { x: f32, y: f32 },
     MouseDown { button: MouseButton, x: f32, y: f32 },
@@ -22,6 +22,7 @@ pub enum InteractionEvent {
     MouseLeave,
     FocusGained,
     FocusLost,
+    Keyboard(vn_vttrpg_window::input::KeyEvent),
 }
 
 pub struct EventManager {
@@ -146,11 +147,31 @@ impl EventManager {
 
         if let Some(id) = top_hit {
             events.push((id, InteractionEvent::MouseDown { button, x, y }));
-            self.focused_element = Some(id);
+            if self.focused_element != Some(id) {
+                if let Some(old_id) = self.focused_element {
+                    events.push((old_id, InteractionEvent::FocusLost));
+                }
+                self.focused_element = Some(id);
+                events.push((id, InteractionEvent::FocusGained));
+            }
         } else {
+            if let Some(old_id) = self.focused_element {
+                events.push((old_id, InteractionEvent::FocusLost));
+            }
             self.focused_element = None;
         }
 
+        events
+    }
+
+    pub fn handle_key(
+        &mut self,
+        event: &vn_vttrpg_window::input::KeyEvent,
+    ) -> Vec<(ElementId, InteractionEvent)> {
+        let mut events = Vec::new();
+        if let Some(id) = self.focused_element {
+            events.push((id, InteractionEvent::Keyboard(event.clone())));
+        }
         events
     }
 

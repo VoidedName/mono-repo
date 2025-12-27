@@ -34,4 +34,5 @@ pub use event_manager::*;
 pub use layouts::*;
 pub use sizes::*;
 
+pub use vn_vttrpg_window::input::{KeyCode, KeyEvent};
 pub use vn_vttrpg_window::{Color, Rect, Scene, TextPrimitive};

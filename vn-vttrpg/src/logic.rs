@@ -1,9 +1,9 @@
 use std::cell::RefCell;
 use std::sync::Arc;
 use vn_vttrpg_ui::{
-    Anchor, AnchorLocation, Button, Card, CardParams, DynamicSize, Element, ElementSize,
-    EventManager, Flex, Label, LabelText, SimpleLayoutCache, SizeConstraints, TextMetrics, ToolTip,
-    TooltipParams, UiContext,
+    Anchor, AnchorLocation, Button, Card, CardParams, DynamicSize, DynamicString, Element,
+    ElementId, ElementSize, EventManager, Flex, Label, LabelText, SimpleLayoutCache,
+    SizeConstraints, TextMetrics, ToolTip, TooltipParams, UiContext,
 };
 use vn_vttrpg_window::graphics::GraphicsContext;
 use vn_vttrpg_window::input::InputState;
@@ -67,6 +67,9 @@ pub struct MainLogic {
     mouse_position: (f32, f32),
     ui: Option<RefCell<Box<dyn Element>>>,
     event_manager: Arc<RefCell<EventManager>>,
+    input_text_id: ElementId,
+    input_text: Arc<RefCell<String>>,
+    input_caret: Arc<RefCell<usize>>,
 }
 
 impl StateLogic<SceneRenderer> for MainLogic {
@@ -90,18 +93,68 @@ impl StateLogic<SceneRenderer> for MainLogic {
             fps_stats: Arc::new(RefCell::new(FpsStats::new())),
             ui: None,
             event_manager: Arc::new(RefCell::new(EventManager::new())),
+            input_text_id: ElementId(0),
+            input_text: Arc::new(RefCell::new("".to_string())),
+            input_caret: Arc::new(RefCell::new(0)),
         })
     }
 
     fn handle_key(&mut self, event_loop: &ActiveEventLoop, event: &KeyEvent) {
         self.input.handle_key(event);
 
+        let mut event_manager = self.event_manager.borrow_mut();
+        let events = event_manager.handle_key(event);
+
+        for (id, interaction_event) in events {
+            if id == self.input_text_id {
+                if let vn_vttrpg_ui::InteractionEvent::Keyboard(key_event) = interaction_event {
+                    if key_event.state.is_pressed() {
+                        use winit::keyboard::{Key, NamedKey};
+
+                        let mut text = self.input_text.borrow_mut();
+                        let mut caret = self.input_caret.borrow_mut();
+
+                        match &key_event.logical_key {
+                            Key::Character(s) => {
+                                text.insert_str(*caret, s.as_str());
+                                *caret += s.len();
+                            }
+                            Key::Named(NamedKey::Space) => {
+                                text.insert_str(*caret, " ");
+                                *caret += 1;
+                            }
+                            Key::Named(NamedKey::Backspace) => {
+                                if *caret > 0 && *caret <= text.len() {
+                                    *caret -= 1;
+                                    text.remove(*caret);
+                                }
+                            }
+                            Key::Named(NamedKey::Delete) => {
+                                if *caret < text.len() {
+                                    text.remove(*caret);
+                                }
+                            }
+                            Key::Named(NamedKey::ArrowLeft) => {
+                                if *caret > 0 {
+                                    *caret -= 1;
+                                }
+                            }
+                            Key::Named(NamedKey::ArrowRight) => {
+                                if *caret < text.len() {
+                                    *caret += 1;
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+
         use winit::keyboard::{KeyCode, PhysicalKey};
         match (event.physical_key, event.state.is_pressed()) {
             (PhysicalKey::Code(KeyCode::Escape), true) => event_loop.exit(),
-            _ => {
-                // log::info!("Key: {:?} State: {:?}", event.physical_key, event.state);
-            }
+            _ => {}
         }
     }
 
@@ -165,6 +218,14 @@ impl StateLogic<SceneRenderer> for MainLogic {
                     .unwrap();
                 (txt.texture.width() as f32, txt.texture.height() as f32)
             }
+
+            fn line_height(&self, font: &str, font_size: f32) -> f32 {
+                self.rm
+                    .get_or_render_text(&self.gc, "", &font, font_size)
+                    .unwrap()
+                    .texture
+                    .height() as f32
+            }
         }
 
         let mut event_manager = self.event_manager.borrow_mut();
@@ -174,7 +235,40 @@ impl StateLogic<SceneRenderer> for MainLogic {
             layout_cache: Box::new(SimpleLayoutCache::new()),
         };
 
-        use vn_vttrpg_ui::{AnchorParams, ButtonParams, LabelParams};
+        use vn_vttrpg_ui::{
+            AnchorParams, ButtonParams, CaretSource, LabelParams, TextInput, TextInputParams,
+        };
+
+        let name_input = TextInput::new(
+            TextInputParams {
+                label: LabelParams {
+                    text: LabelText::Static("".to_string()),
+                    font: "jetbrains-bold".to_string(),
+                    font_size: 48.0,
+                    color: Color::WHITE,
+                },
+                text: LabelText::Dynamic(DynamicString(Box::new({
+                    let text = self.input_text.clone();
+                    move || text.borrow().clone()
+                }))),
+                caret_position: CaretSource::Dynamic(Box::new({
+                    let caret = self.input_caret.clone();
+                    move || *caret.borrow()
+                })),
+            },
+            text_metric.clone(),
+            &mut ui_ctx,
+        );
+
+        self.input_text_id = name_input.id();
+
+        let name_input = Anchor::new(
+            Box::new(name_input),
+            AnchorParams {
+                location: AnchorLocation::CENTER,
+            },
+            &mut ui_ctx,
+        );
 
         let start = Label::new(
             LabelParams {
@@ -298,7 +392,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
 
         let tooltip2 = Label::new(
             LabelParams {
-                text: LabelText::Dynamic(fps_callback),
+                text: LabelText::Dynamic(DynamicString(fps_callback)),
                 font: "jetbrains-bold".to_string(),
                 font_size: 24.0,
                 color: Color::WHITE,
@@ -369,8 +463,24 @@ impl StateLogic<SceneRenderer> for MainLogic {
             &mut ui_ctx,
         );
 
+        let name_input = Card::new(
+            Box::new(name_input),
+            CardParams {
+                background_color: Color::BLACK.with_alpha(0.5),
+                border_size: 2.0,
+                border_color: Color::WHITE,
+                corner_radius: 5.0,
+            },
+            &mut ui_ctx,
+        );
+
         let menu = Flex::new_column(
-            vec![Box::new(start), Box::new(options), Box::new(exit)],
+            vec![
+                Box::new(name_input),
+                Box::new(start),
+                Box::new(options),
+                Box::new(exit),
+            ],
             &mut ui_ctx,
         );
 
