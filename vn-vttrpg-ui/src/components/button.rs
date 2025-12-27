@@ -1,5 +1,6 @@
+use crate::utils::ToArray;
 use crate::{Card, CardParams, ConcreteSize, Element, ElementId, SizeConstraints, UiContext};
-use vn_vttrpg_window::{Color, Scene};
+use vn_vttrpg_window::{Color, Rect, Scene};
 
 pub struct ButtonParams {
     pub background: Color,
@@ -51,21 +52,16 @@ impl Element for Button {
         size: ConcreteSize,
         scene: &mut Scene,
     ) {
-        // ctx.event_manager.register_hitbox(
-        //     self.ui_id,
-        //     0,
-        //     Rect {
-        //         position: [origin.0, origin.1],
-        //         size: [size.width, size.height],
-        //     },
-        // );
-        // if let Some(parent) = ctx.parent_id {
-        //     ctx.event_manager.set_parent(self.ui_id, parent);
-        // }
-        //
-        // let old_parent = ctx.parent_id;
-        // ctx.parent_id = Some(self.ui_id);
-        self.child.draw(ctx, origin, size, scene);
-        // ctx.parent_id = old_parent;
+        ctx.with_hitbox_hierarchy(
+            self.ui_id,
+            scene.current_layer_id(),
+            Rect {
+                position: origin.to_array(),
+                size: size.to_array(),
+            },
+            |ctx| {
+                self.child.draw(ctx, origin, size, scene);
+            },
+        );
     }
 }

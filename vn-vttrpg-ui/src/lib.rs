@@ -26,6 +26,7 @@ mod element;
 mod event_manager;
 mod layouts;
 mod sizes;
+mod utils;
 
 pub use components::*;
 pub use element::*;

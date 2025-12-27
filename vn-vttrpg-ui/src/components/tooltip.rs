@@ -2,6 +2,7 @@ use crate::components::ExtendedHitbox;
 use crate::{ConcreteSize, DynamicSize, Element, ElementId, SizeConstraints, UiContext};
 use vn_vttrpg_window::{Rect, Scene};
 use web_time::{Duration, Instant};
+use crate::utils::ToArray;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct TooltipParams {
@@ -106,8 +107,8 @@ impl Element for ToolTip {
             self.ui_id,
             scene.current_layer_id(),
             Rect {
-                position: [origin.0, origin.1],
-                size: [size.width, size.height],
+                position: origin.to_array(),
+                size: size.to_array(),
             },
             |ctx| {
                 self.element.draw(ctx, origin, size, scene);

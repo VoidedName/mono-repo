@@ -1,5 +1,6 @@
 use crate::{ConcreteSize, Element, ElementId, SizeConstraints, UiContext};
 use vn_vttrpg_window::{Rect, Scene};
+use crate::utils::ToArray;
 
 pub struct ExtendedHitbox {
     ui_id: ElementId,
@@ -29,8 +30,8 @@ impl Element for ExtendedHitbox {
             self.ui_id,
             scene.current_layer_id(),
             Rect {
-                position: [origin.0, origin.1],
-                size: [size.width, size.height],
+                position: origin.to_array(),
+                size: size.to_array(),
             },
             |ctx| {
                 self.element.draw(ctx, origin, size, scene);

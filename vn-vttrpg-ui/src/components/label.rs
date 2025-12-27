@@ -1,5 +1,6 @@
 use crate::{ConcreteSize, Element, SizeConstraints, UiContext};
 use vn_vttrpg_window::{Color, Scene, TextPrimitive};
+use crate::utils::ToArray;
 
 /// This keeps the UI agnostic to any specific graphics and resource management
 pub trait TextMetrics {
@@ -48,10 +49,10 @@ impl Element for Label {
     ) {
         scene.add_text(
             TextPrimitive::builder(self.params.text.clone(), self.params.font.clone())
-                .transform(|t| t.translation([origin.0, origin.1]))
+                .transform(|t| t.translation(origin.to_array()))
                 // dunno if i should be squishing / stretching or clipping here...
-                .size([self.size.width, self.size.height])
-                .clip_area(|c| c.size([size.width, size.height]))
+                .size(self.size.to_array())
+                .clip_area(|c| c.size(size.to_array()))
                 .font_size(self.params.font_size)
                 .tint(self.params.color)
                 .build(),
