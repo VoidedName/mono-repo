@@ -1,0 +1,88 @@
+use crate::{ConcreteSize, Element, SizeConstraints, UiContext};
+use vn_utils::UpdateOption;
+use vn_vttrpg_window::{BoxPrimitive, Color, Scene};
+
+#[derive(Clone, Copy)]
+pub struct CardParams {
+    pub background_color: Color,
+    pub border_size: f32,
+    pub border_color: Color,
+    pub corner_radius: f32,
+}
+
+pub struct Card {
+    child: Box<dyn Element>,
+    child_size: ConcreteSize,
+    params: CardParams,
+}
+
+impl Card {
+    pub fn new(child: Box<dyn Element>, params: CardParams) -> Self {
+        Self {
+            child,
+            child_size: ConcreteSize::ZERO,
+            params,
+        }
+    }
+}
+
+impl Element for Card {
+    fn layout(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
+        let mut child_constraints = constraints;
+        let margin = self.params.border_size * 2.0;
+
+        child_constraints
+            .max_size
+            .width
+            .update(|w| w.max(margin) - margin);
+        child_constraints
+            .max_size
+            .height
+            .update(|h| h.max(margin) - margin);
+
+        child_constraints.min_size.width = child_constraints.min_size.width.max(margin) - margin;
+        child_constraints.min_size.height = child_constraints.min_size.height.max(margin) - margin;
+
+        self.child_size = self.child.layout(ctx, child_constraints);
+
+        ConcreteSize {
+            width: self.child_size.width + margin,
+            height: self.child_size.height + margin,
+        }
+        .clamp_to_constraints(constraints)
+    }
+
+    fn draw_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        origin: (f32, f32),
+        size: ConcreteSize,
+        scene: &mut Scene,
+    ) {
+        let margin = self.params.border_size * 2.0;
+
+        scene.add_box(
+            BoxPrimitive::builder()
+                .transform(|t| t.translation([origin.0, origin.1]))
+                .color(self.params.background_color)
+                .border_color(self.params.border_color)
+                .corner_radius(self.params.corner_radius)
+                .border_thickness(self.params.border_size)
+                .size([size.width, size.height])
+                .build(),
+        );
+
+        self.child.draw(
+            ctx,
+            (
+                origin.0 + self.params.border_size,
+                origin.1 + self.params.border_size,
+            ),
+            ConcreteSize {
+                width: size.width.max(margin) - margin,
+                height: size.height.max(margin) - margin,
+            },
+            scene,
+        );
+    }
+}
