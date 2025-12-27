@@ -1,6 +1,6 @@
-use crate::{ConcreteSize, Element, ElementId, SizeConstraints, UiContext};
-use vn_vttrpg_window::{Rect, Scene};
 use crate::utils::ToArray;
+use crate::{Element, ElementId, ElementSize, SizeConstraints, UiContext};
+use vn_vttrpg_window::{Rect, Scene};
 
 pub struct ExtendedHitbox {
     id: ElementId,
@@ -19,7 +19,7 @@ impl Element for ExtendedHitbox {
         self.id
     }
 
-    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
+    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
         self.element.layout(ctx, constraints)
     }
 
@@ -27,7 +27,7 @@ impl Element for ExtendedHitbox {
         &mut self,
         ctx: &mut UiContext,
         origin: (f32, f32),
-        size: ConcreteSize,
+        size: ElementSize,
         scene: &mut Scene,
     ) {
         ctx.with_hitbox_hierarchy(

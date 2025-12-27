@@ -1,22 +1,27 @@
 use vn_vttrpg_window::scene::SceneSize;
 
+// instead? in addition to? anyway, consider
+// returning a complex size for elements instead
+// usecase: while we can indicate to greedy growing components that the container is unsized
+//          we can not know if the child is greedy.
+
 /// A concrete size with a fixed width and height.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct ConcreteSize {
+pub struct ElementSize {
     pub width: f32,
     pub height: f32,
 }
 
-impl ConcreteSize {
-    pub const ZERO: ConcreteSize = ConcreteSize {
+impl ElementSize {
+    pub const ZERO: ElementSize = ElementSize {
         width: 0.0,
         height: 0.0,
     };
 
-    pub fn clamp_to_constraints(self, constraints: SizeConstraints) -> ConcreteSize {
+    pub fn clamp_to_constraints(self, constraints: SizeConstraints) -> ElementSize {
         let max_size = constraints.max_size.to_concrete();
 
-        ConcreteSize {
+        ElementSize {
             width: self
                 .width
                 .min(max_size.width)
@@ -38,8 +43,8 @@ pub struct DynamicSize {
 }
 
 impl DynamicSize {
-    pub fn to_concrete(self) -> ConcreteSize {
-        ConcreteSize {
+    pub fn to_concrete(self) -> ElementSize {
+        ElementSize {
             width: self.width.unwrap_or(f32::INFINITY),
             height: self.height.unwrap_or(f32::INFINITY),
         }
@@ -49,7 +54,7 @@ impl DynamicSize {
 /// Defines the minimum and maximum size constraints for layout.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SizeConstraints {
-    pub min_size: ConcreteSize,
+    pub min_size: ElementSize,
     pub max_size: DynamicSize,
     pub scene_size: SceneSize,
 }

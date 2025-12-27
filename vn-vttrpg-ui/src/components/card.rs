@@ -1,4 +1,4 @@
-use crate::{ConcreteSize, Element, ElementId, SizeConstraints, UiContext};
+use crate::{Element, ElementId, ElementSize, SizeConstraints, UiContext};
 use vn_utils::UpdateOption;
 use vn_vttrpg_window::{BoxPrimitive, Color, Scene};
 
@@ -13,7 +13,7 @@ pub struct CardParams {
 pub struct Card {
     id: ElementId,
     child: Box<dyn Element>,
-    child_size: ConcreteSize,
+    child_size: ElementSize,
     params: CardParams,
 }
 
@@ -22,7 +22,7 @@ impl Card {
         Self {
             id: ctx.event_manager.next_id(),
             child,
-            child_size: ConcreteSize::ZERO,
+            child_size: ElementSize::ZERO,
             params,
         }
     }
@@ -33,7 +33,7 @@ impl Element for Card {
         self.id
     }
 
-    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
+    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
         let mut child_constraints = constraints;
         let margin = self.params.border_size * 2.0;
 
@@ -51,7 +51,7 @@ impl Element for Card {
 
         self.child_size = self.child.layout(ctx, child_constraints);
 
-        ConcreteSize {
+        ElementSize {
             width: self.child_size.width + margin,
             height: self.child_size.height + margin,
         }
@@ -62,7 +62,7 @@ impl Element for Card {
         &mut self,
         ctx: &mut UiContext,
         origin: (f32, f32),
-        size: ConcreteSize,
+        size: ElementSize,
         scene: &mut Scene,
     ) {
         let margin = self.params.border_size * 2.0;
@@ -84,7 +84,7 @@ impl Element for Card {
                 origin.0 + self.params.border_size,
                 origin.1 + self.params.border_size,
             ),
-            ConcreteSize {
+            ElementSize {
                 width: size.width.max(margin) - margin,
                 height: size.height.max(margin) - margin,
             },

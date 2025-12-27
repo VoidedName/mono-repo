@@ -1,8 +1,8 @@
 use crate::components::ExtendedHitbox;
-use crate::{ConcreteSize, DynamicSize, Element, ElementId, SizeConstraints, UiContext};
+use crate::utils::ToArray;
+use crate::{DynamicSize, Element, ElementId, ElementSize, SizeConstraints, UiContext};
 use vn_vttrpg_window::{Rect, Scene};
 use web_time::{Duration, Instant};
-use crate::utils::ToArray;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct TooltipParams {
@@ -15,7 +15,7 @@ pub struct ToolTip {
     element: Box<dyn Element>,
     tooltip: Box<dyn Element>,
     show_tooltip: bool,
-    tool_tip_size: ConcreteSize,
+    tool_tip_size: ElementSize,
     hovered_last_at: Instant,
     hovered_start_at: Option<Instant>,
     hover_delay: Duration,
@@ -37,7 +37,7 @@ impl ToolTip {
             element,
             tooltip: Box::new(ExtendedHitbox::new(tooltip, ctx)),
             show_tooltip: false,
-            tool_tip_size: ConcreteSize::ZERO,
+            tool_tip_size: ElementSize::ZERO,
             hovered_last_at: Instant::now() - hover_retain - hover_retain,
             hovered_start_at: None,
             hover_delay,
@@ -50,8 +50,8 @@ impl Element for ToolTip {
     fn id(&self) -> ElementId {
         self.id
     }
-    
-    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
+
+    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
         let is_hovered = ctx.event_manager.is_hovered(self.id);
 
         match (self.show_tooltip, is_hovered, self.hovered_start_at) {
@@ -82,7 +82,7 @@ impl Element for ToolTip {
             self.tool_tip_size = self.tooltip.layout(
                 ctx,
                 SizeConstraints {
-                    min_size: ConcreteSize {
+                    min_size: ElementSize {
                         width: 0.0,
                         height: 0.0,
                     },
@@ -102,7 +102,7 @@ impl Element for ToolTip {
         &mut self,
         ctx: &mut UiContext,
         origin: (f32, f32),
-        size: ConcreteSize,
+        size: ElementSize,
         scene: &mut Scene,
     ) {
         ctx.with_hitbox_hierarchy(

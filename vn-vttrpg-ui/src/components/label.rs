@@ -1,5 +1,5 @@
 use crate::utils::ToArray;
-use crate::{ConcreteSize, Element, ElementId, SizeConstraints, UiContext};
+use crate::{Element, ElementId, ElementSize, SizeConstraints, UiContext};
 use std::sync::Arc;
 use vn_vttrpg_window::{Color, Scene, TextPrimitive};
 
@@ -21,16 +21,20 @@ pub struct Label {
     params: LabelParams,
     text: String,
     text_metrics: Arc<dyn TextMetrics>,
-    size: ConcreteSize,
+    size: ElementSize,
 }
 
 pub enum LabelText {
     Static(String),
-    Dynamic(Arc<Box<dyn Fn() -> String>>),
+    Dynamic(Box<dyn Fn() -> String>),
 }
 
 impl Label {
-    pub fn new<T: TextMetrics + 'static>(params: LabelParams, text_metrics: Arc<T>, ctx: &mut UiContext) -> Self {
+    pub fn new<T: TextMetrics + 'static>(
+        params: LabelParams,
+        text_metrics: Arc<T>,
+        ctx: &mut UiContext,
+    ) -> Self {
         let text = match &params.text {
             LabelText::Static(text) => text.clone(),
             LabelText::Dynamic(text) => text(),
@@ -43,7 +47,7 @@ impl Label {
             text,
             params,
             text_metrics,
-            size: ConcreteSize { width, height },
+            size: ElementSize { width, height },
         }
     }
 
@@ -59,7 +63,7 @@ impl Label {
                         &self.params.font,
                         self.params.font_size,
                     );
-                    self.size = ConcreteSize { width, height };
+                    self.size = ElementSize { width, height };
                 }
             }
         }
@@ -70,8 +74,8 @@ impl Element for Label {
     fn id(&self) -> ElementId {
         self.id
     }
-    
-    fn layout_impl(&mut self, _ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
+
+    fn layout_impl(&mut self, _ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
         self.update_text();
         self.size.clamp_to_constraints(constraints)
     }
@@ -80,7 +84,7 @@ impl Element for Label {
         &mut self,
         _ctx: &mut UiContext,
         origin: (f32, f32),
-        size: ConcreteSize,
+        size: ElementSize,
         scene: &mut Scene,
     ) {
         scene.add_text(

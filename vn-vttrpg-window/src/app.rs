@@ -125,7 +125,11 @@ impl<T: StateLogic<SceneRenderer>> ApplicationHandler<RenderingContext<T>> for A
             WindowEvent::CursorMoved { position, .. } => {
                 state.handle_mouse_position(position.x as f32, position.y as f32);
             }
-            WindowEvent::MouseInput { state: button_state, button, .. } => {
+            WindowEvent::MouseInput {
+                state: button_state,
+                button,
+                ..
+            } => {
                 state.handle_mouse_button(button, button_state);
             }
             _ => {}

@@ -1,9 +1,9 @@
-use crate::{ConcreteSize, ElementId, SizeConstraints, UiContext};
+use crate::{ElementId, ElementSize, SizeConstraints, UiContext};
 use std::collections::HashMap;
 use vn_vttrpg_window::Scene;
 
 pub struct SimpleLayoutCache {
-    cache: HashMap<ElementId, (SizeConstraints, ConcreteSize)>,
+    cache: HashMap<ElementId, (SizeConstraints, ElementSize)>,
 }
 
 impl SimpleLayoutCache {
@@ -15,12 +15,12 @@ impl SimpleLayoutCache {
 }
 
 pub trait LayoutCache {
-    fn lookup(&self, element_id: ElementId, constraints: SizeConstraints) -> Option<ConcreteSize>;
-    fn cache(&mut self, element_id: ElementId, constraints: SizeConstraints, size: ConcreteSize);
+    fn lookup(&self, element_id: ElementId, constraints: SizeConstraints) -> Option<ElementSize>;
+    fn cache(&mut self, element_id: ElementId, constraints: SizeConstraints, size: ElementSize);
 }
 
 impl LayoutCache for SimpleLayoutCache {
-    fn lookup(&self, element_id: ElementId, constraints: SizeConstraints) -> Option<ConcreteSize> {
+    fn lookup(&self, element_id: ElementId, constraints: SizeConstraints) -> Option<ElementSize> {
         self.cache
             .get(&element_id)
             .map(|(cached_constraints, s)| {
@@ -33,7 +33,7 @@ impl LayoutCache for SimpleLayoutCache {
             .flatten()
     }
 
-    fn cache(&mut self, element_id: ElementId, constraints: SizeConstraints, size: ConcreteSize) {
+    fn cache(&mut self, element_id: ElementId, constraints: SizeConstraints, size: ElementSize) {
         self.cache.insert(element_id, (constraints, size));
     }
 }
@@ -44,7 +44,7 @@ impl LayoutCache for SimpleLayoutCache {
 pub trait Element {
     fn id(&self) -> ElementId;
 
-    fn layout(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
+    fn layout(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
         if let Some(cached_size) = ctx.layout_cache.lookup(self.id(), constraints) {
             return cached_size;
         }
@@ -57,7 +57,7 @@ pub trait Element {
     }
 
     /// Determines the size of the element given the layout constraints.
-    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize;
+    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize;
 
     /// Call this method to draw the element at the specified origin with the given size into the scene.
     ///
@@ -66,7 +66,7 @@ pub trait Element {
         &mut self,
         ctx: &mut UiContext,
         origin: (f32, f32),
-        size: ConcreteSize,
+        size: ElementSize,
         scene: &mut Scene,
     ) {
         self.draw_impl(ctx, origin, size, scene);
@@ -95,7 +95,7 @@ pub trait Element {
         &mut self,
         ctx: &mut UiContext,
         origin: (f32, f32),
-        size: ConcreteSize,
+        size: ElementSize,
         scene: &mut Scene,
     );
 }

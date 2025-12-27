@@ -1,6 +1,6 @@
+use crate::LayoutCache;
 use std::collections::{HashMap, HashSet};
 use vn_vttrpg_window::Rect;
-use crate::LayoutCache;
 
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
 pub struct ElementId(pub u32);
@@ -135,7 +135,12 @@ impl EventManager {
         hits.first().map(|(id, _, _)| *id)
     }
 
-    pub fn handle_mouse_down(&mut self, x: f32, y: f32, button: MouseButton) -> Vec<(ElementId, InteractionEvent)> {
+    pub fn handle_mouse_down(
+        &mut self,
+        x: f32,
+        y: f32,
+        button: MouseButton,
+    ) -> Vec<(ElementId, InteractionEvent)> {
         let top_hit = self.get_top_hit(x, y);
         let mut events = Vec::new();
 
@@ -149,13 +154,18 @@ impl EventManager {
         events
     }
 
-    pub fn handle_mouse_up(&mut self, x: f32, y: f32, button: MouseButton) -> Vec<(ElementId, InteractionEvent)> {
+    pub fn handle_mouse_up(
+        &mut self,
+        x: f32,
+        y: f32,
+        button: MouseButton,
+    ) -> Vec<(ElementId, InteractionEvent)> {
         let top_hit = self.get_top_hit(x, y);
         let mut events = Vec::new();
 
         if let Some(id) = top_hit {
             events.push((id, InteractionEvent::MouseUp { button, x, y }));
-            
+
             if self.focused_element == Some(id) {
                 events.push((id, InteractionEvent::Click { button, x, y }));
             }
@@ -168,7 +178,7 @@ impl EventManager {
 pub struct UiContext<'a> {
     pub event_manager: &'a mut EventManager,
     pub parent_id: Option<ElementId>,
-    pub layout_cache: Box<dyn LayoutCache>
+    pub layout_cache: Box<dyn LayoutCache>,
 }
 
 impl UiContext<'_> {

@@ -1,7 +1,4 @@
-use crate::{
-    ConcreteSize, DynamicSize, Element, ElementId, LayoutCache, SimpleLayoutCache, SizeConstraints,
-    UiContext,
-};
+use crate::{Element, ElementId, ElementSize, SizeConstraints, UiContext};
 use vn_vttrpg_window::Scene;
 
 #[derive(Clone, Copy)]
@@ -18,7 +15,7 @@ pub struct FlexParams {
 pub struct Flex {
     id: ElementId,
     children: Vec<Box<dyn Element>>,
-    layout: Vec<ConcreteSize>,
+    layout: Vec<ElementSize>,
     params: FlexParams,
 }
 
@@ -26,7 +23,7 @@ impl Flex {
     pub fn new(children: Vec<Box<dyn Element>>, params: FlexParams, ctx: &mut UiContext) -> Self {
         Self {
             id: ctx.event_manager.next_id(),
-            layout: std::iter::repeat(ConcreteSize::ZERO)
+            layout: std::iter::repeat(ElementSize::ZERO)
                 .take(children.len())
                 .collect(),
             children,
@@ -61,36 +58,15 @@ impl Element for Flex {
         self.id
     }
 
-    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
+    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
         // what do we do with containers that grow? like anchor?
         // do we extend constraints to denote that they should not grow along some axis?
         let mut total_in_direction: f32 = 0.0;
         let mut max_orthogonal: f32 = 0.0;
 
-        let mut child_constraints = match self.params.direction {
-            FlexDirection::Row => SizeConstraints {
-                min_size: ConcreteSize {
-                    width: 0.0,
-                    height: constraints.min_size.height,
-                },
-                max_size: DynamicSize {
-                    width: None,
-                    height: constraints.max_size.height,
-                },
-                scene_size: constraints.scene_size,
-            },
-            FlexDirection::Column => SizeConstraints {
-                min_size: ConcreteSize {
-                    width: constraints.min_size.width,
-                    height: 0.0,
-                },
-                max_size: DynamicSize {
-                    width: constraints.max_size.width,
-                    height: None,
-                },
-                scene_size: constraints.scene_size,
-            },
-        };
+        let mut child_constraints = constraints.clone();
+        child_constraints.max_size.width = None;
+        child_constraints.max_size.height = None;
 
         for (_, child) in self.children.iter_mut().enumerate() {
             let child_size = child.layout_impl(ctx, child_constraints);
@@ -132,11 +108,11 @@ impl Element for Flex {
         }
 
         let size = match self.params.direction {
-            FlexDirection::Row => ConcreteSize {
+            FlexDirection::Row => ElementSize {
                 width: total_in_direction,
                 height: max_orthogonal,
             },
-            FlexDirection::Column => ConcreteSize {
+            FlexDirection::Column => ElementSize {
                 width: max_orthogonal,
                 height: total_in_direction,
             },
@@ -150,7 +126,7 @@ impl Element for Flex {
         &mut self,
         ctx: &mut UiContext,
         origin: (f32, f32),
-        size: ConcreteSize,
+        size: ElementSize,
         scene: &mut Scene,
     ) {
         let mut offset = match self.params.direction {

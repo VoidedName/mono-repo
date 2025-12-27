@@ -1,8 +1,7 @@
 use std::cell::RefCell;
-use std::fmt::format;
 use std::sync::Arc;
 use vn_vttrpg_ui::{
-    Anchor, AnchorLocation, Button, Card, CardParams, ConcreteSize, DynamicSize, Element,
+    Anchor, AnchorLocation, Button, Card, CardParams, DynamicSize, Element, ElementSize,
     EventManager, Flex, Label, LabelText, SimpleLayoutCache, SizeConstraints, TextMetrics, ToolTip,
     TooltipParams, UiContext,
 };
@@ -209,31 +208,52 @@ impl StateLogic<SceneRenderer> for MainLogic {
             text_metric.clone(),
             &mut ui_ctx,
         );
-
+        let start = Anchor::new(
+            Box::new(start),
+            AnchorParams {
+                location: AnchorLocation::CENTER,
+            },
+            &mut ui_ctx,
+        );
         let start = Button::new(
             Box::new(start),
             ButtonParams {
-                background: Color::GREEN,
+                background: Color::TRANSPARENT,
                 border_color: Color::WHITE,
                 border_width: 2.0,
                 corner_radius: 10.0,
+            },
+            &mut ui_ctx,
+        );
+        let options = Anchor::new(
+            Box::new(options),
+            AnchorParams {
+                location: AnchorLocation::CENTER,
             },
             &mut ui_ctx,
         );
         let options = Button::new(
             Box::new(options),
             ButtonParams {
-                background: Color::BLUE,
+                background: Color::TRANSPARENT,
                 border_color: Color::WHITE,
                 border_width: 2.0,
                 corner_radius: 10.0,
             },
             &mut ui_ctx,
         );
+
+        let exit = Anchor::new(
+            Box::new(exit),
+            AnchorParams {
+                location: AnchorLocation::CENTER,
+            },
+            &mut ui_ctx,
+        );
         let exit = Button::new(
             Box::new(exit),
             ButtonParams {
-                background: Color::RED,
+                background: Color::TRANSPARENT,
                 border_color: Color::WHITE,
                 border_width: 2.0,
                 corner_radius: 10.0,
@@ -265,18 +285,20 @@ impl StateLogic<SceneRenderer> for MainLogic {
 
         let fps = self.fps_stats.clone();
 
+        let fps_callback = Box::new(move || {
+            format!(
+                "FPS: {:>6.2?}",
+                fps.borrow()
+                    .current_fps
+                    .borrow()
+                    .as_ref()
+                    .unwrap_or(&f32::NAN)
+            )
+        });
+
         let tooltip2 = Label::new(
             LabelParams {
-                text: LabelText::Dynamic(Arc::new(Box::new(move || {
-                    format!(
-                        "FPS: {:>6.2?}",
-                        fps.borrow()
-                            .current_fps
-                            .borrow()
-                            .as_ref()
-                            .unwrap_or(&f32::NAN)
-                    )
-                }))),
+                text: LabelText::Dynamic(fps_callback),
                 font: "jetbrains-bold".to_string(),
                 font_size: 24.0,
                 color: Color::WHITE,
@@ -315,14 +337,6 @@ impl StateLogic<SceneRenderer> for MainLogic {
             &mut ui_ctx,
         );
 
-        // let start = Anchor::new(
-        //     Box::new(start),
-        //     AnchorParams {
-        //         location: AnchorLocation::CENTER,
-        //     },
-        //     &mut ui_ctx,
-        // );
-
         let tooltip = Label::new(
             LabelParams {
                 text: LabelText::Static("Open the options".to_string()),
@@ -354,21 +368,6 @@ impl StateLogic<SceneRenderer> for MainLogic {
             },
             &mut ui_ctx,
         );
-        // let options = Anchor::new(
-        //     Box::new(options),
-        //     AnchorParams {
-        //         location: AnchorLocation::CENTER,
-        //     },
-        //     &mut ui_ctx,
-        // );
-
-        // let exit = Anchor::new(
-        //     Box::new(exit),
-        //     AnchorParams {
-        //         location: AnchorLocation::CENTER,
-        //     },
-        //     &mut ui_ctx,
-        // );
 
         let menu = Flex::new_column(
             vec![Box::new(start), Box::new(options), Box::new(exit)],
@@ -422,7 +421,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
             ui.layout(
                 &mut ctx,
                 SizeConstraints {
-                    min_size: ConcreteSize {
+                    min_size: ElementSize {
                         width: 0.0,
                         height: 0.0,
                     },
@@ -437,7 +436,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
             ui.draw(
                 &mut ctx,
                 (0.0, 0.0),
-                ConcreteSize {
+                ElementSize {
                     width: self.size.0 as f32,
                     height: self.size.1 as f32,
                 },

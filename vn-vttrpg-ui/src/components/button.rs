@@ -1,5 +1,5 @@
 use crate::utils::ToArray;
-use crate::{ConcreteSize, Element, ElementId, SizeConstraints, UiContext};
+use crate::{Element, ElementId, ElementSize, SizeConstraints, UiContext};
 use vn_vttrpg_window::{BoxPrimitive, Color, Rect, Scene};
 
 pub struct ButtonParams {
@@ -38,7 +38,7 @@ impl Element for Button {
         self.id
     }
 
-    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
+    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
         self.child.layout(ctx, constraints)
     }
 
@@ -46,7 +46,7 @@ impl Element for Button {
         &mut self,
         ctx: &mut UiContext,
         origin: (f32, f32),
-        size: ConcreteSize,
+        size: ElementSize,
         scene: &mut Scene,
     ) {
         let is_hovered = ctx.event_manager.is_hovered(self.id);
@@ -90,7 +90,7 @@ impl Element for Button {
                         origin.0 + self.params.border_width,
                         origin.1 + self.params.border_width,
                     ),
-                    ConcreteSize {
+                    ElementSize {
                         width: size.width.max(margin) - margin,
                         height: size.height.max(margin) - margin,
                     },

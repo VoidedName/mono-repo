@@ -19,7 +19,12 @@ pub trait StateLogic<R: Renderer>: Sized + 'static {
     fn handle_mouse_position(&mut self, x: f32, y: f32) {}
 
     #[allow(unused_variables)]
-    fn handle_mouse_button(&mut self, button: winit::event::MouseButton, state: winit::event::ElementState) {}
+    fn handle_mouse_button(
+        &mut self,
+        button: winit::event::MouseButton,
+        state: winit::event::ElementState,
+    ) {
+    }
 
     #[allow(unused_variables)]
     fn resized(&mut self, width: u32, height: u32) {}

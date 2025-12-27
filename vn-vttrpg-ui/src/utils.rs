@@ -1,4 +1,4 @@
-use crate::ConcreteSize;
+use crate::ElementSize;
 
 pub trait ToArray {
     type ArrayType;
@@ -13,7 +13,7 @@ impl ToArray for (f32, f32) {
     }
 }
 
-impl ToArray for ConcreteSize {
+impl ToArray for ElementSize {
     type ArrayType = [f32; 2];
     fn to_array(self) -> Self::ArrayType {
         [self.width, self.height]
