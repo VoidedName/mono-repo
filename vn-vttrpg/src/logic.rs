@@ -263,7 +263,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
 
         let tooltip1 = Label::new(
             LabelParams {
-                text: LabelText::Static("Start this thing".to_string()),
+                text: LabelText::Static("Start this thing\n\tI guess".to_string()),
                 font: "jetbrains-bold".to_string(),
                 font_size: 24.0,
                 color: Color::WHITE,

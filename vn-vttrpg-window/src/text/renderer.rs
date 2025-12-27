@@ -207,25 +207,38 @@ impl TextRenderer {
         let mut all_segments = Vec::new();
 
         let ascender = face.ascender() as f32 * scale;
+        let line_height =
+            (face.ascender() as f32 - face.descender() as f32 + face.line_gap() as f32) * scale;
 
+        let mut current_y = ascender;
         let mut min_x = f32::MAX;
         let mut min_y = f32::MAX;
         let mut max_x = f32::MIN;
         let mut max_y = f32::MIN;
 
         for c in text.chars() {
+            if c == '\n' {
+                current_x = 0.0;
+                current_y += line_height;
+                continue;
+            }
+
+            if c == '\r' {
+                continue;
+            }
+
             if let Some(glyph_id) = face.glyph_index(c) {
                 let segment_start = all_segments.len() as u32;
 
-                let mut collector = OutlineCollector::new([current_x, ascender], scale);
+                let mut collector = OutlineCollector::new([current_x, current_y], scale);
                 face.outline_glyph(glyph_id, &mut collector);
                 let segment_count = collector.segments.len() as u32;
 
                 if let Some(bbox) = face.glyph_bounding_box(glyph_id) {
                     let r_min_x = current_x + bbox.x_min as f32 * scale;
                     let r_max_x = current_x + bbox.x_max as f32 * scale;
-                    let r_min_y = ascender - bbox.y_max as f32 * scale;
-                    let r_max_y = ascender - bbox.y_min as f32 * scale;
+                    let r_min_y = current_y - bbox.y_max as f32 * scale;
+                    let r_max_y = current_y - bbox.y_min as f32 * scale;
 
                     glyph_instances.push(GpuGlyph {
                         rect_min: [r_min_x, r_min_y],
