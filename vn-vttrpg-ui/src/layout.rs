@@ -1,8 +1,4 @@
-use crate::{
-    ConcreteSize, DynamicSize, Element, EventHandler, SizeConstraints, UiEvents, UiMouseEvent,
-};
-use std::cell::RefCell;
-use std::sync::Arc;
+use crate::{ConcreteSize, DynamicSize, Element, ElementId, SizeConstraints, UiContext};
 use vn_utils::UpdateOption;
 use vn_vttrpg_window::{BoxPrimitive, Color, Rect, Scene};
 use web_time::{Duration, Instant};
@@ -46,8 +42,8 @@ impl Anchor {
 }
 
 impl Element for Anchor {
-    fn layout(&mut self, constraints: SizeConstraints) -> ConcreteSize {
-        self.child_size = self.child.layout(constraints);
+    fn layout(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
+        self.child_size = self.child.layout(ctx, constraints);
 
         // if a component has no constraints, use its child's size
         let width = match constraints.max_size.width {
@@ -63,10 +59,17 @@ impl Element for Anchor {
         ConcreteSize { width, height }
     }
 
-    fn draw_impl(&mut self, origin: (f32, f32), size: ConcreteSize, scene: &mut Scene) {
+    fn draw_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        origin: (f32, f32),
+        size: ConcreteSize,
+        scene: &mut Scene,
+    ) {
         match self.params.location {
             AnchorLocation::TOP => {
                 self.child.draw(
+                    ctx,
                     (
                         origin.0 + size.width / 2.0 - self.child_size.width / 2.0,
                         origin.1,
@@ -77,6 +80,7 @@ impl Element for Anchor {
             }
             AnchorLocation::BOTTOM => {
                 self.child.draw(
+                    ctx,
                     (
                         origin.0 + size.width / 2.0 - self.child_size.width / 2.0,
                         origin.1 + (size.height - self.child_size.height),
@@ -87,6 +91,7 @@ impl Element for Anchor {
             }
             AnchorLocation::LEFT => {
                 self.child.draw(
+                    ctx,
                     (
                         origin.0,
                         origin.1 + size.height / 2.0 - self.child_size.height / 2.0,
@@ -97,6 +102,7 @@ impl Element for Anchor {
             }
             AnchorLocation::RIGHT => {
                 self.child.draw(
+                    ctx,
                     (
                         origin.0 + (size.width - self.child_size.width),
                         origin.1 + size.height / 2.0 - self.child_size.height / 2.0,
@@ -107,21 +113,24 @@ impl Element for Anchor {
             }
 
             AnchorLocation::TopLeft => {
-                self.child.draw(origin, self.child_size, scene);
+                self.child.draw(ctx, origin, self.child_size, scene);
             }
             AnchorLocation::TopRight => {
                 self.child.draw(
+                    ctx,
                     (origin.0 + size.width - self.child_size.width, origin.1),
                     self.child_size,
                     scene,
                 );
             }
             AnchorLocation::BottomLeft => self.child.draw(
+                ctx,
                 (origin.0, origin.1 + size.height - self.child_size.height),
                 self.child_size,
                 scene,
             ),
             AnchorLocation::BottomRight => self.child.draw(
+                ctx,
                 (
                     origin.0 + size.width - self.child_size.width,
                     origin.1 + size.height - self.child_size.height,
@@ -129,8 +138,8 @@ impl Element for Anchor {
                 self.child_size,
                 scene,
             ),
-
             AnchorLocation::CENTER => self.child.draw(
+                ctx,
                 (
                     origin.0 + size.width / 2.0 - self.child_size.width / 2.0,
                     origin.1 + size.height / 2.0 - self.child_size.height / 2.0,
@@ -167,7 +176,7 @@ impl Card {
 }
 
 impl Element for Card {
-    fn layout(&mut self, constraints: SizeConstraints) -> ConcreteSize {
+    fn layout(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
         let mut child_constraints = constraints;
         let margin = self.params.border_size * 2.0;
 
@@ -183,7 +192,8 @@ impl Element for Card {
         child_constraints.min_size.width = child_constraints.min_size.width.max(margin) - margin;
         child_constraints.min_size.height = child_constraints.min_size.height.max(margin) - margin;
 
-        self.child_size = self.child.layout(child_constraints);
+        self.child_size = self.child.layout(ctx, child_constraints);
+
         ConcreteSize {
             width: self.child_size.width + margin,
             height: self.child_size.height + margin,
@@ -191,7 +201,13 @@ impl Element for Card {
         .clamp_to_constraints(constraints)
     }
 
-    fn draw_impl(&mut self, origin: (f32, f32), size: ConcreteSize, scene: &mut Scene) {
+    fn draw_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        origin: (f32, f32),
+        size: ConcreteSize,
+        scene: &mut Scene,
+    ) {
         let margin = self.params.border_size * 2.0;
 
         scene.add_box(
@@ -206,6 +222,7 @@ impl Element for Card {
         );
 
         self.child.draw(
+            ctx,
             (
                 origin.0 + self.params.border_size,
                 origin.1 + self.params.border_size,
@@ -268,7 +285,7 @@ impl Flex {
 
 // todo: allow for weight / spacing between children?
 impl Element for Flex {
-    fn layout(&mut self, constraints: SizeConstraints) -> ConcreteSize {
+    fn layout(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
         // what do we do with containers that grow? like anchor?
         // do we extend constraints to denote that they should not grow along some axis?
 
@@ -301,7 +318,7 @@ impl Element for Flex {
         };
 
         for (idx, child) in self.children.iter_mut().enumerate() {
-            let child_size = child.layout(child_constraints);
+            let child_size = child.layout(ctx, child_constraints);
 
             match self.params.direction {
                 FlexDirection::Row => {
@@ -330,7 +347,13 @@ impl Element for Flex {
         .clamp_to_constraints(constraints)
     }
 
-    fn draw_impl(&mut self, origin: (f32, f32), size: ConcreteSize, scene: &mut Scene) {
+    fn draw_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        origin: (f32, f32),
+        size: ConcreteSize,
+        scene: &mut Scene,
+    ) {
         let mut offset = match self.params.direction {
             FlexDirection::Row => origin.0,
             FlexDirection::Column => origin.1,
@@ -344,7 +367,7 @@ impl Element for Flex {
                     child_size.width = child_size.width.min(size.width - (offset - origin.0));
                     child_size.height = child_size.height.min(size.height);
 
-                    child.draw((offset, origin.1), child_size, scene);
+                    child.draw(ctx, (offset, origin.1), child_size, scene);
                     offset += self.layout[idx].width;
                 }
                 FlexDirection::Column => {
@@ -352,7 +375,7 @@ impl Element for Flex {
                     child_size.width = child_size.width.min(size.width);
                     child_size.height = child_size.height.min(size.height - (offset - origin.1));
 
-                    child.draw((origin.0, offset), child_size, scene);
+                    child.draw(ctx, (origin.0, offset), child_size, scene);
                     offset += self.layout[idx].height;
                 }
             }
@@ -360,179 +383,161 @@ impl Element for Flex {
     }
 }
 
-// extended hitbox works for non interactive tooltips, but a tooltip that has a tooltip
-// will not work this way, as we are unaware of the sub-tooltips extended hitbox.
-// should we instead finally start constructing elements with ids and trigger some
-// "has mouse focus" event? What would this event look like?
-//      MouseFocus { target_id: ElementId } // if the parent knows the id, they can now
-//                                              also become focused, but what about their parent?
-//                                              and should it be "focused" anyway?
+#[derive(Clone, Copy, Debug, Default)]
+pub struct TooltipParams {
+    pub hover_delay: Option<Duration>,
+    pub hover_retain: Option<Duration>,
+}
+
 pub struct ToolTip {
-    ui_id: u32,
-    ui_events: Arc<RefCell<UiEvents>>,
-    extended_hitbox: ExtendedHitbox,
+    ui_id: ElementId,
     element: Box<dyn Element>,
     tooltip: Box<dyn Element>,
     show_tooltip: bool,
     tool_tip_size: ConcreteSize,
-    mouse_over_time: Arc<RefCell<Instant>>,
+    hovered_last_at: Instant,
+    hovered_start_at: Option<Instant>,
+    hover_delay: Duration,
+    hover_retain: Duration,
 }
 
 impl ToolTip {
     pub fn new(
         element: Box<dyn Element>,
         tooltip: Box<dyn Element>,
-        ui_events: Arc<RefCell<UiEvents>>,
+        params: TooltipParams,
+        ctx: &mut UiContext,
     ) -> Self {
-        let ui_events = ui_events.clone();
-        let mouse_over_time = Arc::new(RefCell::new(Instant::now() - Duration::new(1, 0)));
-        let mouse_was_in_hitbox_last_at = mouse_over_time.clone();
+        let ui_id = ctx.event_manager.next_id();
 
-        let handler = Arc::new(RefCell::new(move |event: UiMouseEvent| {
-            if let UiMouseEvent::Moved { .. } = event {
-                mouse_was_in_hitbox_last_at.replace(Instant::now());
-            }
-        }));
-
-        let ui_id = ui_events.borrow_mut().register_hitbox(
-            0,
-            Rect {
-                position: [-1.0, -1.0],
-                size: [0.0, 0.0],
-            },
-            handler.clone(),
-        );
-
-        let extended_hitbox = ExtendedHitbox::new(ConcreteSize::ZERO, ui_events.clone(), handler);
+        let hover_delay = params.hover_delay.unwrap_or(Duration::from_secs_f32(0.1));
+        let hover_retain = params.hover_retain.unwrap_or(Duration::from_secs_f32(0.1));
 
         Self {
             ui_id,
-            ui_events,
-            extended_hitbox,
             element,
-            tooltip,
+            tooltip: Box::new(ExtendedHitbox::new(tooltip, ctx)),
             show_tooltip: false,
-            mouse_over_time,
             tool_tip_size: ConcreteSize::ZERO,
+            hovered_last_at: Instant::now() - hover_retain - hover_retain,
+            hovered_start_at: None,
+            hover_delay,
+            hover_retain,
         }
-    }
-}
-
-impl Drop for ToolTip {
-    fn drop(&mut self) {
-        self.ui_events.borrow_mut().deregister_hitbox(self.ui_id);
     }
 }
 
 impl Element for ToolTip {
-    fn layout(&mut self, constraints: SizeConstraints) -> ConcreteSize {
-        // serious question, should layout precompute things like positions and sizes or just
-        // give an "estimate"?
-        // does the next draw call HAVE to honour the size returned by layout?
-        // or do we return a min / max?
-        // cause if we do not store stuff like that, then we don't need to layout the tooltip itself
-        self.show_tooltip = self.mouse_over_time.borrow().elapsed().as_secs_f32() < 0.1;
+    fn layout(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
+        let is_hovered = ctx.event_manager.is_hovered(self.ui_id);
 
-        if self.show_tooltip {
-            self.tool_tip_size = self.tooltip.layout(SizeConstraints {
-                min_size: ConcreteSize {
-                    width: 0.0,
-                    height: 0.0,
-                },
-                max_size: DynamicSize {
-                    width: Some(constraints.scene_size.0),
-                    height: Some(constraints.scene_size.1),
-                },
-                scene_size: constraints.scene_size,
-            });
-            self.extended_hitbox.bbox = self.tool_tip_size;
-        } else {
-            self.extended_hitbox.bbox = ConcreteSize::ZERO;
+        match (self.show_tooltip, is_hovered, self.hovered_start_at) {
+            // preparing to show tooltip
+            (false, true, Some(start_at)) => {
+                if Instant::now() - start_at > self.hover_delay {
+                    self.show_tooltip = true;
+                }
+            }
+            (false, true, None) => {
+                self.hovered_start_at = Some(Instant::now());
+            }
+            (false, false, _) => {
+                self.hovered_start_at = None;
+            }
+            // preparing to hide tooltip
+            (true, false, _) => {
+                if Instant::now() - self.hovered_last_at > self.hover_retain {
+                    self.show_tooltip = false;
+                }
+            }
+            (true, true, _) => {
+                self.hovered_last_at = Instant::now();
+            }
         }
 
-        self.element.layout(constraints)
+        if self.show_tooltip {
+            self.tool_tip_size = self.tooltip.layout(
+                ctx,
+                SizeConstraints {
+                    min_size: ConcreteSize {
+                        width: 0.0,
+                        height: 0.0,
+                    },
+                    max_size: DynamicSize {
+                        width: Some(constraints.scene_size.0),
+                        height: Some(constraints.scene_size.1),
+                    },
+                    scene_size: constraints.scene_size,
+                },
+            );
+        }
+
+        self.element.layout(ctx, constraints)
     }
 
-    fn draw_impl(&mut self, origin: (f32, f32), size: ConcreteSize, scene: &mut Scene) {
-        self.ui_events.borrow_mut().update_hitbox(
+    fn draw_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        origin: (f32, f32),
+        size: ConcreteSize,
+        scene: &mut Scene,
+    ) {
+        ctx.with_hitbox_hierarchy(
             self.ui_id,
+            scene.current_layer_id(),
             Rect {
                 position: [origin.0, origin.1],
                 size: [size.width, size.height],
             },
+            |ctx| {
+                self.element.draw(ctx, origin, size, scene);
+                if self.show_tooltip {
+                    let tooltip_origin = (origin.0, origin.1 - self.tool_tip_size.height - 10.0);
+
+                    // todo: to some more intelligent positioning of the tooltip
+                    scene.with_next_layer(|scene| {
+                        self.tooltip
+                            .draw(ctx, tooltip_origin, self.tool_tip_size, scene)
+                    });
+                }
+            },
         );
-
-        self.element.draw(origin, size, scene);
-        if self.show_tooltip {
-            // todo: to some more intelligent positioning of the tooltip
-            scene.with_next_layer(|scene| {
-                self.tooltip.draw(
-                    (origin.0, origin.1 - self.tool_tip_size.height),
-                    self.tool_tip_size,
-                    scene,
-                )
-            });
-
-            self.extended_hitbox.draw_impl(
-                (origin.0, origin.1 - self.tool_tip_size.height),
-                self.tool_tip_size,
-                scene,
-            );
-        } else {
-            self.extended_hitbox
-                .draw_impl(origin, ConcreteSize::ZERO, scene);
-        }
     }
 }
 
-/// You can use this to compose a hitbox from multiple rectangles and potentially draw them outside bounds.
-/// As this box is only logical, it is fine to "draw" it where you want.
 pub struct ExtendedHitbox {
-    ui_id: u32,
-    ui_events: Arc<RefCell<UiEvents>>,
-    bbox: ConcreteSize,
+    ui_id: ElementId,
+    element: Box<dyn Element>,
 }
 
 impl ExtendedHitbox {
-    pub fn new(
-        size: ConcreteSize,
-        ui_events: Arc<RefCell<UiEvents>>,
-        callback: EventHandler,
-    ) -> Self {
-        let id = ui_events.borrow_mut().register_hitbox(
-            0,
-            Rect {
-                position: [-1.0, -1.0],
-                size: [0.0, 0.0],
-            },
-            callback,
-        );
-
-        Self {
-            ui_id: id,
-            ui_events,
-            bbox: size,
-        }
-    }
-}
-
-impl Drop for ExtendedHitbox {
-    fn drop(&mut self) {
-        self.ui_events.borrow_mut().deregister_hitbox(self.ui_id);
+    pub fn new(element: Box<dyn Element>, ctx: &mut UiContext) -> Self {
+        let ui_id = ctx.event_manager.next_id();
+        Self { ui_id, element }
     }
 }
 
 impl Element for ExtendedHitbox {
-    fn layout(&mut self, constraints: SizeConstraints) -> ConcreteSize {
-        self.bbox.clamp_to_constraints(constraints)
+    fn layout(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
+        self.element.layout(ctx, constraints)
     }
 
-    fn draw_impl(&mut self, origin: (f32, f32), size: ConcreteSize, _scene: &mut Scene) {
-        self.ui_events.borrow_mut().update_hitbox(
+    fn draw_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        origin: (f32, f32),
+        size: ConcreteSize,
+        scene: &mut Scene,
+    ) {
+        ctx.with_hitbox_hierarchy(
             self.ui_id,
+            scene.current_layer_id(),
             Rect {
                 position: [origin.0, origin.1],
                 size: [size.width, size.height],
+            },
+            |ctx| {
+                self.element.draw(ctx, origin, size, scene);
             },
         );
     }

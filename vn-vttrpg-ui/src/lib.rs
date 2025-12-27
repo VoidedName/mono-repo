@@ -22,115 +22,15 @@
 // finding a mouse target is unreasonable. would i register their locations in a spacial index?
 
 mod element;
+mod event_manager;
 mod layout;
 mod sizes;
-mod event_manager;
 
 pub use element::*;
+pub use event_manager::*;
 pub use layout::*;
 pub use sizes::*;
-pub use event_manager::*;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::sync::Arc;
 use vn_vttrpg_window::{Color, Rect, Scene, TextPrimitive};
-
-pub type ElementId = u32;
-
-pub struct MouseFocusEvent {
-    pub target_id: ElementId,
-    pub child: Option<Box<MouseFocusEvent>>,
-}
-
-pub struct MouseMoveEvent {
-    pub x: f32,
-    pub y: f32,
-}
-
-pub enum UiMouseEvent {
-    /// Mouse moved to this position. We do not track the path it took, although we could extend it
-    /// in the future to do so.
-    Moved(MouseMoveEvent),
-}
-
-// can I sub to the events of a specific component?
-// wrapping elements would need to re-emit events with their id?
-// every element needs access to an event manager and an id?
-// we could then also wrap a child event manager to intercept all events emitted by it.
-// though we would need to redispatch global events to it?
-
-// this will need mutliple iterations i think...
-
-pub type EventHandler = Arc<RefCell<dyn FnMut(UiMouseEvent) + 'static>>;
-
-#[derive(Clone, Copy)]
-struct HitBoxEntry {
-    id: u32,
-    layer: u32,
-    bounds: Rect,
-}
-
-pub struct UiEvents {
-    next_id: u32,
-    hit_box_index: HashMap<u32, HitBoxEntry>,
-    event_handlers: HashMap<u32, EventHandler>,
-}
-
-impl UiEvents {
-    pub fn new() -> Self {
-        Self {
-            next_id: 0,
-            hit_box_index: HashMap::new(),
-            event_handlers: HashMap::new(),
-        }
-    }
-
-    pub fn register_hitbox(&mut self, layer: u32, bounds: Rect, handler: EventHandler) -> u32 {
-        self.hit_box_index.insert(
-            self.next_id,
-            HitBoxEntry {
-                id: self.next_id,
-                bounds,
-                layer,
-            },
-        );
-        self.event_handlers.insert(self.next_id, handler);
-        self.next_id += 1;
-        self.next_id - 1
-    }
-
-    pub fn update_hitbox(&mut self, id: u32, bounds: Rect) {
-        self.hit_box_index.get_mut(&id).unwrap().bounds = bounds;
-    }
-
-    pub fn deregister_hitbox(&mut self, id: u32) {
-        self.hit_box_index.remove(&id);
-        self.event_handlers.remove(&id);
-    }
-
-    pub fn handle_mouse_position(&self, x: f32, y: f32) {
-        // sort hits first by layer, then by id... i should do a better hit detect than just the box
-        // since elements might have a non rectangular interactive hitbox (like circles)
-        let mut hits = self
-            .hit_box_index
-            .iter()
-            .filter(|(_, entry)| entry.bounds.contains([x, y]))
-            .collect::<Vec<_>>();
-        hits.sort_by(|(_, a), (_, b)| {
-            let cmp = a.layer.cmp(&b.layer).reverse();
-            if cmp == std::cmp::Ordering::Equal {
-                a.id.cmp(&b.id).reverse()
-            } else {
-                cmp
-            }
-        });
-
-        for (_, entry) in hits {
-            let mut handler = self.event_handlers.get(&entry.id).unwrap().borrow_mut();
-            handler(UiMouseEvent::Moved( MouseMoveEvent { x, y })); // does handler return "bubbling" and then stop the loop?
-        }
-    }
-}
 
 /// This keeps the UI agnostic to any specific graphics and resource management
 pub trait TextMetrics {
@@ -166,11 +66,17 @@ impl Label {
 }
 
 impl Element for Label {
-    fn layout(&mut self, constraints: SizeConstraints) -> ConcreteSize {
+    fn layout(&mut self, _ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
         self.size.clamp_to_constraints(constraints)
     }
 
-    fn draw_impl(&mut self, origin: (f32, f32), size: ConcreteSize, scene: &mut Scene) {
+    fn draw_impl(
+        &mut self,
+        _ctx: &mut UiContext,
+        origin: (f32, f32),
+        size: ConcreteSize,
+        scene: &mut Scene,
+    ) {
         scene.add_text(
             TextPrimitive::builder(self.params.text.clone(), self.params.font.clone())
                 .transform(|t| t.translation([origin.0, origin.1]))
@@ -199,12 +105,15 @@ pub struct ButtonParams {
 // it from those animators... those animators could also listen to events? they'd be specific to a
 // component)
 pub struct Button {
+    ui_id: ElementId,
     child: Box<dyn Element>,
 }
 
 impl Button {
-    pub fn new(child: Box<dyn Element>, params: ButtonParams) -> Self {
+    pub fn new(child: Box<dyn Element>, params: ButtonParams, ctx: &mut UiContext) -> Self {
+        let ui_id = ctx.event_manager.next_id();
         Self {
+            ui_id,
             child: Box::new(Card::new(
                 child,
                 CardParams {
@@ -219,11 +128,32 @@ impl Button {
 }
 
 impl Element for Button {
-    fn layout(&mut self, constraints: SizeConstraints) -> ConcreteSize {
-        self.child.layout(constraints)
+    fn layout(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ConcreteSize {
+        self.child.layout(ctx, constraints)
     }
 
-    fn draw_impl(&mut self, origin: (f32, f32), size: ConcreteSize, scene: &mut Scene) {
-        self.child.draw(origin, size, scene);
+    fn draw_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        origin: (f32, f32),
+        size: ConcreteSize,
+        scene: &mut Scene,
+    ) {
+        // ctx.event_manager.register_hitbox(
+        //     self.ui_id,
+        //     0,
+        //     Rect {
+        //         position: [origin.0, origin.1],
+        //         size: [size.width, size.height],
+        //     },
+        // );
+        // if let Some(parent) = ctx.parent_id {
+        //     ctx.event_manager.set_parent(self.ui_id, parent);
+        // }
+        //
+        // let old_parent = ctx.parent_id;
+        // ctx.parent_id = Some(self.ui_id);
+        self.child.draw(ctx, origin, size, scene);
+        // ctx.parent_id = old_parent;
     }
 }

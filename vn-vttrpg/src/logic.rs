@@ -1,14 +1,15 @@
 use std::cell::RefCell;
 use std::sync::Arc;
 use vn_vttrpg_ui::{
-    Anchor, AnchorLocation, Button, Card, CardParams, ConcreteSize, DynamicSize, Element, Flex,
-    Label, SizeConstraints, TextMetrics, ToolTip, UiEvents,
+    Anchor, AnchorLocation, Button, Card, CardParams, ConcreteSize, DynamicSize, Element,
+    EventManager, Flex, Label, SizeConstraints, TextMetrics, ToolTip, TooltipParams, UiContext,
 };
 use vn_vttrpg_window::graphics::GraphicsContext;
 use vn_vttrpg_window::input::InputState;
 use vn_vttrpg_window::resource_manager::ResourceManager;
 use vn_vttrpg_window::scene_renderer::SceneRenderer;
 use vn_vttrpg_window::{Color, StateLogic};
+use web_time::Duration;
 use web_time::Instant;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
@@ -64,7 +65,7 @@ pub struct MainLogic {
     size: (u32, u32),
     mouse_position: (f32, f32),
     ui: Option<RefCell<Box<dyn Element>>>,
-    ui_events: Arc<RefCell<UiEvents>>,
+    event_manager: Arc<RefCell<EventManager>>,
 }
 
 impl StateLogic<SceneRenderer> for MainLogic {
@@ -87,7 +88,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
             input: InputState::new(),
             fps_stats: FpsStats::new(),
             ui: None,
-            ui_events: Arc::new(RefCell::new(UiEvents::new())),
+            event_manager: Arc::new(RefCell::new(EventManager::new())),
         })
     }
 
@@ -162,6 +163,12 @@ impl StateLogic<SceneRenderer> for MainLogic {
             &text_metric,
         );
 
+        let mut event_manager = self.event_manager.borrow_mut();
+        let mut ui_ctx = UiContext {
+            event_manager: &mut event_manager,
+            parent_id: None,
+        };
+
         let start = Button::new(
             Box::new(start),
             ButtonParams {
@@ -170,6 +177,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
                 border_width: 2.0,
                 corner_radius: 10.0,
             },
+            &mut ui_ctx,
         );
         let options = Button::new(
             Box::new(options),
@@ -179,6 +187,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
                 border_width: 2.0,
                 corner_radius: 10.0,
             },
+            &mut ui_ctx,
         );
         let exit = Button::new(
             Box::new(exit),
@@ -188,6 +197,66 @@ impl StateLogic<SceneRenderer> for MainLogic {
                 border_width: 2.0,
                 corner_radius: 10.0,
             },
+            &mut ui_ctx,
+        );
+
+        let tooltip1 = Label::new(
+            LabelParams {
+                text: "Start this thing".to_string(),
+                font: "jetbrains-bold".to_string(),
+                font_size: 24.0,
+                color: Color::WHITE,
+            },
+            &text_metric,
+        );
+
+        let tooltip1 = Card::new(
+            Box::new(tooltip1),
+            CardParams {
+                background_color: Color::BLACK,
+                border_size: 2.0,
+                border_color: Color::WHITE,
+                corner_radius: 10.0,
+            },
+        );
+
+        let tooltip2 = Label::new(
+            LabelParams {
+                text: "Tooltip of a tooltip for some reason".to_string(),
+                font: "jetbrains-bold".to_string(),
+                font_size: 24.0,
+                color: Color::WHITE,
+            },
+            &text_metric,
+        );
+        let tooltip2 = Card::new(
+            Box::new(tooltip2),
+            CardParams {
+                background_color: Color::BLACK,
+                border_size: 2.0,
+                border_color: Color::WHITE,
+                corner_radius: 10.0,
+            },
+        );
+
+        let tooltip = ToolTip::new(
+            Box::new(tooltip1),
+            Box::new(tooltip2),
+            TooltipParams {
+                hover_delay: Some(Duration::from_secs_f32(0.1)),
+                hover_retain: Some(Duration::from_secs_f32(0.25)),
+            },
+            &mut ui_ctx,
+        );
+
+        let start = ToolTip::new(
+            Box::new(start),
+            Box::new(tooltip),
+            TooltipParams {
+                hover_delay: Some(Duration::from_secs_f32(0.1)),
+                hover_retain: Some(Duration::from_secs_f32(0.25)),
+            },
+            &mut ui_ctx,
         );
 
         let start = Anchor::new(
@@ -206,6 +275,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
             },
             &text_metric,
         );
+
         let tooltip = Card::new(
             Box::new(tooltip),
             CardParams {
@@ -215,8 +285,11 @@ impl StateLogic<SceneRenderer> for MainLogic {
                 corner_radius: 10.0,
             },
         );
-
-        let options = ToolTip::new(Box::new(options), Box::new(tooltip), self.ui_events.clone());
+        
+        let options = ToolTip::new(Box::new(options), Box::new(tooltip), TooltipParams {
+            hover_delay: Some(Duration::from_secs_f32(0.1)),
+            hover_retain: Some(Duration::from_secs_f32(0.25)),
+        }, &mut ui_ctx);
         let options = Anchor::new(
             Box::new(options),
             AnchorParams {
@@ -264,23 +337,32 @@ impl StateLogic<SceneRenderer> for MainLogic {
         if let Some(ui) = &self.ui {
             let mut ui = ui.borrow_mut();
 
-            self.ui_events
-                .borrow_mut()
-                .handle_mouse_position(self.mouse_position.0, self.mouse_position.1);
+            let mut event_manager = self.event_manager.borrow_mut();
+            event_manager.handle_mouse_move(self.mouse_position.0, self.mouse_position.1);
+            event_manager.clear_hitboxes();
 
-            ui.layout(SizeConstraints {
-                min_size: ConcreteSize {
-                    width: 0.0,
-                    height: 0.0,
+            let mut ctx = UiContext {
+                event_manager: &mut event_manager,
+                parent_id: None,
+            };
+
+            ui.layout(
+                &mut ctx,
+                SizeConstraints {
+                    min_size: ConcreteSize {
+                        width: 0.0,
+                        height: 0.0,
+                    },
+                    max_size: DynamicSize {
+                        width: Some(self.size.0 as f32),
+                        height: Some(self.size.1 as f32),
+                    },
+                    scene_size: scene.scene_size(),
                 },
-                max_size: DynamicSize {
-                    width: Some(self.size.0 as f32),
-                    height: Some(self.size.1 as f32),
-                },
-                scene_size: scene.scene_size(),
-            });
+            );
 
             ui.draw(
+                &mut ctx,
                 (0.0, 0.0),
                 ConcreteSize {
                     width: self.size.0 as f32,

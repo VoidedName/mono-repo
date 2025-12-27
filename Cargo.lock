@@ -1950,6 +1950,7 @@ dependencies = [
 name = "vn-vttrpg-ui"
 version = "0.1.0"
 dependencies = [
+ "log",
  "vn-utils",
  "vn-vttrpg-window",
  "web-time",
