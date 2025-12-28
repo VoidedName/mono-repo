@@ -29,6 +29,7 @@ pub struct TextInput {
     show_caret: bool,
     caret_blink_duration: f32,
     line_height: f32,
+    caret_width: f32,
 }
 
 impl TextInput {
@@ -49,6 +50,8 @@ impl TextInput {
         let (width, height) =
             text_metrics.size_of_text(&text, &params.label.font, params.label.font_size);
 
+        let caret_width = 2.0;
+
         Self {
             id: ctx.event_manager.next_id(),
             line_height: text_metrics.line_height(&params.label.font, params.label.font_size),
@@ -56,11 +59,12 @@ impl TextInput {
             caret_position,
             params,
             show_caret: false,
+            caret_width,
             text_metrics,
             caret_blink_duration: 2.0,
             gained_focus_at: None,
             size: ElementSize {
-                width: width.max(10.0),
+                width: width + caret_width,
                 height,
             },
         }
@@ -104,7 +108,7 @@ impl TextInput {
             }
 
             self.size = ElementSize {
-                width: width.max(10.0),
+                width: width + self.caret_width,
                 height,
             };
         }
@@ -146,6 +150,9 @@ impl Element for TextInput {
         size: ElementSize,
         scene: &mut Scene,
     ) {
+        let caret_height = self.params.label.font_size;
+        let caret_y_offset = self.line_height / 2.0 - caret_height / 2.0;
+
         ctx.with_hitbox_hierarchy(
             self.id,
             scene.current_layer_id(),
@@ -156,55 +163,54 @@ impl Element for TextInput {
             |_ctx| {
                 scene.add_text(
                     TextPrimitive::builder(self.text.clone(), self.params.label.font.clone())
-                        .transform(|t| t.translation(origin.to_array()))
+                        .transform(|t| t.translation([origin.0 + self.caret_width / 2.0, origin.1]))
                         .size(self.size.to_array())
-                        .clip_area(|c| c.size(size.to_array()))
+                        .clip_area(|c| {
+                            c.size(size.to_array())
+                                .position([-self.caret_width / 2.0, 0.0])
+                        })
                         .font_size(self.params.label.font_size)
                         .tint(self.params.label.color)
                         .build(),
                 );
 
                 if self.show_caret {
-                    // Calculate caret X position
+                    scene.with_next_layer(|scene| {
+                        // Calculate caret X position
 
-                    // todo: compute all of this in the layout phase
-                    let caret_x_offset = if self.caret_position == 0 {
-                        0.0
-                    } else {
-                        let text_up_to_caret = if self.caret_position >= self.text.len() {
-                            &self.text
+                        // todo: compute all of this in the layout phase
+                        let caret_x_offset = if self.caret_position == 0 {
+                            0.0
                         } else {
-                            &self.text[..self.caret_position]
+                            let text_up_to_caret = if self.caret_position >= self.text.len() {
+                                &self.text
+                            } else {
+                                &self.text[..self.caret_position]
+                            };
+                            self.text_metrics
+                                .size_of_text(
+                                    text_up_to_caret,
+                                    &self.params.label.font,
+                                    self.params.label.font_size,
+                                )
+                                .0
                         };
-                        self.text_metrics
-                            .size_of_text(
-                                text_up_to_caret,
-                                &self.params.label.font,
-                                self.params.label.font_size,
-                            )
-                            .0
-                    };
 
-                    let caret_width = 4.0;
-                    let caret_height = self.params.label.font_size;
-                    let caret_y_offset = self.line_height / 2.0 - caret_height / 2.0;
+                        let caret_x = origin.0 + caret_x_offset;
+                        let caret_y = origin.1 + caret_y_offset;
 
-                    let caret_x = (origin.0 + caret_x_offset - (caret_width / 2.0))
-                        .max(origin.0)
-                        .min(origin.0 + size.width - caret_width);
-                    let caret_y = origin.1 + caret_y_offset;
-
-                    let clip_x = origin.0 - caret_x;
-                    let clip_y = origin.1 - caret_y;
-
-                    scene.add_box(
-                        BoxPrimitive::builder()
-                            .transform(|t| t.translation([caret_x, caret_y]))
-                            .clip_area(|c| c.size(size.to_array()).position([clip_x, clip_y]))
-                            .size([caret_width, caret_height])
-                            .color(self.params.label.color)
-                            .build(),
-                    );
+                        scene.add_box(
+                            BoxPrimitive::builder()
+                                .transform(|t| t.translation([caret_x, caret_y]))
+                                .clip_area(|c| {
+                                    c.size(size.to_array())
+                                        .position([-caret_x_offset, -caret_y_offset])
+                                })
+                                .size([self.caret_width, caret_height])
+                                .color(self.params.label.color)
+                                .build(),
+                        );
+                    });
                 }
             },
         );
