@@ -1,5 +1,5 @@
 use crate::utils::ToArray;
-use crate::{Element, ElementId, ElementSize, SizeConstraints, UiContext};
+use crate::{Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
 use std::sync::Arc;
 use vn_vttrpg_window::{Color, Scene, TextPrimitive};
 
@@ -73,8 +73,8 @@ impl Label {
     }
 }
 
-impl Element for Label {
-    fn id(&self) -> ElementId {
+impl ElementImpl for Label {
+    fn id_impl(&self) -> ElementId {
         self.id
     }
 

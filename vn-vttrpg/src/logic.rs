@@ -2,8 +2,8 @@ use std::cell::RefCell;
 use std::sync::Arc;
 use vn_vttrpg_ui::{
     Anchor, AnchorLocation, Button, Card, CardParams, DynamicSize, DynamicString, Element,
-    ElementId, ElementSize, EventManager, Flex, Label, LabelText, SimpleLayoutCache,
-    SizeConstraints, TextMetrics, ToolTip, TooltipParams, UiContext,
+    ElementId, ElementSize, EventManager, Fill, Flex, Label, LabelText, Padding, PaddingParams,
+    SimpleLayoutCache, SizeConstraints, TextMetrics, ToolTip, TooltipParams, UiContext,
 };
 use vn_vttrpg_window::graphics::GraphicsContext;
 use vn_vttrpg_window::input::InputState;
@@ -239,7 +239,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
             AnchorParams, ButtonParams, CaretSource, LabelParams, TextInput, TextInputParams,
         };
 
-        let name_input = TextInput::new(
+        let test_input = TextInput::new(
             TextInputParams {
                 label: LabelParams {
                     text: LabelText::Static("".to_string()),
@@ -260,12 +260,17 @@ impl StateLogic<SceneRenderer> for MainLogic {
             &mut ui_ctx,
         );
 
-        self.input_text_id = name_input.id();
+        self.input_text_id = test_input.id();
 
-        let name_input = Anchor::new(
-            Box::new(name_input),
-            AnchorParams {
-                location: AnchorLocation::CENTER,
+        let test_input = Fill::new(Box::new(test_input), &mut ui_ctx);
+
+        let test_input = Padding::new(
+            Box::new(test_input),
+            PaddingParams {
+                pad_left: 10.0,
+                pad_right: 10.0,
+                pad_top: 5.0,
+                pad_bottom: 5.0,
             },
             &mut ui_ctx,
         );
@@ -464,7 +469,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
         );
 
         let name_input = Card::new(
-            Box::new(name_input),
+            Box::new(test_input),
             CardParams {
                 background_color: Color::BLACK.with_alpha(0.5),
                 border_size: 2.0,

@@ -1,6 +1,6 @@
 use crate::components::ExtendedHitbox;
 use crate::utils::ToArray;
-use crate::{DynamicSize, Element, ElementId, ElementSize, SizeConstraints, UiContext};
+use crate::{DynamicSize, Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
 use vn_vttrpg_window::{Rect, Scene};
 use web_time::{Duration, Instant};
 
@@ -46,8 +46,8 @@ impl ToolTip {
     }
 }
 
-impl Element for ToolTip {
-    fn id(&self) -> ElementId {
+impl ElementImpl for ToolTip {
+    fn id_impl(&self) -> ElementId {
         self.id
     }
 

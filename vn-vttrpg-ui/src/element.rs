@@ -38,12 +38,44 @@ impl LayoutCache for SimpleLayoutCache {
     }
 }
 
-// implement layout caching here?
+/// Concrete implementation of an element. Implementing this automatically also implements [Element].
+/// Use the [Element] trait to interact with elements and do not call anything in here manually.
+pub trait ElementImpl {
+    /// This ID is used in both the layout cache and for identifying elements in the UI and **MUST**
+    /// be unique for each element.
+    fn id_impl(&self) -> ElementId;
+
+    /// Implement the layouting work. It will be called before drawing the element.
+    /// And you can assume that the size you return here is the size the element will be drawn with.
+    ///
+    /// !!! DO NOT MANUALLY CALL THIS, CALL [layout](Self::layout) INSTEAD !!!
+    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize;
+
+    /// Draws the element at the specified origin with the given size into the scene.
+    ///
+    /// !!! DO NOT MANUALLY CALL THIS, CALL [draw](Self::draw) INSTEAD !!!
+    fn draw_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        origin: (f32, f32),
+        size: ElementSize,
+        scene: &mut Scene,
+    );
+
+}
 
 /// Represents a UI element that can be laid out and drawn.
-pub trait Element {
-    fn id(&self) -> ElementId;
+/// This trait is automatically implemented for all types that implement [ElementImpl].
+pub trait Element: ElementImpl {
+    /// Returns the unique ID of this element.
+    fn id(&self) -> ElementId {
+        self.id_impl()
+    }
 
+    /// Call this method to perform the layouting work. It must be called before drawing the element.
+    /// And elements assume that the size they get drawn with is the size they report here.
+    ///
+    /// !!! IF YOU OVERWRITE THIS METHOD, YOU MUST IMPLEMENT LAYOUT CACHING YOURSELF !!!
     fn layout(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
         if let Some(cached_size) = ctx.layout_cache.lookup(self.id(), constraints) {
             return cached_size;
@@ -55,9 +87,6 @@ pub trait Element {
 
         size
     }
-
-    /// Determines the size of the element given the layout constraints.
-    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize;
 
     /// Call this method to draw the element at the specified origin with the given size into the scene.
     ///
@@ -87,15 +116,6 @@ pub trait Element {
             });
         }
     }
-
-    /// Draws the element at the specified origin with the given size into the scene.
-    ///
-    /// !!! DO NOT MANUALLY CALL THIS, CALL [draw](Self::draw) INSTEAD !!!
-    fn draw_impl(
-        &mut self,
-        ctx: &mut UiContext,
-        origin: (f32, f32),
-        size: ElementSize,
-        scene: &mut Scene,
-    );
 }
+
+impl<T: ElementImpl> Element for T {}

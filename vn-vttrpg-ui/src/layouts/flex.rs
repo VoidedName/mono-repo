@@ -1,4 +1,4 @@
-use crate::{Element, ElementId, ElementSize, SizeConstraints, UiContext};
+use crate::{Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
 use vn_vttrpg_window::Scene;
 
 #[derive(Clone, Copy)]
@@ -53,8 +53,8 @@ impl Flex {
 }
 
 // todo: allow for weight / spacing between children?
-impl Element for Flex {
-    fn id(&self) -> ElementId {
+impl ElementImpl for Flex {
+    fn id_impl(&self) -> ElementId {
         self.id
     }
 

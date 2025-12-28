@@ -1,4 +1,4 @@
-use crate::{Element, ElementId, ElementSize, SizeConstraints, UiContext};
+use crate::{Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
 use vn_vttrpg_window::Scene;
 
 #[derive(Clone, Copy)]
@@ -39,8 +39,8 @@ impl Anchor {
     }
 }
 
-impl Element for Anchor {
-    fn id(&self) -> ElementId {
+impl ElementImpl for Anchor {
+    fn id_impl(&self) -> ElementId {
         self.id
     }
 

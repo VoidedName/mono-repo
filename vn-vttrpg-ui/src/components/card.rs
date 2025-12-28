@@ -1,4 +1,7 @@
-use crate::{Element, ElementId, ElementSize, SizeConstraints, UiContext};
+use crate::{
+    Element, ElementId, ElementImpl, ElementSize, Padding, PaddingParams, SizeConstraints,
+    UiContext,
+};
 use vn_utils::UpdateOption;
 use vn_vttrpg_window::{BoxPrimitive, Color, Scene};
 
@@ -12,8 +15,7 @@ pub struct CardParams {
 
 pub struct Card {
     id: ElementId,
-    child: Box<dyn Element>,
-    child_size: ElementSize,
+    child: Padding,
     params: CardParams,
 }
 
@@ -21,41 +23,28 @@ impl Card {
     pub fn new(child: Box<dyn Element>, params: CardParams, ctx: &mut UiContext) -> Self {
         Self {
             id: ctx.event_manager.next_id(),
-            child,
-            child_size: ElementSize::ZERO,
+            child: Padding::new(
+                child,
+                PaddingParams {
+                    pad_left: params.border_size,
+                    pad_right: params.border_size,
+                    pad_top: params.border_size,
+                    pad_bottom: params.border_size,
+                },
+                ctx,
+            ),
             params,
         }
     }
 }
 
-impl Element for Card {
-    fn id(&self) -> ElementId {
+impl ElementImpl for Card {
+    fn id_impl(&self) -> ElementId {
         self.id
     }
 
     fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
-        let mut child_constraints = constraints;
-        let margin = self.params.border_size * 2.0;
-
-        child_constraints
-            .max_size
-            .width
-            .update(|w| w.max(margin) - margin);
-        child_constraints
-            .max_size
-            .height
-            .update(|h| h.max(margin) - margin);
-
-        child_constraints.min_size.width = child_constraints.min_size.width.max(margin) - margin;
-        child_constraints.min_size.height = child_constraints.min_size.height.max(margin) - margin;
-
-        self.child_size = self.child.layout(ctx, child_constraints);
-
-        ElementSize {
-            width: self.child_size.width + margin,
-            height: self.child_size.height + margin,
-        }
-        .clamp_to_constraints(constraints)
+        self.child.layout(ctx, constraints)
     }
 
     fn draw_impl(
@@ -65,8 +54,6 @@ impl Element for Card {
         size: ElementSize,
         scene: &mut Scene,
     ) {
-        let margin = self.params.border_size * 2.0;
-
         scene.add_box(
             BoxPrimitive::builder()
                 .transform(|t| t.translation([origin.0, origin.1]))
@@ -78,17 +65,6 @@ impl Element for Card {
                 .build(),
         );
 
-        self.child.draw(
-            ctx,
-            (
-                origin.0 + self.params.border_size,
-                origin.1 + self.params.border_size,
-            ),
-            ElementSize {
-                width: size.width.max(margin) - margin,
-                height: size.height.max(margin) - margin,
-            },
-            scene,
-        );
+        self.child.draw(ctx, origin, size, scene);
     }
 }

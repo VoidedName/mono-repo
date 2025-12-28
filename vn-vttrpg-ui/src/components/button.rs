@@ -1,5 +1,5 @@
 use crate::utils::ToArray;
-use crate::{Element, ElementId, ElementSize, SizeConstraints, UiContext};
+use crate::{Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
 use vn_vttrpg_window::{BoxPrimitive, Color, Rect, Scene};
 
 pub struct ButtonParams {
@@ -33,8 +33,8 @@ impl Button {
     }
 }
 
-impl Element for Button {
-    fn id(&self) -> ElementId {
+impl ElementImpl for Button {
+    fn id_impl(&self) -> ElementId {
         self.id
     }
 

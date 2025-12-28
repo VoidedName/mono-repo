@@ -1,5 +1,5 @@
 use crate::utils::ToArray;
-use crate::{Element, ElementId, ElementSize, SizeConstraints, UiContext};
+use crate::{Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
 use vn_vttrpg_window::{Rect, Scene};
 
 pub struct ExtendedHitbox {
@@ -14,8 +14,8 @@ impl ExtendedHitbox {
     }
 }
 
-impl Element for ExtendedHitbox {
-    fn id(&self) -> ElementId {
+impl ElementImpl for ExtendedHitbox {
+    fn id_impl(&self) -> ElementId {
         self.id
     }
 

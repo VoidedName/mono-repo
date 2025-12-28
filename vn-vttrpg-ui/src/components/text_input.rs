@@ -1,8 +1,5 @@
 use crate::utils::ToArray;
-use crate::{
-    DynamicString, Element, ElementId, ElementSize, LabelParams, LabelText, SizeConstraints,
-    TextMetrics, UiContext,
-};
+use crate::{DynamicString, Element, ElementId, ElementImpl, ElementSize, LabelParams, LabelText, SizeConstraints, TextMetrics, UiContext};
 use std::sync::Arc;
 use vn_vttrpg_window::{BoxPrimitive, Scene, TextPrimitive};
 use web_time::Instant;
@@ -115,8 +112,8 @@ impl TextInput {
     }
 }
 
-impl Element for TextInput {
-    fn id(&self) -> ElementId {
+impl ElementImpl for TextInput {
+    fn id_impl(&self) -> ElementId {
         self.id
     }
 
