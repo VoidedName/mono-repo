@@ -1,5 +1,5 @@
 use crate::utils::ToArray;
-use crate::{Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
+use crate::{ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
 use std::sync::Arc;
 use vn_vttrpg_window::{Color, Scene, TextPrimitive};
 

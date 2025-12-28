@@ -1,6 +1,8 @@
 use crate::components::ExtendedHitbox;
 use crate::utils::ToArray;
-use crate::{DynamicSize, Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
+use crate::{
+    DynamicSize, Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext,
+};
 use vn_vttrpg_window::{Rect, Scene};
 use web_time::{Duration, Instant};
 

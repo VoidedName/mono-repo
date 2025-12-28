@@ -1,9 +1,9 @@
 mod anchor;
-mod flex;
 mod fill;
+mod flex;
 mod padding;
 
 pub use anchor::*;
-pub use flex::*;
 pub use fill::*;
+pub use flex::*;
 pub use padding::*;

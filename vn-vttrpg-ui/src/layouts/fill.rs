@@ -26,16 +26,22 @@ impl ElementImpl for Fill {
             Some(w) => w,
             _ => child_size.width,
         };
-        
+
         let height = match constraints.max_size.height {
             Some(h) => h,
             _ => child_size.height,
         };
-        
+
         ElementSize { width, height }
     }
-    
-    fn draw_impl(&mut self, ctx: &mut UiContext, origin: (f32, f32), size: ElementSize, scene: &mut vn_vttrpg_window::Scene) {
+
+    fn draw_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        origin: (f32, f32),
+        size: ElementSize,
+        scene: &mut vn_vttrpg_window::Scene,
+    ) {
         self.element.draw(ctx, origin, size, scene);
     }
 }

@@ -2,7 +2,6 @@ use crate::{
     Element, ElementId, ElementImpl, ElementSize, Padding, PaddingParams, SizeConstraints,
     UiContext,
 };
-use vn_utils::UpdateOption;
 use vn_vttrpg_window::{BoxPrimitive, Color, Scene};
 
 #[derive(Clone, Copy)]

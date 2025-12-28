@@ -1,6 +1,7 @@
 use crate::{ElementId, ElementSize, SizeConstraints, UiContext};
+use rand::{Rng, RngCore, SeedableRng};
 use std::collections::HashMap;
-use vn_vttrpg_window::Scene;
+use vn_vttrpg_window::{Color, Scene};
 
 pub struct SimpleLayoutCache {
     cache: HashMap<ElementId, (SizeConstraints, ElementSize)>,
@@ -61,7 +62,6 @@ pub trait ElementImpl {
         size: ElementSize,
         scene: &mut Scene,
     );
-
 }
 
 /// Represents a UI element that can be laid out and drawn.
@@ -101,16 +101,31 @@ pub trait Element: ElementImpl {
         self.draw_impl(ctx, origin, size, scene);
         #[cfg(feature = "debug_outlines")]
         {
+            use rand::rngs::SmallRng;
             use vn_vttrpg_window::BoxPrimitive;
+            let mut rng = SmallRng::seed_from_u64(self.id().0 as u64);
+
+            let color = Color {
+                r: 1.0 - (rng.random_range(0.0..=1.0) as f32).powi(3),
+                g: 1.0 - (rng.random_range(0.0..=1.0) as f32).powi(3),
+                b: 1.0 - (rng.random_range(0.0..=1.0) as f32).powi(3),
+                a: 1.0,
+            };
+
+            const DEBUG_THICKNESS: f32 = 2.0;
 
             scene.with_next_layer(|scene| {
                 scene.add_box(
                     BoxPrimitive::builder()
-                        .transform(|t| t.translation([origin.0, origin.1]))
-                        .size([size.width, size.height])
-                        .color(vn_vttrpg_window::Color::GREEN.with_alpha(0.01))
-                        .border_color(vn_vttrpg_window::Color::RED.with_alpha(0.25))
-                        .border_thickness(5.0)
+                        .transform(|t| {
+                            t.translation([
+                                origin.0 - DEBUG_THICKNESS / 2.0,
+                                origin.1 - DEBUG_THICKNESS / 2.0,
+                            ])
+                        })
+                        .size([size.width + DEBUG_THICKNESS, size.height + DEBUG_THICKNESS])
+                        .border_color(color.with_alpha(0.5))
+                        .border_thickness(DEBUG_THICKNESS)
                         .build(),
                 )
             });

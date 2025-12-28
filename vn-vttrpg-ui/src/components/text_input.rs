@@ -1,5 +1,8 @@
 use crate::utils::ToArray;
-use crate::{DynamicString, Element, ElementId, ElementImpl, ElementSize, LabelParams, LabelText, SizeConstraints, TextMetrics, UiContext};
+use crate::{
+    DynamicString, ElementId, ElementImpl, ElementSize, LabelParams, LabelText, SizeConstraints,
+    TextMetrics, UiContext,
+};
 use std::sync::Arc;
 use vn_vttrpg_window::{BoxPrimitive, Scene, TextPrimitive};
 use web_time::Instant;

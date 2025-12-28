@@ -7,7 +7,9 @@ edition = "2024"
 vn-vttrpg-window = { path = "../vn-vttrpg-window" }
 vn-utils = { path = "../vn-utils" }
 web-time = { workspace = true }
-log = "0.4.29"
+# ide marks it as unused, but it is very much used by rand
+getrandom = { workspace = true, features = ["wasm_js"] }
+rand = { workspace = true }
 
 [features]
 debug_outlines = []
