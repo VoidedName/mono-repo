@@ -51,10 +51,11 @@ impl TextInput {
             text_metrics.size_of_text(&text, &params.label.font, params.label.font_size);
 
         let caret_width = 2.0;
+        let line_height = text_metrics.line_height(&params.label.font, params.label.font_size);
 
         Self {
             id: ctx.event_manager.next_id(),
-            line_height: text_metrics.line_height(&params.label.font, params.label.font_size),
+            line_height,
             text,
             caret_position,
             params,
@@ -65,7 +66,7 @@ impl TextInput {
             gained_focus_at: None,
             size: ElementSize {
                 width: width + caret_width,
-                height,
+                height: height.max(line_height),
             },
         }
     }
@@ -109,7 +110,7 @@ impl TextInput {
 
             self.size = ElementSize {
                 width: width + self.caret_width,
-                height,
+                height: height.max(self.line_height),
             };
         }
     }
@@ -161,18 +162,34 @@ impl ElementImpl for TextInput {
                 size: size.to_array(),
             },
             |_ctx| {
-                scene.add_text(
-                    TextPrimitive::builder(self.text.clone(), self.params.label.font.clone())
-                        .transform(|t| t.translation([origin.0 + self.caret_width / 2.0, origin.1]))
-                        .size(self.size.to_array())
-                        .clip_area(|c| {
-                            c.size(size.to_array())
-                                .position([-self.caret_width / 2.0, 0.0])
-                        })
-                        .font_size(self.params.label.font_size)
-                        .tint(self.params.label.color)
-                        .build(),
+                let glyphs = self.text_metrics.get_glyphs(
+                    &self.text,
+                    &self.params.label.font,
+                    self.params.label.font_size,
                 );
+
+                let mut text_builder = TextPrimitive::builder();
+                text_builder = text_builder
+                    .transform(|t| t.translation([origin.0 + self.caret_width / 2.0, origin.1]))
+                    .tint(self.params.label.color)
+                    .clip_area(|c| {
+                        c.size(size.to_array())
+                            .position([-self.caret_width / 2.0, 0.0])
+                    });
+
+                let mut current_x = 0.0;
+                for glyph in glyphs {
+                    text_builder = text_builder.add_glyph(vn_vttrpg_window::GlyphInstance {
+                        texture: glyph.texture.clone(),
+                        position: [current_x, glyph.y_offset],
+                        size: [
+                            glyph.texture.texture.width() as f32,
+                            glyph.texture.texture.height() as f32,
+                        ],
+                    });
+                    current_x += glyph.advance;
+                }
+                scene.add_text(text_builder.build());
 
                 if self.show_caret {
                     scene.with_next_layer(|scene| {
@@ -185,7 +202,14 @@ impl ElementImpl for TextInput {
                             let text_up_to_caret = if self.caret_position >= self.text.len() {
                                 &self.text
                             } else {
-                                &self.text[..self.caret_position]
+                                // ensure we don't split at non-char boundary
+                                let end = self
+                                    .text
+                                    .char_indices()
+                                    .map(|(i, _)| i)
+                                    .nth(self.caret_position)
+                                    .unwrap_or(self.text.len());
+                                &self.text[..end]
                             };
                             self.text_metrics
                                 .size_of_text(

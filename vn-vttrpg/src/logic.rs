@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::sync::Arc;
+use vn_utils::string::{InsertAtCharIndex, RemoveAtCharIndex};
 use vn_vttrpg_ui::{
     Anchor, AnchorLocation, Button, Card, CardParams, DynamicSize, DynamicString, Element,
     ElementId, ElementSize, EventManager, Fill, Flex, Label, LabelText, Padding, PaddingParams,
@@ -116,22 +117,22 @@ impl StateLogic<SceneRenderer> for MainLogic {
 
                         match &key_event.logical_key {
                             Key::Character(s) => {
-                                text.insert_str(*caret, s.as_str());
-                                *caret += s.len();
+                                text.insert_str_at_char_index(*caret, s);
+                                *caret += s.chars().count();
                             }
                             Key::Named(NamedKey::Space) => {
-                                text.insert_str(*caret, " ");
+                                text.insert_at_char_index(*caret, ' ');
                                 *caret += 1;
                             }
                             Key::Named(NamedKey::Backspace) => {
                                 if *caret > 0 && *caret <= text.len() {
                                     *caret -= 1;
-                                    text.remove(*caret);
+                                    text.remove_at_char_index(*caret);
                                 }
                             }
                             Key::Named(NamedKey::Delete) => {
                                 if *caret < text.len() {
-                                    text.remove(*caret);
+                                    text.remove_at_char_index(*caret);
                                 }
                             }
                             Key::Named(NamedKey::ArrowLeft) => {
@@ -212,19 +213,32 @@ impl StateLogic<SceneRenderer> for MainLogic {
 
         impl TextMetrics for TextMetric {
             fn size_of_text(&self, text: &str, font: &str, font_size: f32) -> (f32, f32) {
-                let txt = self
-                    .rm
-                    .get_or_render_text(&self.gc, text, &font, font_size)
-                    .unwrap();
-                (txt.texture.width() as f32, txt.texture.height() as f32)
+                let glyphs = self.rm.get_glyphs(&self.gc, text, &font, font_size);
+                let mut width = 0.0;
+                let mut height: f32 = 0.0;
+                for glyph in glyphs {
+                    width += glyph.advance;
+                    height = height.max(glyph.texture.texture.height() as f32);
+                }
+                (width, height)
             }
 
             fn line_height(&self, font: &str, font_size: f32) -> f32 {
-                self.rm
-                    .get_or_render_text(&self.gc, "", &font, font_size)
-                    .unwrap()
-                    .texture
-                    .height() as f32
+                let glyphs = self.rm.get_glyphs(&self.gc, "A", &font, font_size);
+                if let Some(glyph) = glyphs.first() {
+                    glyph.texture.texture.height() as f32
+                } else {
+                    font_size
+                }
+            }
+
+            fn get_glyphs(
+                &self,
+                text: &str,
+                font: &str,
+                font_size: f32,
+            ) -> Vec<vn_vttrpg_window::text::Glyph> {
+                self.rm.get_glyphs(&self.gc, text, font, font_size)
             }
         }
 
@@ -512,10 +526,10 @@ impl StateLogic<SceneRenderer> for MainLogic {
             }
         };
 
-        let _text = self
-            .resource_manager
-            .get_or_render_text(&self.graphics_context, &t, "jetbrains-bold", 48.0)
-            .unwrap();
+        // let _text = self
+        //     .resource_manager
+        //     .get_or_render_text(&self.graphics_context, &t, "jetbrains-bold", 48.0)
+        //     .unwrap();
 
         let mut scene =
             vn_vttrpg_window::scene::Scene::new((self.size.0 as f32, self.size.1 as f32));

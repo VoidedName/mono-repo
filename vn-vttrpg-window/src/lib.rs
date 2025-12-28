@@ -11,13 +11,15 @@ pub mod resource_manager;
 pub mod scene;
 pub mod scene_renderer;
 pub mod text;
+pub use text::Glyph;
 mod texture;
 
 pub use app::App;
 pub use graphics::GraphicsContext;
 pub use logic::StateLogic;
 pub use primitives::{
-    _TexturePrimitive, BoxPrimitive, Color, Globals, ImagePrimitive, Rect, TextPrimitive, Transform,
+    _TexturePrimitive, BoxPrimitive, Color, Globals, GlyphInstance, ImagePrimitive, Rect,
+    TextPrimitive, Transform,
 };
 pub use renderer::Renderer;
 pub use rendering_context::RenderingContext;

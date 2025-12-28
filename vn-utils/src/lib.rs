@@ -27,3 +27,48 @@ impl<T> UpdateOption<T> for Option<T> {
         }
     }
 }
+
+pub mod string {
+    pub trait CharIndex {
+        fn byte_pos_for_char_index(&self, index: usize) -> Option<usize>;
+    }
+
+    pub trait InsertAtCharIndex: CharIndex {
+        fn insert_at_char_index(&mut self, index: usize, c: char);
+        fn insert_str_at_char_index(&mut self, index: usize, c: &str);
+    }
+
+    pub trait RemoveAtCharIndex: CharIndex {
+        fn remove_at_char_index(&mut self, index: usize);
+    }
+
+    impl CharIndex for String {
+        fn byte_pos_for_char_index(&self, index: usize) -> Option<usize> {
+            self.char_indices()
+                .enumerate()
+                .find_map(|(idx, (byte_pos, _))| if idx == index { Some(byte_pos) } else { None })
+        }
+    }
+
+    impl InsertAtCharIndex for String {
+        fn insert_at_char_index(&mut self, index: usize, c: char) {
+            let index = self.byte_pos_for_char_index(index).unwrap_or(self.len());
+
+            self.insert(index, c);
+        }
+
+        fn insert_str_at_char_index(&mut self, index: usize, c: &str) {
+            let index = self.byte_pos_for_char_index(index).unwrap_or(self.len());
+
+            self.insert_str(index, c);
+        }
+    }
+
+    impl RemoveAtCharIndex for String {
+        fn remove_at_char_index(&mut self, index: usize) {
+            let index = self.byte_pos_for_char_index(index).unwrap_or(self.len());
+
+            self.remove(index);
+        }
+    }
+}

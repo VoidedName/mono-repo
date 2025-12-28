@@ -1971,6 +1971,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "log",
+ "vn-utils",
  "vn-vttrpg-ui",
  "vn-vttrpg-window",
  "web-time",

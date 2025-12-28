@@ -1,5 +1,5 @@
 use crate::{ElementId, ElementSize, SizeConstraints, UiContext};
-use rand::{Rng, RngCore, SeedableRng};
+use rand::{Rng, SeedableRng};
 use std::collections::HashMap;
 use vn_vttrpg_window::{Color, Scene};
 

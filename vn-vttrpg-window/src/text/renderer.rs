@@ -5,6 +5,7 @@ use crate::primitives::{Globals, Vertex};
 use crate::text::Font;
 use crate::texture::Texture;
 use bytemuck::{Pod, Zeroable};
+use std::sync::Arc;
 use ttf_parser::OutlineBuilder;
 use wgpu::util::DeviceExt;
 
@@ -190,87 +191,53 @@ impl TextRenderer {
         }
     }
 
-    pub fn render_string(
+    pub fn render_glyph(
         &mut self,
         graphics_context: &GraphicsContext,
         font: &Font,
-        text: &str,
+        glyph_id: ttf_parser::GlyphId,
         font_size: f32,
-    ) -> anyhow::Result<Texture> {
+    ) -> anyhow::Result<crate::text::Glyph> {
+        let mut min_x: f32 = 0.0;
+        let mut max_x: f32 = 0.0;
+
         let face = font
             .face()
             .map_err(|e| anyhow::anyhow!("Font parse error: {}", e))?;
         let scale = font_size / face.units_per_em() as f32;
 
-        let mut current_x = 0.0;
-        let mut glyph_instances = Vec::new();
-        let mut all_segments = Vec::new();
-
         let ascender = face.ascender() as f32 * scale;
-        let line_height =
-            (face.ascender() as f32 - face.descender() as f32 + face.line_gap() as f32) * scale;
+        let line_height = (face.ascender() - face.descender() + face.line_gap()) as f32 * scale;
 
-        let mut current_y = 0.0;
-        let mut min_x: f32 = f32::INFINITY;
-        let mut max_x: f32 = f32::NEG_INFINITY;
-        let mut min_y: f32 = f32::INFINITY;
-        let mut max_y: f32 = f32::NEG_INFINITY;
+        let mut collector = OutlineCollector::new([0.0, ascender], scale);
+        face.outline_glyph(glyph_id, &mut collector);
+        let segment_count = collector.segments.len() as u32;
 
-        let mut line_count = 1;
+        let mut glyph_instances = Vec::new();
+        let mut all_segments = collector.segments;
 
-        for c in text.chars() {
-            if c == '\n' {
-                current_x = 0.0;
-                current_y += line_height;
-                line_count += 1;
-                continue;
-            }
+        if let Some(bbox) = face.glyph_bounding_box(glyph_id) {
+            let r_min_x: f32 = bbox.x_min as f32 * scale;
+            let r_max_x: f32 = bbox.x_max as f32 * scale;
+            let r_min_y: f32 = ascender - bbox.y_max as f32 * scale;
+            let r_max_y: f32 = ascender - bbox.y_min as f32 * scale;
 
-            if c == '\r' {
-                continue;
-            }
+            glyph_instances.push(GpuGlyph {
+                rect_min: [r_min_x, r_min_y],
+                rect_max: [r_max_x, r_max_y],
+                segment_start: 0,
+                segment_count,
+            });
 
-            if let Some(glyph_id) = face.glyph_index(c) {
-                let segment_start = all_segments.len() as u32;
-
-                let mut collector = OutlineCollector::new([current_x, current_y + ascender], scale);
-                face.outline_glyph(glyph_id, &mut collector);
-                let segment_count = collector.segments.len() as u32;
-
-                if let Some(bbox) = face.glyph_bounding_box(glyph_id) {
-                    let r_min_x: f32 = current_x + bbox.x_min as f32 * scale;
-                    let r_max_x: f32 = current_x + bbox.x_max as f32 * scale;
-                    let r_min_y: f32 = (current_y + ascender) - bbox.y_max as f32 * scale;
-                    let r_max_y: f32 = (current_y + ascender) - bbox.y_min as f32 * scale;
-
-                    glyph_instances.push(GpuGlyph {
-                        rect_min: [r_min_x, r_min_y],
-                        rect_max: [r_max_x, r_max_y],
-                        segment_start,
-                        segment_count,
-                    });
-
-                    min_x = min_x.min(r_min_x);
-                    max_x = max_x.max(r_max_x);
-                    min_y = min_y.min(r_min_y);
-                    max_y = max_y.max(r_max_y);
-                }
-
-                all_segments.extend(collector.segments);
-                current_x += face.glyph_hor_advance(glyph_id).unwrap_or(0) as f32 * scale;
-                max_x = max_x.max(current_x);
-            }
+            min_x = r_min_x;
+            max_x = r_max_x;
         }
 
-        if min_x == f32::INFINITY {
-            min_x = 0.0;
-        }
-        if max_x == f32::NEG_INFINITY {
-            max_x = 0.0;
-        }
+        let advance = face.glyph_hor_advance(glyph_id).unwrap_or(0) as f32 * scale;
 
-        let width = (max_x - min_x).ceil() as u32 + 2;
-        let height = (line_height * line_count as f32).ceil() as u32 + 2;
+        // Ensure we have at least 1x1 texture
+        let width = (max_x - min_x).ceil().max(1.0) as u32 + 2;
+        let height = line_height.ceil().max(1.0) as u32 + 2;
 
         let offset_x = -min_x + 1.0;
         let offset_y = 1.0;
@@ -343,15 +310,15 @@ impl TextRenderer {
         queue.write_buffer(&self.globals_buffer, 0, bytemuck::cast_slice(&[globals]));
 
         let target_texture =
-            Texture::create_render_target(device, (width, height), Some("Text Texture"));
+            Texture::create_render_target(device, (width, height), Some("Glyph Texture"));
 
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Text Render Encoder"),
+            label: Some("Glyph Render Encoder"),
         });
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Text Render Pass"),
+                label: Some("Glyph Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &target_texture.view,
                     resolve_target: None,
@@ -377,7 +344,11 @@ impl TextRenderer {
 
         queue.submit(std::iter::once(encoder.finish()));
 
-        Ok(target_texture)
+        Ok(crate::text::Glyph {
+            texture: Arc::new(target_texture),
+            advance,
+            y_offset: 0.0,
+        })
     }
 }
 

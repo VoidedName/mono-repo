@@ -296,24 +296,27 @@ impl SceneRenderer {
         let mut batch = Vec::new();
 
         for text in texts {
-            let resolved = self.resource_manager.get_or_render_text(
-                graphics_context,
-                &text.text,
-                &text.font,
-                text.font_size,
-            );
-
-            if let Some(texture) = resolved {
+            for glyph in &text.glyphs {
+                let texture = &glyph.texture;
                 if let Some(ref current) = current_texture {
-                    if !Arc::ptr_eq(current, &texture) {
+                    if !Arc::ptr_eq(current, texture) {
                         self.draw_texture_batch(graphics_context, render_pass, current, &mut batch);
                         batch.clear();
-                        current_texture = Some(texture);
+                        current_texture = Some(texture.clone());
                     }
                 } else {
-                    current_texture = Some(texture);
+                    current_texture = Some(texture.clone());
                 }
-                batch.push(text.to_texture_primitive());
+
+                let mut common = text.common;
+                common.transform.translation[0] += glyph.position[0];
+                common.transform.translation[1] += glyph.position[1];
+
+                batch.push(_TexturePrimitive {
+                    common,
+                    size: glyph.size,
+                    tint: text.tint,
+                });
             }
         }
 

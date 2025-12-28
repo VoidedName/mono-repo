@@ -2,8 +2,7 @@ use crate::graphics::WgpuContext;
 use crate::text::Font;
 use crate::texture::Texture;
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
-use std::mem::swap;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Manages textures, fonts, and cached text rendering.
@@ -11,11 +10,11 @@ pub struct ResourceManager {
     wgpu: Arc<WgpuContext>,
     textures: RefCell<HashMap<String, Arc<Texture>>>,
     fonts: RefCell<HashMap<String, Arc<Font>>>,
-    text_cache: RefCell<HashMap<String, Arc<Texture>>>,
     text_renderer: RefCell<Option<crate::text::renderer::TextRenderer>>,
-    text_used: RefCell<HashSet<String>>,
-    text_unused: RefCell<HashSet<String>>,
+    glyph_cache: RefCell<HashMap<(String, u32, u32), Glyph>>,
 }
+
+use crate::text::Glyph;
 
 impl ResourceManager {
     pub fn new(wgpu: Arc<WgpuContext>) -> Self {
@@ -23,10 +22,8 @@ impl ResourceManager {
             wgpu,
             textures: RefCell::new(HashMap::new()),
             fonts: RefCell::new(HashMap::new()),
-            text_cache: RefCell::new(HashMap::new()),
             text_renderer: RefCell::new(None),
-            text_used: RefCell::new(Default::default()),
-            text_unused: RefCell::new(Default::default()),
+            glyph_cache: RefCell::new(HashMap::new()),
         }
     }
 
@@ -97,23 +94,20 @@ impl ResourceManager {
         self.fonts.borrow().get(name).cloned()
     }
 
-    pub fn get_or_render_text(
+    pub fn get_glyphs(
         &self,
         graphics_context: &crate::graphics::GraphicsContext,
         text: &str,
         font_name: &str,
         font_size: f32,
-    ) -> Option<Arc<Texture>> {
-        let key = format!("{}:{}:{}", text, font_name, font_size);
-        {
-            let cache = self.text_cache.borrow();
-            if let Some(texture) = cache.get(&key) {
-                self.text_used.borrow_mut().insert(key.clone());
-                return Some(texture.clone());
+    ) -> Vec<Glyph> {
+        let font = match self.get_font(font_name) {
+            Some(f) => f,
+            None => {
+                log::error!("Font {} not found", font_name);
+                return Vec::new();
             }
-        }
-
-        let font = self.get_font(font_name)?;
+        };
 
         let mut text_renderer = self.text_renderer.borrow_mut();
         if text_renderer.is_none() {
@@ -121,28 +115,45 @@ impl ResourceManager {
         }
         let renderer = text_renderer.as_mut().unwrap();
 
-        match renderer.render_string(graphics_context, &font, text, font_size) {
-            Ok(texture) => {
-                let texture = Arc::new(texture);
-                self.text_used.borrow_mut().insert(key.clone());
-                self.text_cache.borrow_mut().insert(key, texture.clone());
-                Some(texture)
-            }
+        let face = match font.face() {
+            Ok(f) => f,
             Err(e) => {
-                log::error!("Failed to render text: {}", e);
-                None
+                log::error!("Failed to parse font: {}", e);
+                return Vec::new();
+            }
+        };
+
+        let mut glyphs = Vec::new();
+        let font_ptr = Arc::as_ptr(&font.data) as usize;
+        let font_id = format!("{:x}", font_ptr);
+
+        for c in text.chars() {
+            if let Some(glyph_id) = face.glyph_index(c) {
+                let key = (
+                    font_id.clone(),
+                    glyph_id.0 as u32,
+                    (font_size * 100.0) as u32,
+                );
+
+                if let Some(glyph) = self.glyph_cache.borrow().get(&key) {
+                    glyphs.push(glyph.clone());
+                    continue;
+                }
+
+                match renderer.render_glyph(graphics_context, &font, glyph_id, font_size) {
+                    Ok(glyph) => {
+                        self.glyph_cache.borrow_mut().insert(key, glyph.clone());
+                        glyphs.push(glyph);
+                    }
+                    Err(e) => log::error!("Failed to render glyph {}: {}", c, e),
+                }
             }
         }
+        glyphs
     }
 
     pub fn cleanup_unused_text(&self) {
-        let mut texts = self.text_cache.borrow_mut();
-        for key in self.text_unused.borrow_mut().drain() {
-            texts.remove(&key);
-        }
-        swap(
-            &mut self.text_used.borrow_mut(),
-            &mut self.text_unused.borrow_mut(),
-        );
+        let mut glyph_cache = self.glyph_cache.borrow_mut();
+        glyph_cache.retain(|_, glyph| Arc::strong_count(&glyph.texture) > 1);
     }
 }

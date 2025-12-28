@@ -183,12 +183,15 @@ impl ImagePrimitive {
 pub struct TextPrimitive {
     /// Common properties shared by all primitives (transform, clipping).
     pub common: PrimitiveProperties,
-    pub size: [f32; 2],
-    pub text: String,
-    /// Font name as registered in the [`ResourceManager`](crate::resource_manager::ResourceManager).
-    pub font: String,
-    pub font_size: f32,
+    pub glyphs: Vec<GlyphInstance>,
     pub tint: Color,
+}
+
+#[derive(Debug, Clone)]
+pub struct GlyphInstance {
+    pub texture: std::sync::Arc<crate::Texture>,
+    pub position: [f32; 2],
+    pub size: [f32; 2],
 }
 
 /// A builder for creating [`TextPrimitive`] instances.
@@ -198,14 +201,11 @@ pub struct TextPrimitiveBuilder {
 
 impl TextPrimitiveBuilder {
     /// Creates a new builder for a [`TextPrimitive`] with the specified text and font.
-    pub fn new(text: String, font: String) -> Self {
+    pub fn new() -> Self {
         Self {
             primitive: TextPrimitive {
                 common: PrimitiveProperties::DEFAULT,
-                size: [1.0, 1.0],
-                text,
-                font,
-                font_size: 16.0,
+                glyphs: Vec::new(),
                 tint: Color::WHITE,
             },
         }
@@ -237,13 +237,8 @@ impl TextPrimitiveBuilder {
         self
     }
 
-    pub fn size(mut self, size: [f32; 2]) -> Self {
-        self.primitive.size = size;
-        self
-    }
-
-    pub fn font_size(mut self, font_size: f32) -> Self {
-        self.primitive.font_size = font_size;
+    pub fn add_glyph(mut self, glyph: GlyphInstance) -> Self {
+        self.primitive.glyphs.push(glyph);
         self
     }
 
@@ -258,14 +253,14 @@ impl TextPrimitiveBuilder {
 }
 
 impl TextPrimitive {
-    pub fn builder(text: String, font: String) -> TextPrimitiveBuilder {
-        TextPrimitiveBuilder::new(text, font)
+    pub fn builder() -> TextPrimitiveBuilder {
+        TextPrimitiveBuilder::new()
     }
 
     pub fn to_texture_primitive(&self) -> _TexturePrimitive {
         _TexturePrimitive {
             common: self.common,
-            size: self.size,
+            size: [0.0, 0.0],
             tint: self.tint,
         }
     }
