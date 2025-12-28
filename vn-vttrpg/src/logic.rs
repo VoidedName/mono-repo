@@ -1,11 +1,7 @@
 use std::cell::RefCell;
 use std::sync::Arc;
 use vn_utils::string::{InsertAtCharIndex, RemoveAtCharIndex};
-use vn_vttrpg_ui::{
-    Anchor, AnchorLocation, Button, Card, CardParams, DynamicSize, DynamicString, Element,
-    ElementId, ElementSize, EventManager, Fill, Flex, Label, LabelText, Padding, PaddingParams,
-    SimpleLayoutCache, SizeConstraints, TextMetrics, ToolTip, TooltipParams, UiContext,
-};
+use vn_vttrpg_ui::{Anchor, AnchorLocation, Button, Card, CardParams, DynamicSize, DynamicString, Element, ElementId, ElementSize, EventManager, Fill, Flex, Label, LabelText, Padding, PaddingParams, SimpleLayoutCache, SizeConstraints, TextArea, TextMetrics, ToolTip, TooltipParams, UiContext};
 use vn_vttrpg_window::graphics::GraphicsContext;
 use vn_vttrpg_window::input::InputState;
 use vn_vttrpg_window::resource_manager::ResourceManager;
@@ -145,6 +141,10 @@ impl StateLogic<SceneRenderer> for MainLogic {
                                     *caret += 1;
                                 }
                             }
+                            Key::Named(NamedKey::Enter) => {
+                                text.push('\n');
+                                *caret += 1;
+                            }
                             _ => {}
                         }
                     }
@@ -255,10 +255,11 @@ impl StateLogic<SceneRenderer> for MainLogic {
         };
 
         use vn_vttrpg_ui::{
-            AnchorParams, ButtonParams, CaretSource, LabelParams, TextInput, TextInputParams,
+            AnchorParams, ButtonParams, CaretSource, LabelParams, TextAreaInput,
+            TextInputParams,
         };
 
-        let test_input = TextInput::new(
+        let test_input = TextAreaInput::new(
             TextInputParams {
                 label: LabelParams {
                     text: LabelText::Static("".to_string()),
@@ -294,9 +295,9 @@ impl StateLogic<SceneRenderer> for MainLogic {
             &mut ui_ctx,
         );
 
-        let start = Label::new(
+        let start = TextArea::new(
             LabelParams {
-                text: LabelText::Static("Thai".to_string()),
+                text: LabelText::Static("Thai\nStart".to_string()),
                 font: "jetbrains-bold".to_string(),
                 font_size: 48.0,
                 color: Color::WHITE,
@@ -520,6 +521,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
     }
 
     fn render_target(&self) -> vn_vttrpg_window::scene::Scene {
+        self.fps_stats.borrow_mut().tick();
         let mut scene =
             vn_vttrpg_window::scene::Scene::new((self.size.0 as f32, self.size.1 as f32));
 

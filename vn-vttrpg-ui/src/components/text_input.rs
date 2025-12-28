@@ -125,6 +125,11 @@ impl ElementImpl for TextInput {
     fn layout_impl(&mut self, _ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
         self.update_state();
 
+        let max_width = constraints.max_size.width.unwrap_or(f32::INFINITY);
+        if max_width.is_finite() {
+            self.size.width = max_width;
+        }
+
         let is_focused = _ctx.event_manager.is_focused(self.id);
         match (is_focused, self.gained_focus_at) {
             (false, _) => {

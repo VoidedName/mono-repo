@@ -32,7 +32,8 @@ impl ElementImpl for Fill {
             _ => child_size.height,
         };
 
-        ElementSize { width, height }
+        // ElementSize { width, height }
+        ElementSize { width: 200.0, height }
     }
 
     fn draw_impl(

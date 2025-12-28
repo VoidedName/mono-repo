@@ -311,6 +311,8 @@ impl SceneRenderer {
                 let mut common = text.common;
                 common.transform.translation[0] += glyph.position[0];
                 common.transform.translation[1] += glyph.position[1];
+                common.clip_area.position[0] -= glyph.position[0];
+                common.clip_area.position[1] -= glyph.position[1];
 
                 batch.push(_TexturePrimitive {
                     common,
