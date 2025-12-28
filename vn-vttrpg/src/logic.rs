@@ -216,6 +216,11 @@ impl StateLogic<SceneRenderer> for MainLogic {
                 let glyphs = self.rm.get_glyphs(&self.gc, text, &font, font_size);
                 let mut width = 0.0;
                 let mut height: f32 = 0.0;
+
+                if let Some(first) = glyphs.first() {
+                    width += first.x_bearing;
+                }
+
                 for glyph in glyphs {
                     width += glyph.advance;
                     height = height.max(glyph.texture.texture.height() as f32);
@@ -291,7 +296,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
 
         let start = Label::new(
             LabelParams {
-                text: LabelText::Static("Start".to_string()),
+                text: LabelText::Static("Thai".to_string()),
                 font: "jetbrains-bold".to_string(),
                 font_size: 48.0,
                 color: Color::WHITE,
@@ -515,22 +520,6 @@ impl StateLogic<SceneRenderer> for MainLogic {
     }
 
     fn render_target(&self) -> vn_vttrpg_window::scene::Scene {
-        let t = {
-            let fps = self.fps_stats.borrow_mut();
-            fps.tick();
-            match fps.current_fps() {
-                Some(fps) => {
-                    format!("FPS:{:>8.2}", fps)
-                }
-                None => "Initializing...".to_string(),
-            }
-        };
-
-        // let _text = self
-        //     .resource_manager
-        //     .get_or_render_text(&self.graphics_context, &t, "jetbrains-bold", 48.0)
-        //     .unwrap();
-
         let mut scene =
             vn_vttrpg_window::scene::Scene::new((self.size.0 as f32, self.size.1 as f32));
 

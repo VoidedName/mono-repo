@@ -11,5 +11,6 @@ use std::sync::Arc;
 pub struct Glyph {
     pub texture: Arc<Texture>,
     pub advance: f32,
+    pub x_bearing: f32,
     pub y_offset: f32,
 }

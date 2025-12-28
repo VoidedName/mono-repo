@@ -4,6 +4,7 @@ use crate::{
     TextMetrics, UiContext,
 };
 use std::sync::Arc;
+use vn_utils::string::CharIndex;
 use vn_vttrpg_window::{BoxPrimitive, Scene, TextPrimitive};
 use web_time::Instant;
 
@@ -181,7 +182,7 @@ impl ElementImpl for TextInput {
                 for glyph in glyphs {
                     text_builder = text_builder.add_glyph(vn_vttrpg_window::GlyphInstance {
                         texture: glyph.texture.clone(),
-                        position: [current_x, glyph.y_offset],
+                        position: [current_x + glyph.x_bearing, glyph.y_offset],
                         size: [
                             glyph.texture.texture.width() as f32,
                             glyph.texture.texture.height() as f32,
@@ -205,9 +206,7 @@ impl ElementImpl for TextInput {
                                 // ensure we don't split at non-char boundary
                                 let end = self
                                     .text
-                                    .char_indices()
-                                    .map(|(i, _)| i)
-                                    .nth(self.caret_position)
+                                    .byte_pos_for_char_index(self.caret_position)
                                     .unwrap_or(self.text.len());
                                 &self.text[..end]
                             };

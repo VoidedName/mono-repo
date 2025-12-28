@@ -105,7 +105,7 @@ impl ElementImpl for Label {
         for glyph in glyphs {
             builder = builder.add_glyph(vn_vttrpg_window::GlyphInstance {
                 texture: glyph.texture.clone(),
-                position: [current_x, glyph.y_offset],
+                position: [current_x + glyph.x_bearing, glyph.y_offset],
                 size: [
                     glyph.texture.texture.width() as f32,
                     glyph.texture.texture.height() as f32,

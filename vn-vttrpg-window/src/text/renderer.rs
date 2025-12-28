@@ -347,6 +347,7 @@ impl TextRenderer {
         Ok(crate::text::Glyph {
             texture: Arc::new(target_texture),
             advance,
+            x_bearing: min_x,
             y_offset: 0.0,
         })
     }
