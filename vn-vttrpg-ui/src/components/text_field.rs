@@ -1,7 +1,7 @@
 use crate::text::layout::TextLayout;
 use crate::utils::ToArray;
 use crate::{
-    ElementId, ElementImpl, ElementSize, LabelParams, SizeConstraints, TextMetrics, UiContext,
+    ElementId, ElementImpl, ElementSize, SizeConstraints, TextFieldParams, TextMetrics, UiContext,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -112,7 +112,7 @@ impl TextFieldController for InputTextFieldController {
 
 pub struct TextField {
     id: ElementId,
-    params: LabelParams,
+    params: TextFieldParams,
     controller: Rc<RefCell<dyn TextFieldController>>,
     text: String,
     caret_position: Option<usize>,
@@ -128,7 +128,7 @@ pub struct TextField {
 
 impl TextField {
     pub fn new<T: TextMetrics + 'static>(
-        params: LabelParams,
+        params: TextFieldParams,
         controller: Rc<RefCell<dyn TextFieldController>>,
         text_metrics: Rc<T>,
         ctx: &mut UiContext,
@@ -177,13 +177,15 @@ impl TextField {
 
         if changed {
             let caret_space = self.caret_width;
-            self.controller.borrow_mut().set_current_layout(TextLayout::layout(
-                &self.text,
-                &self.params.font,
-                self.params.font_size,
-                max_width.map(|w| w - caret_space),
-                self.text_metrics.as_ref(),
-            ));
+            self.controller
+                .borrow_mut()
+                .set_current_layout(TextLayout::layout(
+                    &self.text,
+                    &self.params.font,
+                    self.params.font_size,
+                    max_width.map(|w| w - caret_space),
+                    self.text_metrics.as_ref(),
+                ));
 
             // Reset caret blink timer when changing
             if self.gained_focus_at.is_some() {

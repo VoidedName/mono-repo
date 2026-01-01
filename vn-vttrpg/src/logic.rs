@@ -2,11 +2,10 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use vn_utils::string::{InsertAtCharIndex, RemoveAtCharIndex};
 use vn_vttrpg_ui::{
-    Anchor, AnchorLocation, Card, CardParams,
-    DynamicSize, Element, ElementId, ElementSize,
-    EventManager, Fill, Flex, InputTextFieldController, LabelParams, LabelText, Padding,
-    PaddingParams, SimpleLayoutCache, SizeConstraints, TextField,
-    TextFieldController, TextMetrics, UiContext,
+    Anchor, AnchorLocation, Card, CardParams, DynamicSize, DynamicTextFieldController, Element,
+    ElementId, ElementSize, EventManager, Fill, Flex, InputTextFieldController, Padding,
+    PaddingParams, SimpleLayoutCache, SizeConstraints, Stack, TextField, TextFieldController,
+    TextFieldParams, TextFieldText, TextMetrics, UiContext,
 };
 use vn_vttrpg_window::graphics::GraphicsContext;
 use vn_vttrpg_window::input::InputState;
@@ -316,7 +315,6 @@ impl StateLogic<SceneRenderer> for MainLogic {
                             }
                         }
                     }
-                    log::info!("Element {:?} clicked at ({}, {})!", id, x, y);
                 }
                 _ => {}
             }
@@ -341,8 +339,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
         use vn_vttrpg_ui::AnchorParams;
 
         let test_input = TextField::new(
-            LabelParams {
-                text: LabelText::Static("".to_string()),
+            TextFieldParams {
                 font: "jetbrains-bold".to_string(),
                 font_size: 12.0,
                 color: Color::RED,
@@ -367,217 +364,8 @@ impl StateLogic<SceneRenderer> for MainLogic {
             },
             &mut ui_ctx,
         );
-        //
-        // let start = TextField::new(
-        //     LabelParams {
-        //         text: LabelText::Static("Thai\nStart".to_string()),
-        //         font: "jetbrains-bold".to_string(),
-        //         font_size: 48.0,
-        //         color: Color::WHITE,
-        //     },
-        //     Arc::new(RefCell::new(StaticTextFieldController::new(
-        //         "Thai\nStart".to_string(),
-        //     ))),
-        //     text_metric.clone(),
-        //     &mut ui_ctx,
-        // );
-        //
-        // let options = TextField::new(
-        //     LabelParams {
-        //         text: LabelText::Static("Options".to_string()),
-        //         font: "jetbrains-bold".to_string(),
-        //         font_size: 48.0,
-        //         color: Color::WHITE,
-        //     },
-        //     Arc::new(RefCell::new(StaticTextFieldController::new(
-        //         "Options".to_string(),
-        //     ))),
-        //     text_metric.clone(),
-        //     &mut ui_ctx,
-        // );
-        //
-        // let exit = TextField::new(
-        //     LabelParams {
-        //         text: LabelText::Static("Exit".to_string()),
-        //         font: "jetbrains-bold".to_string(),
-        //         font_size: 48.0,
-        //         color: Color::WHITE,
-        //     },
-        //     Arc::new(RefCell::new(StaticTextFieldController::new(
-        //         "Exit".to_string(),
-        //     ))),
-        //     text_metric.clone(),
-        //     &mut ui_ctx,
-        // );
-        // let start = Anchor::new(
-        //     Box::new(start),
-        //     AnchorParams {
-        //         location: AnchorLocation::CENTER,
-        //     },
-        //     &mut ui_ctx,
-        // );
-        // let start = Button::new(
-        //     Box::new(start),
-        //     ButtonParams {
-        //         background: Color::TRANSPARENT,
-        //         border_color: Color::WHITE,
-        //         border_width: 2.0,
-        //         corner_radius: 10.0,
-        //     },
-        //     &mut ui_ctx,
-        // );
-        // let options = Anchor::new(
-        //     Box::new(options),
-        //     AnchorParams {
-        //         location: AnchorLocation::CENTER,
-        //     },
-        //     &mut ui_ctx,
-        // );
-        // let options = Button::new(
-        //     Box::new(options),
-        //     ButtonParams {
-        //         background: Color::TRANSPARENT,
-        //         border_color: Color::WHITE,
-        //         border_width: 2.0,
-        //         corner_radius: 10.0,
-        //     },
-        //     &mut ui_ctx,
-        // );
-        //
-        // let exit = Anchor::new(
-        //     Box::new(exit),
-        //     AnchorParams {
-        //         location: AnchorLocation::CENTER,
-        //     },
-        //     &mut ui_ctx,
-        // );
-        // let exit = Button::new(
-        //     Box::new(exit),
-        //     ButtonParams {
-        //         background: Color::TRANSPARENT,
-        //         border_color: Color::WHITE,
-        //         border_width: 2.0,
-        //         corner_radius: 10.0,
-        //     },
-        //     &mut ui_ctx,
-        // );
-        //
-        // let tooltip1 = TextField::new(
-        //     LabelParams {
-        //         text: LabelText::Static("Start this thing\n\tI guess".to_string()),
-        //         font: "jetbrains-bold".to_string(),
-        //         font_size: 24.0,
-        //         color: Color::WHITE,
-        //     },
-        //     Arc::new(RefCell::new(StaticTextFieldController::new(
-        //         "Start this thing\n\tI guess".to_string(),
-        //     ))),
-        //     text_metric.clone(),
-        //     &mut ui_ctx,
-        // );
-        //
-        // let tooltip1 = Card::new(
-        //     Box::new(tooltip1),
-        //     CardParams {
-        //         background_color: Color::BLACK,
-        //         border_size: 2.0,
-        //         border_color: Color::WHITE,
-        //         corner_radius: 10.0,
-        //     },
-        //     &mut ui_ctx,
-        // );
-        //
-        // let fps = self.fps_stats.clone();
-        //
-        // let fps_callback = Box::new(move || {
-        //     format!(
-        //         "FPS: {:>6.2?}",
-        //         fps.borrow()
-        //             .current_fps
-        //             .borrow()
-        //             .as_ref()
-        //             .unwrap_or(&f32::NAN)
-        //     )
-        // });
-        //
-        // let tooltip2 = TextField::new(
-        //     LabelParams {
-        //         text: LabelText::Dynamic(DynamicString(fps_callback.clone())),
-        //         font: "jetbrains-bold".to_string(),
-        //         font_size: 24.0,
-        //         color: Color::WHITE,
-        //     },
-        //     Arc::new(RefCell::new(DynamicTextFieldController::new(fps_callback))),
-        //     text_metric.clone(),
-        //     &mut ui_ctx,
-        // );
-        // let tooltip2 = Card::new(
-        //     Box::new(tooltip2),
-        //     CardParams {
-        //         background_color: Color::BLACK,
-        //         border_size: 2.0,
-        //         border_color: Color::WHITE,
-        //         corner_radius: 10.0,
-        //     },
-        //     &mut ui_ctx,
-        // );
-        //
-        // let tooltip = ToolTip::new(
-        //     Box::new(tooltip1),
-        //     Box::new(tooltip2),
-        //     TooltipParams {
-        //         hover_delay: Some(Duration::from_secs_f32(0.1)),
-        //         hover_retain: Some(Duration::from_secs_f32(0.25)),
-        //     },
-        //     &mut ui_ctx,
-        // );
-        //
-        // let start = ToolTip::new(
-        //     Box::new(start),
-        //     Box::new(tooltip),
-        //     TooltipParams {
-        //         hover_delay: Some(Duration::from_secs_f32(0.1)),
-        //         hover_retain: Some(Duration::from_secs_f32(0.25)),
-        //     },
-        //     &mut ui_ctx,
-        // );
-        //
-        // let tooltip = TextField::new(
-        //     LabelParams {
-        //         text: LabelText::Static("Open the options".to_string()),
-        //         font: "jetbrains-bold".to_string(),
-        //         font_size: 24.0,
-        //         color: Color::WHITE,
-        //     },
-        //     Arc::new(RefCell::new(StaticTextFieldController::new(
-        //         "Open the options".to_string(),
-        //     ))),
-        //     text_metric.clone(),
-        //     &mut ui_ctx,
-        // );
-        //
-        // let tooltip = Card::new(
-        //     Box::new(tooltip),
-        //     CardParams {
-        //         background_color: Color::BLACK,
-        //         border_size: 2.0,
-        //         border_color: Color::WHITE,
-        //         corner_radius: 10.0,
-        //     },
-        //     &mut ui_ctx,
-        // );
-        //
-        // let options = ToolTip::new(
-        //     Box::new(options),
-        //     Box::new(tooltip),
-        //     TooltipParams {
-        //         hover_delay: Some(Duration::from_secs_f32(0.1)),
-        //         hover_retain: Some(Duration::from_secs_f32(0.25)),
-        //     },
-        //     &mut ui_ctx,
-        // );
 
-        let name_input = Card::new(
+        let test_input = Card::new(
             Box::new(test_input),
             CardParams {
                 background_color: Color::BLACK.with_alpha(0.5),
@@ -588,23 +376,43 @@ impl StateLogic<SceneRenderer> for MainLogic {
             &mut ui_ctx,
         );
 
-        let menu = Flex::new_column(
-            vec![
-                Box::new(name_input),
-                // Box::new(start),
-                // Box::new(options),
-                // Box::new(exit),
-            ],
+        let fps_stats = self.fps_stats.clone();
+
+        let fps = TextField::new(
+            TextFieldParams {
+                font: "jetbrains-bold".to_string(),
+                font_size: 18.0,
+                color: Color::WHITE.with_alpha(0.5),
+            },
+            Rc::new(RefCell::new(DynamicTextFieldController::new(Box::new(
+                move || {
+                    format!(
+                        "FPS: {:8>.2}",
+                        fps_stats.borrow().current_fps().unwrap_or(0.0)
+                    )
+                },
+            )))),
+            text_metric.clone(),
+            &mut ui_ctx,
+        );
+
+        let fps = Anchor::new(
+            Box::new(fps),
+            AnchorParams {
+                location: AnchorLocation::TopRight,
+            },
             &mut ui_ctx,
         );
 
         let ui = Anchor::new(
-            Box::new(menu),
+            Box::new(test_input),
             AnchorParams {
                 location: AnchorLocation::CENTER,
             },
             &mut ui_ctx,
         );
+
+        let ui = Stack::new(vec![Box::new(ui), Box::new(fps)], &mut ui_ctx);
 
         self.ui = Some(RefCell::new(Box::new(ui)));
     }

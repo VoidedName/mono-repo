@@ -45,8 +45,7 @@ pub trait TextMetrics {
     fn get_glyphs(&self, text: &str, font: &str, font_size: f32) -> Vec<Glyph>;
 }
 
-pub struct LabelParams {
-    pub text: LabelText,
+pub struct TextFieldParams {
     pub font: String,
     pub font_size: f32,
     pub color: Color,
@@ -54,7 +53,7 @@ pub struct LabelParams {
 
 pub struct DynamicString(pub Box<dyn Fn() -> String>);
 
-pub enum LabelText {
+pub enum TextFieldText {
     Static(String),
     Dynamic(DynamicString),
 }

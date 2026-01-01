@@ -23,16 +23,12 @@ impl ElementImpl for Fill {
         let child_size = self.element.layout(ctx, constraints);
 
         let height = match constraints.max_size.height {
-            Some(h) => {
-                h
-            },
+            Some(h) => h,
             _ => child_size.height,
         };
 
         let width = match constraints.max_size.width {
-            Some(w) => {
-                w
-            },
+            Some(w) => w,
             _ => child_size.width,
         };
 

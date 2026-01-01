@@ -97,7 +97,9 @@ impl ElementImpl for ToolTip {
             );
         }
 
-        self.element.layout(ctx, constraints).clamp_to_constraints(constraints)
+        self.element
+            .layout(ctx, constraints)
+            .clamp_to_constraints(constraints)
     }
 
     fn draw_impl(

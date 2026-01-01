@@ -52,7 +52,7 @@ impl TextLayout {
         assert_eq!(
             glyphs.len(),
             text.chars().count(),
-            "Glyph count mismatch for text: '{:?}'",
+            "Glyph count mismatch for text: {:?}",
             text
         );
 
@@ -310,7 +310,7 @@ impl TextLayout {
                     target_line.char_start + i
                 } else {
                     target_line.char_start + i + 1
-                }
+                };
             }
             glyph_x = next_glyph_x;
         }

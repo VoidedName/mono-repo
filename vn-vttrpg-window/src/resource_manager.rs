@@ -1,6 +1,7 @@
 use crate::graphics::WgpuContext;
 use crate::text::Font;
 use crate::texture::Texture;
+use log::info;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -18,6 +19,8 @@ pub struct ResourceManager {
 use crate::text::Glyph;
 
 impl ResourceManager {
+    // TODO: (bugs) implement fallback fonts
+
     pub fn new(wgpu: Rc<WgpuContext>) -> Self {
         Self {
             wgpu,
