@@ -1973,7 +1973,6 @@ dependencies = [
  "log",
  "vn-utils",
  "vn-vttrpg-ui",
- "vn-vttrpg-ui-animation",
  "vn-vttrpg-window",
  "web-time",
  "winit",

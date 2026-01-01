@@ -34,6 +34,8 @@ pub use element::*;
 pub use event_manager::*;
 pub use layouts::*;
 pub use sizes::*;
+pub use vn_vttrpg_ui_animation::*;
+pub use vn_vttrpg_ui_animation_macros::*;
 
 pub use vn_vttrpg_window::input::{KeyCode, KeyEvent};
 pub use vn_vttrpg_window::{Color, Glyph, Rect, Scene, TextPrimitive};
@@ -45,8 +47,9 @@ pub trait TextMetrics {
     fn get_glyphs(&self, text: &str, font: &str, font_size: f32) -> Vec<Glyph>;
 }
 
+#[derive(Clone, Interpolatable)]
 pub struct TextFieldParams {
-    pub font: String,
+    #[no_interpolation] pub font: String,
     pub font_size: f32,
     pub color: Color,
 }

@@ -5,8 +5,9 @@ use crate::{
 };
 use std::cell::RefCell;
 use std::rc::Rc;
-use vn_vttrpg_window::{BoxPrimitive, Scene, TextPrimitive};
+use vn_vttrpg_window::{BoxPrimitive, Color, Scene, TextPrimitive};
 use web_time::Instant;
+use vn_vttrpg_ui_animation::AnimationController;
 
 pub trait TextFieldController {
     fn text(&self) -> String;
@@ -229,7 +230,7 @@ impl InputTextFieldControllerExt for InputTextFieldController {
 
 pub struct TextField {
     id: ElementId,
-    params: TextFieldParams,
+    animation_controller: Rc<AnimationController<TextFieldParams>>,
     controller: Rc<RefCell<dyn TextFieldController>>,
     text: String,
     caret_position: Option<usize>,
@@ -241,17 +242,24 @@ pub struct TextField {
     line_height: f32,
     caret_width: f32,
     last_max_width: Option<f32>,
+    layout_time: Instant,
+    last_font_size: Option<f32>,
+    last_font: Option<String>,
+    last_color: Option<Color>,
 }
 
 impl TextField {
     pub fn new<T: TextMetrics + 'static>(
-        params: TextFieldParams,
+        animation_controller: Rc<AnimationController<TextFieldParams>>,
         controller: Rc<RefCell<dyn TextFieldController>>,
         text_metrics: Rc<T>,
         ctx: &mut UiContext,
     ) -> Self {
         let text = controller.borrow().text();
         let caret_position = controller.borrow().caret_position();
+
+        let layout_time = Instant::now();
+        let params = animation_controller.value(layout_time);
 
         let caret_width = 2.0;
         let line_height = text_metrics.line_height(&params.font, params.font_size);
@@ -261,7 +269,7 @@ impl TextField {
             line_height,
             text,
             caret_position,
-            params,
+            animation_controller,
             controller,
             show_caret: false,
             caret_width,
@@ -270,11 +278,30 @@ impl TextField {
             gained_focus_at: None,
             size: ElementSize::ZERO,
             last_max_width: None,
+            layout_time,
+            last_font_size: Some(params.font_size),
+            last_font: Some(params.font.clone()),
+            last_color: Some(params.color),
         }
     }
 
     pub fn update_state(&mut self, max_width: Option<f32>) -> bool {
         let mut changed = false;
+
+        let params = self.animation_controller.value(self.layout_time);
+        if Some(params.font_size) != self.last_font_size {
+            self.last_font_size = Some(params.font_size);
+            changed = true;
+        }
+        if Some(params.font.clone()) != self.last_font {
+            self.last_font = Some(params.font.clone());
+            changed = true;
+        }
+        if Some(params.color) != self.last_color {
+            self.last_color = Some(params.color);
+            changed = true;
+        }
+
         let new_text = self.controller.borrow().text();
         if new_text != self.text {
             self.text = new_text;
@@ -293,13 +320,14 @@ impl TextField {
         }
 
         if changed {
+            self.line_height = self.text_metrics.line_height(&params.font, params.font_size);
             let caret_space = self.caret_width;
             self.controller
                 .borrow_mut()
                 .set_current_layout(TextLayout::layout(
                     &self.text,
-                    &self.params.font,
-                    self.params.font_size,
+                    &params.font,
+                    params.font_size,
                     max_width.map(|w| w - caret_space),
                     self.text_metrics.as_ref(),
                 ));
@@ -337,6 +365,7 @@ impl ElementImpl for TextField {
     }
 
     fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
+        self.layout_time = Instant::now();
         self.update_state(constraints.max_size.width);
 
         let is_focused = ctx.event_manager.is_focused(self.id);
@@ -365,6 +394,8 @@ impl ElementImpl for TextField {
         size: ElementSize,
         scene: &mut Scene,
     ) {
+        let params = self.animation_controller.value(self.layout_time);
+
         let caret_height = self.line_height * 0.8;
         let caret_y_extra_offset = self.line_height / 2.0 - caret_height / 2.0;
         let caret_space = if self.caret_position.is_some() {
@@ -392,7 +423,7 @@ impl ElementImpl for TextField {
                                     origin.1 + line_y_offset,
                                 ])
                             })
-                            .tint(self.params.color)
+                            .tint(params.color)
                             .clip_area(|c| {
                                 c.size(size.to_array())
                                     .position([-caret_space / 2.0, -line_y_offset])
@@ -433,7 +464,7 @@ impl ElementImpl for TextField {
                                             ])
                                         })
                                         .size([self.caret_width, caret_height])
-                                        .color(self.params.color)
+                                        .color(params.color)
                                         .build(),
                                 );
                             });

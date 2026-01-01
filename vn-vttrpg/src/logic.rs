@@ -1,12 +1,12 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 use vn_vttrpg_ui::{
-    Anchor, AnchorLocation, Card, CardParams, DynamicSize, DynamicTextFieldController, Element,
-    ElementSize, EventManager, Fill, InputTextFieldController, InputTextFieldControllerExt,
-    Interactive, InteractiveParams, Padding, PaddingParams, SimpleLayoutCache, SizeConstraints,
-    Stack, TextField, TextFieldParams, TextMetrics, UiContext,
+    Anchor, AnchorLocation, Card, CardParams, DynamicSize,
+    DynamicTextFieldController, Element, ElementSize, EventManager, Fill, InputTextFieldController,
+    InputTextFieldControllerExt, Interactive, InteractiveParams, Interpolatable, Padding,
+    PaddingParams, SimpleLayoutCache, SizeConstraints, Stack, TextField, TextFieldParams,
+    TextMetrics, UiContext,
 };
-use vn_vttrpg_ui_animation::AnimationController;
 use vn_vttrpg_window::graphics::GraphicsContext;
 use vn_vttrpg_window::input::InputState;
 use vn_vttrpg_window::resource_manager::ResourceManager;
@@ -281,12 +281,25 @@ impl MainLogic {
 
         use vn_vttrpg_ui::AnchorParams;
 
-        let text_input = TextField::new(
-            TextFieldParams {
+        let text_input_animation = TextFieldParams {
+            font: "jetbrains-bold".to_string(),
+            font_size: 36.0,
+            color: Color::RED,
+        }
+        .into_controller()
+        .into_rc();
+
+        text_input_animation.update_state(|state| {
+            state.duration = web_time::Duration::from_millis(5000);
+            state.target_value = TextFieldParams {
                 font: "jetbrains-bold".to_string(),
-                font_size: 36.0,
-                color: Color::RED,
-            },
+                font_size: 18.0,
+                color: Color::GREEN,
+            };
+        });
+
+        let text_input = TextField::new(
+            text_input_animation.clone(),
             input_controller.clone(),
             text_metric.clone(),
             &mut ui_ctx,
@@ -296,7 +309,7 @@ impl MainLogic {
 
         let text_input = Fill::new(Box::new(text_input), &mut ui_ctx);
 
-        let padding_controller = Rc::new(AnimationController::new(PaddingParams::uniform(0.0)));
+        let padding_controller = PaddingParams::uniform(0.0).into_controller().into_rc();
         padding_controller.update_state(|state| {
             state.duration = web_time::Duration::from_millis(5000);
             state.target_value = PaddingParams::uniform(25.0);
@@ -304,12 +317,14 @@ impl MainLogic {
 
         let test_input = Padding::new(Box::new(text_input), padding_controller, &mut ui_ctx);
 
-        let card_controller = Rc::new(AnimationController::new(CardParams {
+        let card_controller = CardParams {
             background_color: Color::TRANSPARENT,
             border_size: 2.0,
             border_color: Color::TRANSPARENT,
             corner_radius: 5.0,
-        }));
+        }
+        .into_controller()
+        .into_rc();
 
         card_controller.update_state(|state| {
             state.duration = web_time::Duration::from_millis(5000);
@@ -328,7 +343,9 @@ impl MainLogic {
                 font: "jetbrains-bold".to_string(),
                 font_size: 18.0,
                 color: Color::WHITE.with_alpha(0.5),
-            },
+            }
+            .into_controller()
+            .into_rc(),
             Rc::new(RefCell::new(DynamicTextFieldController::new(Box::new(
                 move || {
                     format!(

@@ -5,8 +5,9 @@ use crate::{
 };
 use vn_vttrpg_window::{Rect, Scene};
 use web_time::{Duration, Instant};
+use vn_vttrpg_ui_animation_macros::Interpolatable;
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, Interpolatable)]
 pub struct TooltipParams {
     pub hover_delay: Option<Duration>,
     pub hover_retain: Option<Duration>,

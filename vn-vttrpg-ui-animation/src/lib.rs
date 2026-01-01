@@ -1,11 +1,12 @@
 use std::cell::RefCell;
 use std::time::{Duration, Instant};
 
-pub trait Interpolatable {
+pub trait Interpolatable: Sized + Clone {
     fn interpolate(&self, other: &Self, t: f32) -> Self;
+    fn into_controller(self) -> AnimationController<Self> {
+        AnimationController::new(self)
+    }
 }
-
-pub trait DerivedInterpolatable: Interpolatable + Clone {}
 
 macro_rules! impl_interpolatable_for_numeric {
     ($tt:ty) => {
@@ -38,6 +39,24 @@ impl Interpolatable for [f32; 2] {
             self[0].interpolate(&other[0], t),
             self[1].interpolate(&other[1], t),
         ]
+    }
+}
+
+impl<T: Interpolatable> Interpolatable for Option<T> {
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
+        match (self, other) {
+            (Some(a), Some(b)) => Some(a.interpolate(b, t)),
+            (None, None) => None,
+            (Some(a), None) if 0.0.interpolate(&1.0, t) < 0.5 => Some(a.clone()),
+            (None, Some(b)) if 0.0.interpolate(&1.0, t) > 0.5 => Some(b.clone()),
+            _ => None,
+        }
+    }
+}
+
+impl Interpolatable for Duration {
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
+        Duration::from_millis(self.as_millis().interpolate(&other.as_millis(), t) as u64)
     }
 }
 
@@ -79,11 +98,11 @@ pub struct AnimationController<T> {
     state: RefCell<AnimationState<T>>,
 }
 
-impl<T: Interpolatable + Copy> AnimationController<T> {
+impl<T: Interpolatable + Clone> AnimationController<T> {
     pub fn new(initial_value: T) -> Self {
         Self {
             state: RefCell::new(AnimationState {
-                start_value: initial_value,
+                start_value: initial_value.clone(),
                 target_value: initial_value,
                 start_time: Instant::now(),
                 duration: Duration::from_secs(0),
@@ -95,7 +114,7 @@ impl<T: Interpolatable + Copy> AnimationController<T> {
     pub fn value(&self, now: Instant) -> T {
         let state = self.state.borrow();
         if state.duration.as_secs_f32() == 0.0 {
-            return state.target_value;
+            return state.target_value.clone();
         }
 
         let elapsed = now.duration_since(state.start_time);
@@ -112,5 +131,15 @@ impl<T: Interpolatable + Copy> AnimationController<T> {
         F: FnOnce(&mut AnimationState<T>),
     {
         f(&mut self.state.borrow_mut());
+    }
+
+    pub fn into_rc(self) -> std::rc::Rc<Self> {
+        std::rc::Rc::new(self)
+    }
+}
+
+impl<T: Interpolatable> From<T> for AnimationController<T> {
+    fn from(value: T) -> Self {
+        value.into_controller()
     }
 }

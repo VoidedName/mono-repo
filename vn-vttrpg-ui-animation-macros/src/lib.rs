@@ -2,7 +2,9 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{DeriveInput, parse_macro_input};
 
-#[proc_macro_derive(Interpolatable)]
+const IGNORE_INTERPOLATION: &str = "no_interpolation";
+
+#[proc_macro_derive(Interpolatable, attributes(no_interpolation))]
 pub fn interpolate(item: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(item as DeriveInput);
     let name = &ast.ident;
@@ -11,11 +13,20 @@ pub fn interpolate(item: TokenStream) -> TokenStream {
         match data.fields {
             syn::Fields::Named(ref fields) => {
                 let interpolation = fields.named.iter().map(|field| {
-                    let field = &field.ident;
-                    quote! {
-                        result.#field = self.#field.interpolate(&other.#field, t);
+                    let ignore = field.attrs.iter().find(|a|
+                        a.meta.path().segments[0].ident.to_string() == IGNORE_INTERPOLATION
+                    ).is_some();
+
+                    if !ignore {
+                        let field = &field.ident;
+                        quote! {
+                            result.#field = self.#field.interpolate(&other.#field, t);
+                        }
+                    } else {
+                        quote! {}
                     }
                 });
+
                 quote! {
                     let mut result = self.clone();
                     #(#interpolation)*
@@ -23,9 +34,17 @@ pub fn interpolate(item: TokenStream) -> TokenStream {
                 }
             }
             syn::Fields::Unnamed(ref fields) => {
-                let interpolation = (0..fields.unnamed.len()).map(|i| {
-                    quote! {
-                        result.#i = self.#i.interpolate(&other.#i, t);
+                let interpolation = fields.unnamed.iter().enumerate().map(|(i, field)| {
+                    let ignore = field.attrs.iter().find(|a|
+                        a.meta.path().segments[0].ident.to_string() == IGNORE_INTERPOLATION
+                    ).is_some();
+
+                    if !ignore {
+                        quote! {
+                            result.#i = self.#i.interpolate(&other.#i, t);
+                        }
+                    } else {
+                        quote! {}
                     }
                 });
 
@@ -58,8 +77,6 @@ pub fn interpolate(item: TokenStream) -> TokenStream {
     let (impl_generics, type_generics, where_clause) = ast.generics.split_for_impl();
 
     let output = quote! {
-        impl #impl_generics ::vn_vttrpg_ui_animation::DerivedInterpolatable for #name #type_generics #where_clause {}
-
         impl #impl_generics ::vn_vttrpg_ui_animation::Interpolatable for #name #type_generics #where_clause {
             fn interpolate(&self, other: &Self, t: f32) -> Self {
                 #inner

@@ -3,7 +3,7 @@ use crate::{
     UiContext,
 };
 use std::rc::Rc;
-use vn_vttrpg_ui_animation::AnimationController;
+use vn_vttrpg_ui_animation::{AnimationController, Interpolatable};
 use vn_vttrpg_ui_animation_macros::Interpolatable;
 use vn_vttrpg_window::{BoxPrimitive, Color, Scene};
 
@@ -31,9 +31,9 @@ impl Card {
     ) -> Self {
         let border_size = controller.value(web_time::Instant::now()).border_size;
 
-        let padding_controller = Rc::new(AnimationController::new(PaddingParams::uniform(
-            border_size,
-        )));
+        let padding_controller = PaddingParams::uniform(border_size)
+            .into_controller()
+            .into_rc();
 
         Self {
             id: ctx.event_manager.next_id(),
