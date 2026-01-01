@@ -79,16 +79,22 @@ impl TextFieldController for DynamicTextFieldController {
 }
 
 pub struct InputTextFieldController {
-    text_f: Box<dyn Fn() -> String>,
-    caret_f: Box<dyn Fn() -> Option<usize>>,
+    pub id: ElementId,
+    pub text: String,
+    pub caret: usize,
+    pub intended_x: f32,
+    pub last_move_was_vertical: bool,
     text_layout: Option<TextLayout>,
 }
 
 impl InputTextFieldController {
-    pub fn new(text_f: Box<dyn Fn() -> String>, caret_f: Box<dyn Fn() -> Option<usize>>) -> Self {
+    pub fn new(id: ElementId) -> Self {
         Self {
-            text_f,
-            caret_f,
+            id,
+            text: "".to_string(),
+            caret: 0,
+            intended_x: 0.0,
+            last_move_was_vertical: false,
             text_layout: None,
         }
     }
@@ -96,10 +102,10 @@ impl InputTextFieldController {
 
 impl TextFieldController for InputTextFieldController {
     fn text(&self) -> String {
-        (self.text_f)()
+        self.text.clone()
     }
     fn caret_position(&self) -> Option<usize> {
-        (self.caret_f)()
+        Some(self.caret)
     }
 
     fn set_current_layout(&mut self, layout: TextLayout) {
@@ -107,6 +113,117 @@ impl TextFieldController for InputTextFieldController {
     }
     fn current_layout(&self) -> Option<&TextLayout> {
         self.text_layout.as_ref()
+    }
+}
+
+pub trait InputTextFieldControllerExt {
+    fn handle_key(&mut self, key_event: &winit::event::KeyEvent);
+    fn handle_click(&mut self, x: f32, y: f32);
+}
+
+impl InputTextFieldControllerExt for InputTextFieldController {
+    fn handle_key(&mut self, key_event: &winit::event::KeyEvent) {
+        if key_event.state.is_pressed() {
+            use vn_utils::string::{InsertAtCharIndex, RemoveAtCharIndex};
+            use winit::keyboard::{Key, NamedKey};
+
+            if !self.last_move_was_vertical {
+                if let Some(layout) = &self.text_layout {
+                    self.intended_x = layout.get_caret_x(self.caret);
+                }
+            }
+
+            match &key_event.logical_key {
+                Key::Character(s) => {
+                    self.text.insert_str_at_char_index(self.caret, s);
+                    self.caret += s.chars().count();
+                    if let Some(layout) = &self.text_layout {
+                        self.intended_x = layout.get_caret_x(self.caret);
+                    }
+                    self.last_move_was_vertical = false;
+                }
+                Key::Named(NamedKey::Space) => {
+                    self.text.insert_at_char_index(self.caret, ' ');
+                    self.caret += 1;
+                    if let Some(layout) = &self.text_layout {
+                        self.intended_x = layout.get_caret_x(self.caret);
+                    }
+                    self.last_move_was_vertical = false;
+                }
+                Key::Named(NamedKey::Backspace) => {
+                    if self.caret > 0 && self.caret <= self.text.len() {
+                        self.caret -= 1;
+                        self.text.remove_at_char_index(self.caret);
+                        if let Some(layout) = &self.text_layout {
+                            self.intended_x = layout.get_caret_x(self.caret);
+                        }
+                    }
+                    self.last_move_was_vertical = false;
+                }
+                Key::Named(NamedKey::Delete) => {
+                    if self.caret < self.text.len() {
+                        self.text.remove_at_char_index(self.caret);
+                        if let Some(layout) = &self.text_layout {
+                            self.intended_x = layout.get_caret_x(self.caret);
+                        }
+                    }
+                    self.last_move_was_vertical = false;
+                }
+                Key::Named(NamedKey::ArrowLeft) => {
+                    if self.caret > 0 {
+                        self.caret -= 1;
+                        if let Some(layout) = &self.text_layout {
+                            self.intended_x = layout.get_caret_x(self.caret);
+                        }
+                    }
+                    self.last_move_was_vertical = false;
+                }
+                Key::Named(NamedKey::ArrowRight) => {
+                    if self.caret < self.text.len() {
+                        self.caret += 1;
+                        if let Some(layout) = &self.text_layout {
+                            self.intended_x = layout.get_caret_x(self.caret);
+                        }
+                    }
+                    self.last_move_was_vertical = false;
+                }
+                Key::Named(NamedKey::ArrowUp) => {
+                    if let Some(layout) = &self.text_layout {
+                        self.caret = layout.get_vertical_move(self.caret, -1, self.intended_x);
+                    }
+                    self.last_move_was_vertical = true;
+                }
+                Key::Named(NamedKey::ArrowDown) => {
+                    if let Some(layout) = &self.text_layout {
+                        self.caret = layout.get_vertical_move(self.caret, 1, self.intended_x);
+                    }
+                    self.last_move_was_vertical = true;
+                }
+                Key::Named(NamedKey::Enter) => {
+                    self.text.insert_at_char_index(self.caret, '\n');
+                    self.caret += 1;
+                    if let Some(layout) = &self.text_layout {
+                        self.intended_x = layout.get_caret_x(self.caret);
+                    }
+                    self.last_move_was_vertical = false;
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn handle_click(&mut self, x: f32, y: f32) {
+        let c_pos = self
+            .current_layout()
+            .and_then(|layout| layout.hit_test(x, y));
+
+        if let Some(c_pos) = c_pos {
+            self.caret = c_pos;
+            if let Some(layout) = self.current_layout() {
+                self.intended_x = layout.get_caret_x(self.caret);
+            }
+            self.last_move_was_vertical = false;
+        }
     }
 }
 

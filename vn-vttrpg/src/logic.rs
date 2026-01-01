@@ -1,11 +1,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use vn_utils::string::{InsertAtCharIndex, RemoveAtCharIndex};
 use vn_vttrpg_ui::{
     Anchor, AnchorLocation, Card, CardParams, DynamicSize, DynamicTextFieldController, Element,
-    ElementId, ElementSize, EventManager, Fill, Flex, InputTextFieldController, Interactive,
-    InteractiveParams, Padding, PaddingParams, SimpleLayoutCache, SizeConstraints, Stack,
-    TextField, TextFieldController, TextFieldParams, TextFieldText, TextMetrics, UiContext,
+    ElementSize, EventManager, Fill, InputTextFieldController, InputTextFieldControllerExt,
+    Interactive, InteractiveParams, Padding, PaddingParams, SimpleLayoutCache, SizeConstraints,
+    Stack, TextField, TextFieldParams, TextMetrics, UiContext,
 };
 use vn_vttrpg_window::graphics::GraphicsContext;
 use vn_vttrpg_window::input::InputState;
@@ -102,15 +101,9 @@ pub struct MainLogic {
     fps_stats: Rc<RefCell<FpsStats>>,
     size: (u32, u32),
     mouse_position: (f32, f32),
-    ui: Option<RefCell<Box<dyn Element>>>,
+    ui: RefCell<Box<dyn Element>>,
     event_manager: Rc<RefCell<EventManager>>,
-    input_text_id: ElementId,
-    input_text: Rc<RefCell<String>>,
-    input_caret: Rc<RefCell<usize>>,
     input_controller: Rc<RefCell<InputTextFieldController>>,
-    intended_x: f32,
-    last_move_was_vertical: bool,
-    caret_width: f32,
 }
 
 impl StateLogic<SceneRenderer> for MainLogic {
@@ -125,35 +118,29 @@ impl StateLogic<SceneRenderer> for MainLogic {
             include_bytes!("../../vn-vttrpg-window/src/text/fonts/JetBrainsMono-Bold.ttf");
         resource_manager.load_font_from_bytes("jetbrains-bold", font_bytes)?;
 
-        let input_text = Rc::new(RefCell::new("".to_string()));
-        let input_caret = Rc::new(RefCell::new(0));
+        let event_manager = Rc::new(RefCell::new(EventManager::new()));
         let input_controller = Rc::new(RefCell::new(InputTextFieldController::new(
-            Box::new({
-                let text = input_text.clone();
-                move || text.borrow().clone()
-            }),
-            Box::new({
-                let caret = input_caret.clone();
-                move || Some(*caret.borrow())
-            }),
+            event_manager.borrow_mut().next_id(),
         )));
 
+        let fps_stats = Rc::new(RefCell::new(FpsStats::new()));
+
         Ok(Self {
+            ui: RefCell::new(Box::new(Self::build_ui(
+                graphics_context.clone(),
+                resource_manager.clone(),
+                event_manager.clone(),
+                input_controller.clone(),
+                fps_stats.clone(),
+            ))),
             resource_manager,
             mouse_position: (0.0, 0.0),
             size: graphics_context.size(),
             graphics_context,
             input: InputState::new(),
-            fps_stats: Rc::new(RefCell::new(FpsStats::new())),
-            ui: None,
-            event_manager: Rc::new(RefCell::new(EventManager::new())),
-            input_text_id: ElementId(0),
-            input_text,
-            input_caret,
+            fps_stats,
+            event_manager,
             input_controller,
-            intended_x: 0.0,
-            last_move_was_vertical: false,
-            caret_width: 2.0,
         })
     }
 
@@ -164,100 +151,9 @@ impl StateLogic<SceneRenderer> for MainLogic {
         let events = event_manager.handle_key(event);
 
         for (id, interaction_event) in events {
-            if id == self.input_text_id {
+            if id == self.input_controller.borrow().id {
                 if let vn_vttrpg_ui::InteractionEvent::Keyboard(key_event) = interaction_event {
-                    if key_event.state.is_pressed() {
-                        use winit::keyboard::{Key, NamedKey};
-
-                        let mut text = self.input_text.borrow_mut();
-                        let mut caret = self.input_caret.borrow_mut();
-
-                        let controller = self.input_controller.borrow();
-                        let layout = controller.current_layout();
-
-                        if !self.last_move_was_vertical {
-                            if let Some(layout) = layout {
-                                self.intended_x = layout.get_caret_x(*caret);
-                            }
-                        }
-
-                        match &key_event.logical_key {
-                            Key::Character(s) => {
-                                text.insert_str_at_char_index(*caret, s);
-                                *caret += s.chars().count();
-                                if let Some(layout) = layout {
-                                    self.intended_x = layout.get_caret_x(*caret);
-                                }
-                                self.last_move_was_vertical = false;
-                            }
-                            Key::Named(NamedKey::Space) => {
-                                text.insert_at_char_index(*caret, ' ');
-                                *caret += 1;
-                                if let Some(layout) = layout {
-                                    self.intended_x = layout.get_caret_x(*caret);
-                                }
-                                self.last_move_was_vertical = false;
-                            }
-                            Key::Named(NamedKey::Backspace) => {
-                                if *caret > 0 && *caret <= text.len() {
-                                    *caret -= 1;
-                                    text.remove_at_char_index(*caret);
-                                    if let Some(layout) = layout {
-                                        self.intended_x = layout.get_caret_x(*caret);
-                                    }
-                                }
-                                self.last_move_was_vertical = false;
-                            }
-                            Key::Named(NamedKey::Delete) => {
-                                if *caret < text.len() {
-                                    text.remove_at_char_index(*caret);
-                                    if let Some(layout) = layout {
-                                        self.intended_x = layout.get_caret_x(*caret);
-                                    }
-                                }
-                                self.last_move_was_vertical = false;
-                            }
-                            Key::Named(NamedKey::ArrowLeft) => {
-                                if *caret > 0 {
-                                    *caret -= 1;
-                                    if let Some(layout) = layout {
-                                        self.intended_x = layout.get_caret_x(*caret);
-                                    }
-                                }
-                                self.last_move_was_vertical = false;
-                            }
-                            Key::Named(NamedKey::ArrowRight) => {
-                                if *caret < text.len() {
-                                    *caret += 1;
-                                    if let Some(layout) = layout {
-                                        self.intended_x = layout.get_caret_x(*caret);
-                                    }
-                                }
-                                self.last_move_was_vertical = false;
-                            }
-                            Key::Named(NamedKey::ArrowUp) => {
-                                if let Some(layout) = layout {
-                                    *caret = layout.get_vertical_move(*caret, -1, self.intended_x);
-                                }
-                                self.last_move_was_vertical = true;
-                            }
-                            Key::Named(NamedKey::ArrowDown) => {
-                                if let Some(layout) = layout {
-                                    *caret = layout.get_vertical_move(*caret, 1, self.intended_x);
-                                }
-                                self.last_move_was_vertical = true;
-                            }
-                            Key::Named(NamedKey::Enter) => {
-                                text.insert_at_char_index(*caret, '\n');
-                                *caret += 1;
-                                if let Some(layout) = layout {
-                                    self.intended_x = layout.get_caret_x(*caret);
-                                }
-                                self.last_move_was_vertical = false;
-                            }
-                            _ => {}
-                        }
-                    }
+                    self.input_controller.borrow_mut().handle_key(&key_event);
                 }
             }
         }
@@ -301,19 +197,8 @@ impl StateLogic<SceneRenderer> for MainLogic {
         for (id, event) in events {
             match event {
                 vn_vttrpg_ui::InteractionEvent::Click { x, y, .. } => {
-                    if id == self.input_text_id {
-                        let controller = self.input_controller.borrow();
-                        let layout = controller.current_layout();
-                        if let Some(layout) = layout.as_ref() {
-                            // Subtract caret_width / 2.0 because drawing adds it (caret_space / 2.0)
-                            // Actually, caret_space is self.caret_width if caret_position.is_some()
-                            if let Some(c_pos) = layout.hit_test(x - self.caret_width / 2.0, y) {
-                                let mut caret = self.input_caret.borrow_mut();
-                                *caret = c_pos;
-                                self.intended_x = layout.get_caret_x(*caret);
-                                self.last_move_was_vertical = false;
-                            }
-                        }
+                    if id == self.input_controller.borrow().id {
+                        self.input_controller.borrow_mut().handle_click(x, y);
                     }
                 }
                 _ => {}
@@ -322,17 +207,70 @@ impl StateLogic<SceneRenderer> for MainLogic {
     }
 
     fn resized(&mut self, width: u32, height: u32) {
-        // TODO: Don't rebuild the entire ui every time we resize, the ui should be able to handle
-        //  that on its own.
-
         self.size = (width, height);
+    }
 
-        let text_metric = Rc::new(TextMetric {
-            rm: self.resource_manager.clone(),
-            gc: self.graphics_context.clone(),
-        });
+    fn render_target(&self) -> vn_vttrpg_window::scene::Scene {
+        self.fps_stats.borrow_mut().tick();
+        let mut scene =
+            vn_vttrpg_window::scene::Scene::new((self.size.0 as f32, self.size.1 as f32));
+
+        let mut ui = self.ui.borrow_mut();
 
         let mut event_manager = self.event_manager.borrow_mut();
+        event_manager.handle_mouse_move(self.mouse_position.0, self.mouse_position.1);
+        event_manager.clear_hitboxes();
+
+        let mut ctx = UiContext {
+            event_manager: &mut event_manager,
+            parent_id: None,
+            layout_cache: Box::new(SimpleLayoutCache::new()),
+            interactive: true,
+        };
+
+        ui.layout(
+            &mut ctx,
+            SizeConstraints {
+                min_size: ElementSize {
+                    width: 0.0,
+                    height: 0.0,
+                },
+                max_size: DynamicSize {
+                    width: Some(self.size.0 as f32),
+                    height: Some(self.size.1 as f32),
+                },
+                scene_size: scene.scene_size(),
+            },
+        );
+
+        ui.draw(
+            &mut ctx,
+            (0.0, 0.0),
+            ElementSize {
+                width: self.size.0 as f32,
+                height: self.size.1 as f32,
+            },
+            &mut scene,
+        );
+
+        scene
+    }
+}
+
+impl MainLogic {
+    fn build_ui(
+        graphics_context: Rc<GraphicsContext>,
+        resource_manager: Rc<ResourceManager>,
+        event_manager: Rc<RefCell<EventManager>>,
+        input_controller: Rc<RefCell<InputTextFieldController>>,
+        fps_stats: Rc<RefCell<FpsStats>>,
+    ) -> impl Element {
+        let text_metric = Rc::new(TextMetric {
+            rm: resource_manager.clone(),
+            gc: graphics_context.clone(),
+        });
+
+        let mut event_manager = event_manager.borrow_mut();
         let mut ui_ctx = UiContext {
             event_manager: &mut event_manager,
             parent_id: None,
@@ -342,24 +280,23 @@ impl StateLogic<SceneRenderer> for MainLogic {
 
         use vn_vttrpg_ui::AnchorParams;
 
-        let test_input = TextField::new(
+        let text_input = TextField::new(
             TextFieldParams {
                 font: "jetbrains-bold".to_string(),
                 font_size: 12.0,
                 color: Color::RED,
             },
-            self.input_controller.clone(),
+            input_controller.clone(),
             text_metric.clone(),
             &mut ui_ctx,
         );
 
-        self.input_text_id = test_input.id();
-        self.caret_width = test_input.caret_width();
+        input_controller.borrow_mut().id = text_input.id();
 
-        let test_input = Fill::new(Box::new(test_input), &mut ui_ctx);
+        let text_input = Fill::new(Box::new(text_input), &mut ui_ctx);
 
         let test_input = Padding::new(
-            Box::new(test_input),
+            Box::new(text_input),
             PaddingParams {
                 pad_left: 10.0,
                 pad_right: 10.0,
@@ -379,8 +316,6 @@ impl StateLogic<SceneRenderer> for MainLogic {
             },
             &mut ui_ctx,
         );
-
-        let fps_stats = self.fps_stats.clone();
 
         let fps = TextField::new(
             TextFieldParams {
@@ -426,54 +361,6 @@ impl StateLogic<SceneRenderer> for MainLogic {
 
         let ui = Stack::new(vec![Box::new(ui), Box::new(fps)], &mut ui_ctx);
 
-        self.ui = Some(RefCell::new(Box::new(ui)));
-    }
-
-    fn render_target(&self) -> vn_vttrpg_window::scene::Scene {
-        self.fps_stats.borrow_mut().tick();
-        let mut scene =
-            vn_vttrpg_window::scene::Scene::new((self.size.0 as f32, self.size.1 as f32));
-
-        if let Some(ui) = &self.ui {
-            let mut ui = ui.borrow_mut();
-
-            let mut event_manager = self.event_manager.borrow_mut();
-            event_manager.handle_mouse_move(self.mouse_position.0, self.mouse_position.1);
-            event_manager.clear_hitboxes();
-
-            let mut ctx = UiContext {
-                event_manager: &mut event_manager,
-                parent_id: None,
-                layout_cache: Box::new(SimpleLayoutCache::new()),
-                interactive: true,
-            };
-
-            ui.layout(
-                &mut ctx,
-                SizeConstraints {
-                    min_size: ElementSize {
-                        width: 0.0,
-                        height: 0.0,
-                    },
-                    max_size: DynamicSize {
-                        width: Some(self.size.0 as f32),
-                        height: Some(self.size.1 as f32),
-                    },
-                    scene_size: scene.scene_size(),
-                },
-            );
-
-            ui.draw(
-                &mut ctx,
-                (0.0, 0.0),
-                ElementSize {
-                    width: self.size.0 as f32,
-                    height: self.size.1 as f32,
-                },
-                &mut scene,
-            );
-        }
-
-        scene
+        ui
     }
 }
