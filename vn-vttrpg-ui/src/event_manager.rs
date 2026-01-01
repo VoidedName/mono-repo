@@ -230,6 +230,7 @@ pub struct UiContext<'a> {
     pub event_manager: &'a mut EventManager,
     pub parent_id: Option<ElementId>,
     pub layout_cache: Box<dyn LayoutCache>,
+    pub interactive: bool,
 }
 
 impl UiContext<'_> {
@@ -237,9 +238,11 @@ impl UiContext<'_> {
     where
         F: FnOnce(&mut Self),
     {
-        self.event_manager.register_hitbox(id, layer, bounds);
-        if let Some(parent) = self.parent_id {
-            self.event_manager.set_parent(id, parent);
+        if self.interactive {
+            self.event_manager.register_hitbox(id, layer, bounds);
+            if let Some(parent) = self.parent_id {
+                self.event_manager.set_parent(id, parent);
+            }
         }
 
         let old_parent = self.parent_id;
@@ -248,5 +251,15 @@ impl UiContext<'_> {
         f(self);
 
         self.parent_id = old_parent;
+    }
+
+    pub fn with_interactivity<F>(&mut self, interactive: bool, f: F)
+    where
+        F: FnOnce(&mut Self),
+    {
+        let old_interactive = self.interactive;
+        self.interactive = interactive;
+        f(self);
+        self.interactive = old_interactive;
     }
 }

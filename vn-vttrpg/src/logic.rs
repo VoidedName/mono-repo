@@ -3,9 +3,9 @@ use std::rc::Rc;
 use vn_utils::string::{InsertAtCharIndex, RemoveAtCharIndex};
 use vn_vttrpg_ui::{
     Anchor, AnchorLocation, Card, CardParams, DynamicSize, DynamicTextFieldController, Element,
-    ElementId, ElementSize, EventManager, Fill, Flex, InputTextFieldController, Padding,
-    PaddingParams, SimpleLayoutCache, SizeConstraints, Stack, TextField, TextFieldController,
-    TextFieldParams, TextFieldText, TextMetrics, UiContext,
+    ElementId, ElementSize, EventManager, Fill, Flex, InputTextFieldController, Interactive,
+    InteractiveParams, Padding, PaddingParams, SimpleLayoutCache, SizeConstraints, Stack,
+    TextField, TextFieldController, TextFieldParams, TextFieldText, TextMetrics, UiContext,
 };
 use vn_vttrpg_window::graphics::GraphicsContext;
 use vn_vttrpg_window::input::InputState;
@@ -334,6 +334,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
             event_manager: &mut event_manager,
             parent_id: None,
             layout_cache: Box::new(SimpleLayoutCache::new()),
+            interactive: true,
         };
 
         use vn_vttrpg_ui::AnchorParams;
@@ -387,7 +388,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
             Rc::new(RefCell::new(DynamicTextFieldController::new(Box::new(
                 move || {
                     format!(
-                        "FPS: {:8>.2}",
+                        "FPS: {:>6.2}",
                         fps_stats.borrow().current_fps().unwrap_or(0.0)
                     )
                 },
@@ -400,6 +401,14 @@ impl StateLogic<SceneRenderer> for MainLogic {
             Box::new(fps),
             AnchorParams {
                 location: AnchorLocation::TopRight,
+            },
+            &mut ui_ctx,
+        );
+
+        let fps = Interactive::new(
+            Box::new(fps),
+            InteractiveParams {
+                is_interactive: true,
             },
             &mut ui_ctx,
         );
@@ -433,6 +442,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
                 event_manager: &mut event_manager,
                 parent_id: None,
                 layout_cache: Box::new(SimpleLayoutCache::new()),
+                interactive: true,
             };
 
             ui.layout(

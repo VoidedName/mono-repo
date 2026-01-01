@@ -1,7 +1,6 @@
 use crate::graphics::WgpuContext;
 use crate::text::Font;
 use crate::texture::Texture;
-use log::info;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
