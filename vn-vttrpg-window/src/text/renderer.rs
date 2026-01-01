@@ -2,7 +2,7 @@ use crate::graphics::{GraphicsContext, VertexDescription};
 use crate::pipeline_builder::PipelineBuilder;
 use crate::primitives::QUAD_VERTICES;
 use crate::primitives::{Globals, Vertex};
-use crate::text::Font;
+use crate::text::{Font, FontFaceTrueScale};
 use crate::texture::Texture;
 use bytemuck::{Pod, Zeroable};
 use std::rc::Rc;
@@ -204,10 +204,11 @@ impl TextRenderer {
         let face = font
             .face()
             .map_err(|e| anyhow::anyhow!("Font parse error: {}", e))?;
-        let scale = font_size / face.units_per_em() as f32;
+
+        let scale = face.scale(font_size);
 
         let ascender = face.ascender() as f32 * scale;
-        let line_height = (face.ascender() - face.descender() + face.line_gap()) as f32 * scale;
+        let line_height = face.line_height(font_size);
 
         let mut collector = OutlineCollector::new([0.0, ascender], scale);
         face.outline_glyph(glyph_id, &mut collector);

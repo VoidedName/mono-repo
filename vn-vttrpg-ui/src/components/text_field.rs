@@ -248,7 +248,7 @@ impl ElementImpl for TextField {
         size: ElementSize,
         scene: &mut Scene,
     ) {
-        let caret_height = self.params.font_size;
+        let caret_height = self.line_height * 0.8;
         let caret_y_extra_offset = self.line_height / 2.0 - caret_height / 2.0;
         let caret_space = if self.caret_position.is_some() {
             self.caret_width

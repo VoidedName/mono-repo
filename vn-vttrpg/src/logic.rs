@@ -322,6 +322,9 @@ impl StateLogic<SceneRenderer> for MainLogic {
     }
 
     fn resized(&mut self, width: u32, height: u32) {
+        // TODO: Don't rebuild the entire ui every time we resize, the ui should be able to handle
+        //  that on its own.
+
         self.size = (width, height);
 
         let text_metric = Rc::new(TextMetric {

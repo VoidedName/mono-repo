@@ -1,5 +1,5 @@
 use crate::graphics::WgpuContext;
-use crate::text::Font;
+use crate::text::{Font, FontFaceTrueScale};
 use crate::texture::Texture;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -114,13 +114,7 @@ impl ResourceManager {
             }
         };
 
-        let units_per_em = face.units_per_em();
-        let ascender = face.ascender();
-        let descender = face.descender();
-        let line_gap = face.line_gap();
-
-        let height = (ascender as f32 - descender as f32 + line_gap as f32) / units_per_em as f32;
-        height * font_size
+        face.line_height(font_size)
     }
 
     pub fn get_glyphs(
