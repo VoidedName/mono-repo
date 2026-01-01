@@ -1,7 +1,12 @@
-use crate::{Element, ElementId, ElementImpl, ElementSize, UiContext};
+use crate::{Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
+use std::rc::Rc;
 use vn_utils::UpdateOption;
+use vn_vttrpg_ui_animation::AnimationController;
+use vn_vttrpg_ui_animation_macros::Interpolatable;
 use vn_vttrpg_window::Scene;
+use web_time::Instant;
 
+#[derive(Clone, Copy, Debug, Interpolatable)]
 pub struct PaddingParams {
     pub pad_left: f32,
     pub pad_right: f32,
@@ -9,37 +14,53 @@ pub struct PaddingParams {
     pub pad_bottom: f32,
 }
 
+impl PaddingParams {
+    pub fn uniform(value: f32) -> Self {
+        Self {
+            pad_left: value,
+            pad_right: value,
+            pad_top: value,
+            pad_bottom: value,
+        }
+    }
+}
+
 pub struct Padding {
     id: ElementId,
     child: Box<dyn Element>,
-    params: PaddingParams,
+    controller: Rc<AnimationController<PaddingParams>>,
+    layout_time: Instant,
     child_size: ElementSize,
 }
 
 impl Padding {
-    pub fn new(child: Box<dyn Element>, params: PaddingParams, ctx: &mut UiContext) -> Self {
+    pub fn new(
+        child: Box<dyn Element>,
+        controller: Rc<AnimationController<PaddingParams>>,
+        ctx: &mut UiContext,
+    ) -> Self {
         Self {
             id: ctx.event_manager.next_id(),
             child,
-            params,
+            controller,
+            layout_time: Instant::now(),
             child_size: ElementSize::ZERO,
         }
     }
 }
 
 impl ElementImpl for Padding {
-    fn id_impl(&self) -> crate::ElementId {
+    fn id_impl(&self) -> ElementId {
         self.id
     }
 
-    fn layout_impl(
-        &mut self,
-        ctx: &mut UiContext,
-        constraints: crate::SizeConstraints,
-    ) -> ElementSize {
+    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
+        self.layout_time = Instant::now();
+        let params = self.controller.value(self.layout_time);
+
         let mut child_constraints = constraints;
-        let x_padding = self.params.pad_left + self.params.pad_right;
-        let y_padding = self.params.pad_top + self.params.pad_bottom;
+        let x_padding = params.pad_left + params.pad_right;
+        let y_padding = params.pad_top + params.pad_bottom;
 
         child_constraints
             .max_size
@@ -71,15 +92,14 @@ impl ElementImpl for Padding {
         size: ElementSize,
         scene: &mut Scene,
     ) {
-        let x_padding = self.params.pad_left + self.params.pad_right;
-        let y_padding = self.params.pad_top + self.params.pad_bottom;
+        let params = self.controller.value(self.layout_time);
+
+        let x_padding = params.pad_left + params.pad_right;
+        let y_padding = params.pad_top + params.pad_bottom;
 
         self.child.draw(
             ctx,
-            (
-                origin.0 + self.params.pad_left,
-                origin.1 + self.params.pad_top,
-            ),
+            (origin.0 + params.pad_left, origin.1 + params.pad_top),
             ElementSize {
                 width: size.width.max(x_padding) - x_padding,
                 height: size.height.max(y_padding) - y_padding,

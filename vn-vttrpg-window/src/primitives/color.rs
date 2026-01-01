@@ -1,8 +1,9 @@
 use crate::graphics::VertexDescription;
+use vn_vttrpg_ui_animation_macros::Interpolatable;
 
 /// Represents an RGBA color.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable, Interpolatable)]
 pub struct Color {
     pub r: f32,
     pub g: f32,

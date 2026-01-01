@@ -1,6 +1,15 @@
 [workspace]
 resolver = "3"
-members = ["vn-vttrpg", "vn-vttrpg-native", "vn-vttrpg-window", "vn-vttrpg-web", "vn-vttrpg-ui", "vn-utils"]
+members = [
+    "vn-vttrpg",
+    "vn-vttrpg-native",
+    "vn-vttrpg-window",
+    "vn-vttrpg-web",
+    "vn-vttrpg-ui",
+    "vn-utils",
+    "vn-vttrpg-ui-animation",
+    "vn-vttrpg-ui-animation-macros",
+]
 
 [workspace.dependencies]
 log = "0.4.29"
@@ -25,3 +34,6 @@ web-time = "1.1.0"
 ttf-parser = "0.25.1"
 rand = { version = "0.9.2" }
 getrandom = { version = "0.3.4", default-features = false, features = ["wasm_js"] }
+proc-macro2 = "1.0.104"
+syn = "2.0.112"
+quote = "1.0.42"

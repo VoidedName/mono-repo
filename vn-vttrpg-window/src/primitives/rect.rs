@@ -1,8 +1,9 @@
 use crate::graphics::VertexDescription;
+use vn_vttrpg_ui_animation_macros::Interpolatable;
 
 /// A simple 2D rectangle defined by position and size.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable, Interpolatable)]
 pub struct Rect {
     pub position: [f32; 2],
     pub size: [f32; 2],

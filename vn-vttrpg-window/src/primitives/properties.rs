@@ -1,10 +1,11 @@
 use crate::graphics::VertexDescription;
 use crate::primitives::rect::Rect;
 use crate::primitives::transform::Transform;
+use vn_vttrpg_ui_animation_macros::Interpolatable;
 
 /// Common properties shared by all rendering primitives.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable, Interpolatable)]
 pub struct PrimitiveProperties {
     pub transform: Transform,
     /// The rectangular area where the primitive is visible.

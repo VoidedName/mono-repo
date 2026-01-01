@@ -1455,9 +1455,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.103"
+version = "1.0.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ee95bc4ef87b8d5ba32e8b7714ccc834865276eab0aed5c9958d00ec45f49e8"
+checksum = "9695f8df41bb4f3d222c95a67532365f569318332d03d5f3f67f37b20e6ebdf0"
 dependencies = [
  "unicode-ident",
 ]
@@ -1796,9 +1796,9 @@ checksum = "6637bab7722d379c8b41ba849228d680cc12d0a45ba1fa2b48f2a30577a06731"
 
 [[package]]
 name = "syn"
-version = "2.0.111"
+version = "2.0.112"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "390cc9a294ab71bdb1aa2e99d13be9c753cd2d7bd6560c77118597410c4d2e87"
+checksum = "21f182278bf2d2bcb3c88b1b08a37df029d71ce3d3ae26168e3c653b213b99d4"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1973,6 +1973,7 @@ dependencies = [
  "log",
  "vn-utils",
  "vn-vttrpg-ui",
+ "vn-vttrpg-ui-animation",
  "vn-vttrpg-window",
  "web-time",
  "winit",
@@ -1995,9 +1996,24 @@ dependencies = [
  "log",
  "rand",
  "vn-utils",
+ "vn-vttrpg-ui-animation",
+ "vn-vttrpg-ui-animation-macros",
  "vn-vttrpg-window",
  "web-time",
  "winit",
+]
+
+[[package]]
+name = "vn-vttrpg-ui-animation"
+version = "0.1.0"
+
+[[package]]
+name = "vn-vttrpg-ui-animation-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -2022,6 +2038,8 @@ dependencies = [
  "pollster",
  "thiserror 2.0.17",
  "ttf-parser",
+ "vn-vttrpg-ui-animation",
+ "vn-vttrpg-ui-animation-macros",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",

@@ -1,8 +1,9 @@
 use crate::graphics::VertexDescription;
+use vn_vttrpg_ui_animation_macros::Interpolatable;
 
 /// Represents a 2D transformation including translation, rotation, scale, and origin.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable, Interpolatable)]
 pub struct Transform {
     pub translation: [f32; 2],
     /// Rotation in radians.

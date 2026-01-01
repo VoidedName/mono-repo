@@ -6,6 +6,7 @@ use vn_vttrpg_ui::{
     Interactive, InteractiveParams, Padding, PaddingParams, SimpleLayoutCache, SizeConstraints,
     Stack, TextField, TextFieldParams, TextMetrics, UiContext,
 };
+use vn_vttrpg_ui_animation::AnimationController;
 use vn_vttrpg_window::graphics::GraphicsContext;
 use vn_vttrpg_window::input::InputState;
 use vn_vttrpg_window::resource_manager::ResourceManager;
@@ -283,7 +284,7 @@ impl MainLogic {
         let text_input = TextField::new(
             TextFieldParams {
                 font: "jetbrains-bold".to_string(),
-                font_size: 12.0,
+                font_size: 36.0,
                 color: Color::RED,
             },
             input_controller.clone(),
@@ -295,27 +296,32 @@ impl MainLogic {
 
         let text_input = Fill::new(Box::new(text_input), &mut ui_ctx);
 
-        let test_input = Padding::new(
-            Box::new(text_input),
-            PaddingParams {
-                pad_left: 10.0,
-                pad_right: 10.0,
-                pad_top: 5.0,
-                pad_bottom: 5.0,
-            },
-            &mut ui_ctx,
-        );
+        let padding_controller = Rc::new(AnimationController::new(PaddingParams::uniform(0.0)));
+        padding_controller.update_state(|state| {
+            state.duration = web_time::Duration::from_millis(5000);
+            state.target_value = PaddingParams::uniform(25.0);
+        });
 
-        let test_input = Card::new(
-            Box::new(test_input),
-            CardParams {
-                background_color: Color::BLACK.with_alpha(0.5),
-                border_size: 2.0,
-                border_color: Color::WHITE,
-                corner_radius: 5.0,
-            },
-            &mut ui_ctx,
-        );
+        let test_input = Padding::new(Box::new(text_input), padding_controller, &mut ui_ctx);
+
+        let card_controller = Rc::new(AnimationController::new(CardParams {
+            background_color: Color::TRANSPARENT,
+            border_size: 2.0,
+            border_color: Color::TRANSPARENT,
+            corner_radius: 5.0,
+        }));
+
+        card_controller.update_state(|state| {
+            state.duration = web_time::Duration::from_millis(5000);
+            state.target_value = CardParams {
+                background_color: Color::WHITE,
+                border_size: 25.0,
+                border_color: Color::RED,
+                corner_radius: 25.0,
+            }
+        });
+
+        let test_input = Card::new(Box::new(test_input), card_controller, &mut ui_ctx);
 
         let fps = TextField::new(
             TextFieldParams {

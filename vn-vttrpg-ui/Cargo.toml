@@ -5,6 +5,8 @@ edition = "2024"
 
 [dependencies]
 vn-vttrpg-window = { path = "../vn-vttrpg-window" }
+vn-vttrpg-ui-animation = { path = "../vn-vttrpg-ui-animation" }
+vn-vttrpg-ui-animation-macros = { path = "../vn-vttrpg-ui-animation-macros" }
 vn-utils = { path = "../vn-utils" }
 winit = { workspace = true }
 web-time = { workspace = true }
