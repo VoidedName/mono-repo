@@ -3,7 +3,8 @@ use crate::pipeline_builder::PipelineBuilder;
 use crate::primitives::{_TexturePrimitive, BoxPrimitive, Globals, QUAD_VERTICES, Vertex};
 use crate::resource_manager::ResourceManager;
 use crate::{Renderer, Texture, TextureDescriptor};
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::rc::Rc;
 use wgpu::include_wgsl;
 use wgpu::util::DeviceExt;
 
@@ -26,7 +27,7 @@ struct Pipeline {
 }
 
 pub struct SceneRenderer {
-    resource_manager: Arc<ResourceManager>,
+    resource_manager: Rc<ResourceManager>,
     globals: GlobalResources,
     box_pipeline: Pipeline,
     texture_pipeline: Pipeline,
@@ -34,8 +35,8 @@ pub struct SceneRenderer {
 
 impl SceneRenderer {
     pub fn new(
-        graphics_context: Arc<GraphicsContext>,
-        resource_manager: Arc<ResourceManager>,
+        graphics_context: Rc<GraphicsContext>,
+        resource_manager: Rc<ResourceManager>,
     ) -> Self {
         let device = graphics_context.device();
 
@@ -254,7 +255,7 @@ impl SceneRenderer {
         self.globals.set(render_pass);
 
         // Group by texture to minimize bind group changes and buffer creation
-        let mut current_texture: Option<Arc<Texture>> = None;
+        let mut current_texture: Option<Rc<Texture>> = None;
         let mut batch = Vec::new();
 
         for image in images {
@@ -262,7 +263,7 @@ impl SceneRenderer {
 
             if let Some(texture) = resolved {
                 if let Some(ref current) = current_texture {
-                    if !Arc::ptr_eq(current, &texture) {
+                    if !Rc::ptr_eq(current, &texture) {
                         self.draw_texture_batch(graphics_context, render_pass, current, &mut batch);
                         batch.clear();
                         current_texture = Some(texture);
@@ -292,42 +293,40 @@ impl SceneRenderer {
         render_pass.set_pipeline(&self.texture_pipeline.pipeline);
         self.globals.set(render_pass);
 
-        let mut current_texture: Option<Arc<Texture>> = None;
-        let mut batch = Vec::new();
+        // use a texture atlas instead: this is already much, much faster than drawing each glyph individually
+        // but it scales with the number of distinct glyphs while an atlas is constant.
 
+        // we can batch the glyphs like this because we have layers. Text that is rendered overlapping on
+        // the same layer will have "undefined" behaviour.
+        let mut batches = HashMap::<*const Texture, (Rc<Texture>, Vec<_TexturePrimitive>)>::new();
         for text in texts {
             for glyph in &text.glyphs {
-                let texture = &glyph.texture;
-                if let Some(ref current) = current_texture {
-                    if !Arc::ptr_eq(current, texture) {
-                        self.draw_texture_batch(graphics_context, render_pass, current, &mut batch);
-                        batch.clear();
-                        current_texture = Some(texture.clone());
-                    }
-                } else {
-                    current_texture = Some(texture.clone());
-                }
+                batches
+                    .entry(Rc::as_ptr(&glyph.texture))
+                    .or_insert_with(|| (glyph.texture.clone(), Vec::new()))
+                    .1
+                    .push({
+                        let mut common = text.common;
+                        common.transform.translation[0] += glyph.position[0];
+                        common.transform.translation[1] += glyph.position[1];
+                        common.clip_area.position[0] -= glyph.position[0];
+                        common.clip_area.position[1] -= glyph.position[1];
 
-                let mut common = text.common;
-                common.transform.translation[0] += glyph.position[0];
-                common.transform.translation[1] += glyph.position[1];
-                common.clip_area.position[0] -= glyph.position[0];
-                common.clip_area.position[1] -= glyph.position[1];
-
-                batch.push(_TexturePrimitive {
-                    common,
-                    size: glyph.size,
-                    tint: text.tint,
-                });
+                        _TexturePrimitive {
+                            common,
+                            size: glyph.size,
+                            tint: text.tint,
+                        }
+                    });
             }
         }
 
-        if let Some(ref current) = current_texture {
-            self.draw_texture_batch(graphics_context, render_pass, current, &mut batch);
+        for (_, (texture, mut batch)) in batches.into_iter() {
+            self.draw_texture_batch(graphics_context, render_pass, &texture, &mut batch);
         }
     }
 
-    fn resolve_texture(&self, descriptor: &TextureDescriptor) -> Option<Arc<Texture>> {
+    fn resolve_texture(&self, descriptor: &TextureDescriptor) -> Option<Rc<Texture>> {
         match descriptor {
             TextureDescriptor::Name(name) => self.resource_manager.get_texture(name),
             TextureDescriptor::Path(path) => {
@@ -372,7 +371,7 @@ impl SceneRenderer {
         &'a self,
         graphics_context: &GraphicsContext,
         render_pass: &mut wgpu::RenderPass<'a>,
-        texture: &Arc<Texture>,
+        texture: &Rc<Texture>,
         batch: &mut Vec<_TexturePrimitive>,
     ) {
         if batch.is_empty() {

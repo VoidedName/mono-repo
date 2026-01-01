@@ -20,7 +20,7 @@ impl ElementImpl for ExtendedHitbox {
     }
 
     fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
-        self.element.layout(ctx, constraints)
+        self.element.layout(ctx, constraints).clamp_to_constraints(constraints)
     }
 
     fn draw_impl(

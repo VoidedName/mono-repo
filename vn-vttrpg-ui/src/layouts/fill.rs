@@ -22,18 +22,30 @@ impl ElementImpl for Fill {
     fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
         let child_size = self.element.layout(ctx, constraints);
 
-        let width = match constraints.max_size.width {
-            Some(w) => w,
-            _ => child_size.width,
-        };
-
         let height = match constraints.max_size.height {
-            Some(h) => h,
+            Some(h) => {
+                h
+            },
             _ => child_size.height,
         };
 
-        // ElementSize { width, height }
-        ElementSize { width: 200.0, height }
+        let width = match constraints.max_size.width {
+            Some(w) => {
+                w
+            },
+            _ => child_size.width,
+        };
+
+        let mut desired_size = ElementSize { width, height }.clamp_to_constraints(constraints);
+
+        if width > desired_size.width {
+            let mut new_constraints = constraints;
+            new_constraints.max_size.width = Some(desired_size.width);
+            let new_size = self.element.layout(ctx, new_constraints);
+            desired_size = new_size.clamp_to_constraints(constraints);
+        }
+
+        desired_size
     }
 
     fn draw_impl(

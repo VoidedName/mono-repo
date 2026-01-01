@@ -1,15 +1,15 @@
 use crate::graphics::GraphicsContext;
 use crate::renderer::Renderer;
 use crate::resource_manager::ResourceManager;
-use std::sync::Arc;
+use std::rc::Rc;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
 
 pub trait StateLogic<R: Renderer>: Sized + 'static {
     #[allow(async_fn_in_trait)]
     async fn new_from_graphics_context(
-        graphics_context: Arc<GraphicsContext>,
-        resource_manager: Arc<ResourceManager>,
+        graphics_context: Rc<GraphicsContext>,
+        resource_manager: Rc<ResourceManager>,
     ) -> anyhow::Result<Self>;
 
     #[allow(unused_variables)]

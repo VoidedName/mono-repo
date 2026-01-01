@@ -5,11 +5,11 @@ pub use font::Font;
 pub use renderer::TextRenderer;
 
 use crate::Texture;
-use std::sync::Arc;
+use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct Glyph {
-    pub texture: Arc<Texture>,
+    pub texture: Rc<Texture>,
     pub advance: f32,
     pub x_bearing: f32,
     pub y_offset: f32,

@@ -107,7 +107,14 @@ impl EventManager {
 
         // Always push MouseMove to the top hit
         if let Some(id) = top_hit {
-            events.push((id, InteractionEvent::MouseMove { x, y }));
+            let bounds = self.hitboxes.get(&id).unwrap().2;
+            events.push((
+                id,
+                InteractionEvent::MouseMove {
+                    x: x - bounds.position[0],
+                    y: y - bounds.position[1],
+                },
+            ));
         }
 
         self.hovered_elements = new_hovered;
@@ -146,7 +153,15 @@ impl EventManager {
         let mut events = Vec::new();
 
         if let Some(id) = top_hit {
-            events.push((id, InteractionEvent::MouseDown { button, x, y }));
+            let bounds = self.hitboxes.get(&id).unwrap().2;
+            events.push((
+                id,
+                InteractionEvent::MouseDown {
+                    button,
+                    x: x - bounds.position[0],
+                    y: y - bounds.position[1],
+                },
+            ));
             if self.focused_element != Some(id) {
                 if let Some(old_id) = self.focused_element {
                     events.push((old_id, InteractionEvent::FocusLost));
@@ -185,10 +200,25 @@ impl EventManager {
         let mut events = Vec::new();
 
         if let Some(id) = top_hit {
-            events.push((id, InteractionEvent::MouseUp { button, x, y }));
+            let bounds = self.hitboxes.get(&id).unwrap().2;
+            events.push((
+                id,
+                InteractionEvent::MouseUp {
+                    button,
+                    x: x - bounds.position[0],
+                    y: y - bounds.position[1],
+                },
+            ));
 
             if self.focused_element == Some(id) {
-                events.push((id, InteractionEvent::Click { button, x, y }));
+                events.push((
+                    id,
+                    InteractionEvent::Click {
+                        button,
+                        x: x - bounds.position[0],
+                        y: y - bounds.position[1],
+                    },
+                ));
             }
         }
 

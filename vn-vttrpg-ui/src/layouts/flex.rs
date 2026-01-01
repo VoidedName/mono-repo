@@ -65,8 +65,6 @@ impl ElementImpl for Flex {
         let mut max_orthogonal: f32 = 0.0;
 
         let mut child_constraints = constraints.clone();
-        child_constraints.max_size.width = None;
-        child_constraints.max_size.height = None;
 
         for (_, child) in self.children.iter_mut().enumerate() {
             let child_size = child.layout_impl(ctx, child_constraints);

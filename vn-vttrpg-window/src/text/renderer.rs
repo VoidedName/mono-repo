@@ -5,7 +5,7 @@ use crate::primitives::{Globals, Vertex};
 use crate::text::Font;
 use crate::texture::Texture;
 use bytemuck::{Pod, Zeroable};
-use std::sync::Arc;
+use std::rc::Rc;
 use ttf_parser::OutlineBuilder;
 use wgpu::util::DeviceExt;
 
@@ -345,7 +345,7 @@ impl TextRenderer {
         queue.submit(std::iter::once(encoder.finish()));
 
         Ok(crate::text::Glyph {
-            texture: Arc::new(target_texture),
+            texture: Rc::new(target_texture),
             advance,
             x_bearing: min_x,
             y_offset: 0.0,

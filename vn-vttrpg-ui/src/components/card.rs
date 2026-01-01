@@ -43,7 +43,7 @@ impl ElementImpl for Card {
     }
 
     fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
-        self.child.layout(ctx, constraints)
+        self.child.layout(ctx, constraints).clamp_to_constraints(constraints)
     }
 
     fn draw_impl(

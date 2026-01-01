@@ -36,4 +36,25 @@ pub use layouts::*;
 pub use sizes::*;
 
 pub use vn_vttrpg_window::input::{KeyCode, KeyEvent};
-pub use vn_vttrpg_window::{Color, Rect, Scene, TextPrimitive};
+pub use vn_vttrpg_window::{Color, Glyph, Rect, Scene, TextPrimitive};
+
+/// This keeps the UI agnostic to any specific graphics and resource management
+pub trait TextMetrics {
+    fn size_of_text(&self, text: &str, font: &str, font_size: f32) -> (f32, f32);
+    fn line_height(&self, font: &str, font_size: f32) -> f32;
+    fn get_glyphs(&self, text: &str, font: &str, font_size: f32) -> Vec<Glyph>;
+}
+
+pub struct LabelParams {
+    pub text: LabelText,
+    pub font: String,
+    pub font_size: f32,
+    pub color: Color,
+}
+
+pub struct DynamicString(pub Box<dyn Fn() -> String>);
+
+pub enum LabelText {
+    Static(String),
+    Dynamic(DynamicString),
+}

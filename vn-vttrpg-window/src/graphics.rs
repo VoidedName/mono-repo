@@ -1,5 +1,6 @@
 use crate::errors::RenderError;
 use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::Arc;
 use winit::window::Window;
 
@@ -11,7 +12,7 @@ pub struct WgpuContext {
 
 /// Holds the graphical context for rendering, including the surface and device configuration.
 pub struct GraphicsContext {
-    pub wgpu: Arc<WgpuContext>,
+    pub wgpu: Rc<WgpuContext>,
     pub surface: wgpu::Surface<'static>,
     pub config: RefCell<wgpu::SurfaceConfiguration>,
     /// Indicates if the surface is ready for rendering (e.g., after the first resize).
@@ -87,7 +88,7 @@ impl GraphicsContext {
         };
 
         Ok(Self {
-            wgpu: Arc::new(WgpuContext { device, queue }),
+            wgpu: Rc::new(WgpuContext { device, queue }),
             surface,
             config: RefCell::new(config),
             surface_ready_for_rendering: RefCell::new(false),

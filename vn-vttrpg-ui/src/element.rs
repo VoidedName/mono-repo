@@ -1,7 +1,6 @@
 use crate::{ElementId, ElementSize, SizeConstraints, UiContext};
-use rand::{Rng, SeedableRng};
 use std::collections::HashMap;
-use vn_vttrpg_window::{Color, Scene};
+use vn_vttrpg_window::Scene;
 
 pub struct SimpleLayoutCache {
     cache: HashMap<ElementId, (SizeConstraints, ElementSize)>,
@@ -102,7 +101,8 @@ pub trait Element: ElementImpl {
         #[cfg(feature = "debug_outlines")]
         {
             use rand::rngs::SmallRng;
-            use vn_vttrpg_window::BoxPrimitive;
+            use rand::{Rng, SeedableRng};
+            use vn_vttrpg_window::{BoxPrimitive, Color};
             let mut rng = SmallRng::seed_from_u64(self.id().0 as u64);
 
             let color = Color {

@@ -3,24 +3,24 @@ use crate::graphics::GraphicsContext;
 use crate::logic::StateLogic;
 use crate::resource_manager::ResourceManager;
 use crate::scene_renderer::SceneRenderer;
-use std::sync::Arc;
+use std::rc::Rc;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
 
 /// The main context for rendering the application, binding together graphics, resources, renderer, and logic.
 pub struct RenderingContext<T: StateLogic<R>, R: Renderer = SceneRenderer> {
-    pub context: Arc<GraphicsContext>,
-    pub resource_manager: Arc<ResourceManager>,
+    pub context: Rc<GraphicsContext>,
+    pub resource_manager: Rc<ResourceManager>,
     pub renderer: R,
     pub logic: T,
 }
 
 impl<T: StateLogic<SceneRenderer>> RenderingContext<T, SceneRenderer> {
     /// Creates a new rendering context for the given window.
-    pub async fn new(window: Arc<Window>) -> anyhow::Result<Self> {
-        let context = Arc::new(GraphicsContext::new(window).await?);
-        let resource_manager = Arc::new(ResourceManager::new(context.wgpu.clone()));
+    pub async fn new(window: std::sync::Arc<Window>) -> anyhow::Result<Self> {
+        let context = Rc::new(GraphicsContext::new(window).await?);
+        let resource_manager = Rc::new(ResourceManager::new(context.wgpu.clone()));
         let renderer = SceneRenderer::new(context.clone(), resource_manager.clone());
         let logic = T::new_from_graphics_context(context.clone(), resource_manager.clone()).await?;
 

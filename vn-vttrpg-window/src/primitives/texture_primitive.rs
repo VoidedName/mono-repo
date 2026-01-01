@@ -189,7 +189,7 @@ pub struct TextPrimitive {
 
 #[derive(Debug, Clone)]
 pub struct GlyphInstance {
-    pub texture: std::sync::Arc<crate::Texture>,
+    pub texture: std::rc::Rc<crate::Texture>,
     pub position: [f32; 2],
     pub size: [f32; 2],
 }
