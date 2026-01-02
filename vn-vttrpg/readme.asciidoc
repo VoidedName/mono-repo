@@ -1,0 +1,80 @@
+= VN-Suit
+Voided Name
+v1.0, 2025-12-15
+:source-highlighter: rouge
+
+.Main Project Goals
+1. Improve my skill-set and learn more about gpu based programming.
+2. Create a general fw for fun projects.
+- This means that it must be rather sort of flexible
+
+.Sub Project Ideas
+- VTTRPG (virtual table top rpg system)
+- Platformer like Hollow Knight
+- Automation Game like Factorio / Shapez
+- Knowledge Manager
+
+
+[NOTE]
+====
+I am currently unsure about how to structure the subprojects. For now, I will keep them in the same workspace. But an issue I have is the launching. Currently, I need three crates for launching. One per Platform (web / native) and one containing the actual application logic. The Web and Native crates will always be more or less the same. Maybe I should use features instead? But they would need to be exclusive...
+[source, rust]
+----
+#[cfg(feature = "vttrpg")]
+pub fn init() -> anyhow::Result<()> {
+    use vttrpg::MainLogic;
+
+    log::info!("Initializing Application!");
+    init_with_logic::<MainLogic>()?;
+
+    log::info!("Application terminated!");
+    Ok(())
+}
+
+#[cfg(feature = "automation")]
+pub fn init() -> anyhow::Result<()> {
+    use automation::MainLogic;
+
+    log::info!("Initializing Application!");
+    init_with_logic::<MainLogic>()?;
+
+    log::info!("Application terminated!");
+    Ok(())
+}
+----
+
+This way, if two features are enabled, it should be a compilation error.
+
+NOTE: I will make a decision on this when I start a second project, or maybe on the third... But I will start with the vttrpg
+====
+
+== Things I still need to do
+
+.Todo List for the UI FW
+- [x] Primitive Rendering
+- [x] Text Rendering
+- [x] Layout / Drawing Flow
+- [x] Scene Rendering
+- [ ] Animation
+- [ ] Optional: Anti Aliasing
+- [ ] Text-Atlas: Currently I render one texture per character per font per font_size used. This is not very efficient as I have to make a draw call per unique glyph per layer. Using Instancing and a single Atlas would allow me to just make one (or a few) draw calls and avoid most of the memory throughput overhead.
+- [ ] Text Glyphs should be rendered at certain breakpoints like 8pt, 16pt, 32pt etc. When drawing a glyph we should pick an appropriate one and then rescale it via sampling on the gpu. (We would have to recreate every glyph / atlas when font_size is animated for every frame)
+- [ ] Rich Text. Color, Font, Size, Clickable, Hoverable, (embedded ui elements?)
+- [ ] Web and Native colors don't match. One of them does not compensate for sRGB correctly.
+- [ ] Audio Engine?
+- [ ] Resource / File loading (Web vs Native)
+
+== VTTRPG
+
+.features
+- [ ] Character Sheet
+- [ ] Map
+- [ ] Player/NPC Token
+- [ ] Multiplayer
+- [ ] Lightshed on a Map
+- [ ] Pathing on a Map
+- [ ] Automatic Triggers?
+- [ ] Pause / Continue
+- [ ] GM or Elevated vs Player / Capability System (like player can edit their own sheet)
+- [ ] Dice Rolls
+- [ ] Mechanics / Rule System?!

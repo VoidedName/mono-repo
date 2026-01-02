@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::time::{Duration, Instant};
+use web_time::{Duration, Instant};
 
 pub trait Interpolatable: Sized + Clone {
     fn interpolate(&self, other: &Self, t: f32) -> Self;

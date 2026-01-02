@@ -2005,6 +2005,9 @@ dependencies = [
 [[package]]
 name = "vn-vttrpg-ui-animation"
 version = "0.1.0"
+dependencies = [
+ "web-time",
+]
 
 [[package]]
 name = "vn-vttrpg-ui-animation-macros"
