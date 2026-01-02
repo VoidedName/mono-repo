@@ -1,12 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use vn_vttrpg_ui::{
-    Anchor, AnchorLocation, Card, CardParams, DynamicSize,
-    DynamicTextFieldController, Element, ElementSize, EventManager, Fill, InputTextFieldController,
-    InputTextFieldControllerExt, Interactive, InteractiveParams, Interpolatable, Padding,
-    PaddingParams, SimpleLayoutCache, SizeConstraints, Stack, TextField, TextFieldParams,
-    TextMetrics, UiContext,
-};
+use vn_vttrpg_ui::{Anchor, AnchorLocation, Card, CardParams, DynamicSize, DynamicTextFieldController, Easing, Element, ElementSize, EventManager, Fill, InputTextFieldController, InputTextFieldControllerExt, Interactive, InteractiveParams, Interpolatable, Progress, Padding, PaddingParams, SimpleLayoutCache, SizeConstraints, Stack, TextField, TextFieldParams, TextMetrics, UiContext};
 use vn_vttrpg_window::graphics::GraphicsContext;
 use vn_vttrpg_window::input::InputState;
 use vn_vttrpg_window::resource_manager::ResourceManager;
@@ -296,6 +290,8 @@ impl MainLogic {
                 font_size: 18.0,
                 color: Color::GREEN,
             };
+            state.progress = Progress::PingPong;
+            state.easing = Easing::EaseInOutQuad;
         });
 
         let text_input = TextField::new(
@@ -310,10 +306,10 @@ impl MainLogic {
         let text_input = Fill::new(Box::new(text_input), &mut ui_ctx);
 
         let padding_controller = PaddingParams::uniform(0.0).into_controller().into_rc();
-        padding_controller.update_state(|state| {
-            state.duration = web_time::Duration::from_millis(5000);
-            state.target_value = PaddingParams::uniform(25.0);
-        });
+        // padding_controller.update_state(|state| {
+        //     state.duration = web_time::Duration::from_millis(5000);
+        //     state.target_value = PaddingParams::uniform(25.0);
+        // });
 
         let test_input = Padding::new(Box::new(text_input), padding_controller, &mut ui_ctx);
 
@@ -326,15 +322,15 @@ impl MainLogic {
         .into_controller()
         .into_rc();
 
-        card_controller.update_state(|state| {
-            state.duration = web_time::Duration::from_millis(5000);
-            state.target_value = CardParams {
-                background_color: Color::WHITE,
-                border_size: 25.0,
-                border_color: Color::RED,
-                corner_radius: 25.0,
-            }
-        });
+        // card_controller.update_state(|state| {
+        //     state.duration = web_time::Duration::from_millis(5000);
+        //     state.target_value = CardParams {
+        //         background_color: Color::WHITE,
+        //         border_size: 25.0,
+        //         border_color: Color::RED,
+        //         corner_radius: 25.0,
+        //     }
+        // });
 
         let test_input = Card::new(Box::new(test_input), card_controller, &mut ui_ctx);
 

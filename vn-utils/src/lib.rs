@@ -28,6 +28,36 @@ impl<T> UpdateOption<T> for Option<T> {
     }
 }
 
+pub mod float {
+    pub trait NaNTo: Sized {
+        fn nan_to(&self, value: Self) -> Self;
+        fn replace_nan_with(&mut self, value: Self) -> &mut Self {
+            *self = self.nan_to(value);
+            self
+        }
+    }
+
+    impl NaNTo for f32 {
+        fn nan_to(&self, value: f32) -> f32 {
+            if self.is_nan() {
+                value
+            } else {
+                *self
+            }
+        }
+    }
+
+    impl NaNTo for f64 {
+        fn nan_to(&self, value: f64) -> f64 {
+            if self.is_nan() {
+                value
+            } else {
+                *self
+            }
+        }
+    }
+}
+
 pub mod string {
     pub trait CharIndex {
         fn byte_pos_for_char_index(&self, index: usize) -> Option<usize>;
