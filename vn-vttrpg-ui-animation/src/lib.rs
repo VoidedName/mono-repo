@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use web_time::{Duration, Instant};
 use vn_utils::float::NaNTo;
+use web_time::{Duration, Instant};
 
 pub trait Interpolatable: Sized + Clone {
     fn interpolate(&self, other: &Self, t: f32) -> Self;
@@ -189,7 +189,8 @@ impl Progress {
             }
             Progress::Custom(progress_fn) => progress_fn(params),
         }
-        .clamp(0.0, 1.0).nan_to(0.0)
+        .clamp(0.0, 1.0)
+        .nan_to(0.0)
     }
 }
 

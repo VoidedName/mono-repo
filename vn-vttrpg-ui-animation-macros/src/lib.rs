@@ -13,9 +13,13 @@ pub fn interpolate(item: TokenStream) -> TokenStream {
         match data.fields {
             syn::Fields::Named(ref fields) => {
                 let interpolation = fields.named.iter().map(|field| {
-                    let ignore = field.attrs.iter().find(|a|
-                        a.meta.path().segments[0].ident.to_string() == IGNORE_INTERPOLATION
-                    ).is_some();
+                    let ignore = field
+                        .attrs
+                        .iter()
+                        .find(|a| {
+                            a.meta.path().segments[0].ident.to_string() == IGNORE_INTERPOLATION
+                        })
+                        .is_some();
 
                     if !ignore {
                         let field = &field.ident;
@@ -35,9 +39,13 @@ pub fn interpolate(item: TokenStream) -> TokenStream {
             }
             syn::Fields::Unnamed(ref fields) => {
                 let interpolation = fields.unnamed.iter().enumerate().map(|(i, field)| {
-                    let ignore = field.attrs.iter().find(|a|
-                        a.meta.path().segments[0].ident.to_string() == IGNORE_INTERPOLATION
-                    ).is_some();
+                    let ignore = field
+                        .attrs
+                        .iter()
+                        .find(|a| {
+                            a.meta.path().segments[0].ident.to_string() == IGNORE_INTERPOLATION
+                        })
+                        .is_some();
 
                     if !ignore {
                         quote! {

@@ -49,7 +49,8 @@ pub trait TextMetrics {
 
 #[derive(Clone, Interpolatable)]
 pub struct TextFieldParams {
-    #[no_interpolation] pub font: String,
+    #[no_interpolation]
+    pub font: String,
     pub font_size: f32,
     pub color: Color,
 }

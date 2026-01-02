@@ -5,12 +5,14 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use ttf_parser::GlyphId;
+use vn_utils::result::MonoResult;
 
 /// Manages textures, fonts, and cached text rendering.
 pub struct ResourceManager {
     wgpu: Rc<WgpuContext>,
     textures: RefCell<HashMap<String, Rc<Texture>>>,
     fonts: RefCell<HashMap<String, Rc<Font>>>,
+    fallback_font: Rc<Font>,
     text_renderer: RefCell<Option<crate::text::renderer::TextRenderer>>,
     glyph_cache: RefCell<HashMap<(String, u32, u32), Glyph>>,
 }
@@ -20,13 +22,17 @@ use crate::text::Glyph;
 impl ResourceManager {
     // TODO: (bugs) implement fallback fonts
 
-    pub fn new(wgpu: Rc<WgpuContext>) -> Self {
+    pub fn new(wgpu: Rc<WgpuContext>, fallback_font: &[u8]) -> Self {
+
+        let fallback_font = Rc::new(Font::new(fallback_font.to_vec()));
+
         Self {
             wgpu,
             textures: RefCell::new(HashMap::new()),
             fonts: RefCell::new(HashMap::new()),
             text_renderer: RefCell::new(None),
             glyph_cache: RefCell::new(HashMap::new()),
+            fallback_font,
         }
     }
 
@@ -93,18 +99,19 @@ impl ResourceManager {
         Ok(font)
     }
 
-    pub fn get_font(&self, name: &str) -> Option<Rc<Font>> {
-        self.fonts.borrow().get(name).cloned()
+    pub fn get_font(&self, name: &str) -> Result<Rc<Font>, Rc<Font>> {
+        let font = self.fonts.borrow().get(name).cloned();
+        font.ok_or_else(|| self.fallback_font.clone())
     }
 
     pub fn line_height(&self, font_name: &str, font_size: f32) -> f32 {
-        let font = match self.get_font(font_name) {
-            Some(f) => f,
-            None => {
-                log::error!("Font {} not found", font_name);
-                return font_size;
-            }
-        };
+        let font = self.get_font(font_name);
+
+        if font.is_err() {
+            log::warn!("Font {} not found, falling back to default", font_name);
+        }
+
+        let font = self.get_font(font_name).value();
 
         let face = match font.face() {
             Ok(f) => f,
@@ -124,13 +131,13 @@ impl ResourceManager {
         font_name: &str,
         font_size: f32,
     ) -> Vec<Glyph> {
-        let font = match self.get_font(font_name) {
-            Some(f) => f,
-            None => {
-                log::error!("Font {} not found", font_name);
-                return Vec::new();
-            }
-        };
+        let font = self.get_font(font_name);
+
+        if font.is_err() {
+            log::warn!("Font {} not found, falling back to default", font_name);
+        }
+
+        let font = self.get_font(font_name).value();
 
         let mut text_renderer = self.text_renderer.borrow_mut();
         if text_renderer.is_none() {

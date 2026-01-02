@@ -1,6 +1,14 @@
 use std::cell::RefCell;
+use std::pin::Pin;
 use std::rc::Rc;
-use vn_vttrpg_ui::{Anchor, AnchorLocation, Card, CardParams, DynamicSize, DynamicTextFieldController, Easing, Element, ElementSize, EventManager, Fill, InputTextFieldController, InputTextFieldControllerExt, Interactive, InteractiveParams, Interpolatable, Progress, Padding, PaddingParams, SimpleLayoutCache, SizeConstraints, Stack, TextField, TextFieldParams, TextMetrics, UiContext};
+use thiserror::Error;
+use vn_vttrpg_ui::{
+    Anchor, AnchorLocation, Card, CardParams, DynamicSize, DynamicTextFieldController, Easing,
+    Element, ElementSize, EventManager, Fill, InputTextFieldController,
+    InputTextFieldControllerExt, Interactive, InteractiveParams, Interpolatable, Padding,
+    PaddingParams, Progress, SimpleLayoutCache, SizeConstraints, Stack, TextField, TextFieldParams,
+    TextMetrics, UiContext,
+};
 use vn_vttrpg_window::graphics::GraphicsContext;
 use vn_vttrpg_window::input::InputState;
 use vn_vttrpg_window::resource_manager::ResourceManager;
@@ -77,7 +85,7 @@ impl FpsStats {
             let fps = *self.frame_count.borrow() as f32 / elapsed;
             self.current_fps.borrow_mut().replace(fps);
 
-            log::info!("FPS:{:>8.2}", fps);
+            // log::info!("FPS:{:>8.2}", fps);
 
             *key_frame_time = Some(Instant::now());
             *self.frame_count.borrow_mut() = 0;
@@ -87,6 +95,19 @@ impl FpsStats {
     fn current_fps(&self) -> Option<f32> {
         self.current_fps.borrow().clone()
     }
+}
+
+#[derive(Debug, Error)]
+pub enum FileLoadingError {
+    #[error("{0}")]
+    GeneralError(String),
+}
+
+pub trait FileLoader {
+    fn load_file(
+        &self,
+        path: String,
+    ) -> Pin<Box<dyn Future<Output = anyhow::Result<Vec<u8>, FileLoadingError>>>>;
 }
 
 pub struct MainLogic {
@@ -99,19 +120,18 @@ pub struct MainLogic {
     ui: RefCell<Box<dyn Element>>,
     event_manager: Rc<RefCell<EventManager>>,
     input_controller: Rc<RefCell<InputTextFieldController>>,
+    file_loader: Rc<Box<dyn FileLoader>>,
 }
 
-impl StateLogic<SceneRenderer> for MainLogic {
-    async fn new_from_graphics_context(
+impl MainLogic {
+    pub(crate) async fn new(
+        file_loader: Rc<Box<dyn FileLoader>>,
         graphics_context: Rc<GraphicsContext>,
         resource_manager: Rc<ResourceManager>,
     ) -> anyhow::Result<Self> {
-        let diffuse_bytes = include_bytes!("vn_dk_white_square_better_n.png");
-        resource_manager.load_texture_from_bytes("vn_dk_white_square", diffuse_bytes)?;
 
-        let font_bytes =
-            include_bytes!("../../vn-vttrpg-window/src/text/fonts/JetBrainsMono-Bold.ttf");
-        resource_manager.load_font_from_bytes("jetbrains-bold", font_bytes)?;
+        let font_bytes = file_loader.load_file("fonts/JetBrainsMono-Bold.ttf".to_string()).await?;
+        resource_manager.load_font_from_bytes("jetbrains-bold", &font_bytes)?;
 
         let event_manager = Rc::new(RefCell::new(EventManager::new()));
         let input_controller = Rc::new(RefCell::new(InputTextFieldController::new(
@@ -136,9 +156,12 @@ impl StateLogic<SceneRenderer> for MainLogic {
             fps_stats,
             event_manager,
             input_controller,
+            file_loader,
         })
     }
+}
 
+impl StateLogic<SceneRenderer> for MainLogic {
     fn handle_key(&mut self, event_loop: &ActiveEventLoop, event: &KeyEvent) {
         self.input.handle_key(event);
 

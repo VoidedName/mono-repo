@@ -9,6 +9,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 vn-vttrpg-ui-animation = { path = "../vn-vttrpg-ui-animation" }
 vn-vttrpg-ui-animation-macros = { path = "../vn-vttrpg-ui-animation-macros" }
+vn-utils = { path = "../vn-utils" }
 log = { workspace = true }
 winit = { workspace = true }
 anyhow = { workspace = true }

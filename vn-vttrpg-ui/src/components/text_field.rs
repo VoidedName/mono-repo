@@ -5,9 +5,9 @@ use crate::{
 };
 use std::cell::RefCell;
 use std::rc::Rc;
+use vn_vttrpg_ui_animation::AnimationController;
 use vn_vttrpg_window::{BoxPrimitive, Color, Scene, TextPrimitive};
 use web_time::Instant;
-use vn_vttrpg_ui_animation::AnimationController;
 
 pub trait TextFieldController {
     fn text(&self) -> String;
@@ -320,7 +320,9 @@ impl TextField {
         }
 
         if changed {
-            self.line_height = self.text_metrics.line_height(&params.font, params.font_size);
+            self.line_height = self
+                .text_metrics
+                .line_height(&params.font, params.font_size);
             let caret_space = self.caret_width;
             self.controller
                 .borrow_mut()

@@ -3,9 +3,9 @@ use crate::utils::ToArray;
 use crate::{
     DynamicSize, Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext,
 };
+use vn_vttrpg_ui_animation_macros::Interpolatable;
 use vn_vttrpg_window::{Rect, Scene};
 use web_time::{Duration, Instant};
-use vn_vttrpg_ui_animation_macros::Interpolatable;
 
 #[derive(Clone, Copy, Debug, Default, Interpolatable)]
 pub struct TooltipParams {

@@ -45,7 +45,7 @@ pub fn init() -> anyhow::Result<()> {
 
 This way, if two features are enabled, it should be a compilation error.
 
-NOTE: I will make a decision on this when I start a second project, or maybe on the third... But I will start with the vttrpg
+One problem with this is assets / resources. Right now assets are handled by just dumping the asset folder into the dist via webpack and native just accesses assets. But for different projects, especially webpack, we may not want to include all of the assets... this needs consideration
 ====
 
 == Things I still need to do
@@ -62,7 +62,7 @@ NOTE: I will make a decision on this when I start a second project, or maybe on 
 - [ ] Rich Text. Color, Font, Size, Clickable, Hoverable, (embedded ui elements?)
 - [ ] Web and Native colors don't match. One of them does not compensate for sRGB correctly.
 - [ ] Audio Engine?
-- [ ] Resource / File loading (Web vs Native)
+- [x] Resource / File loading (Web vs Native)
 
 == VTTRPG
 

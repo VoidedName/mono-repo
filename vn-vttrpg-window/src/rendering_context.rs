@@ -18,11 +18,21 @@ pub struct RenderingContext<T: StateLogic<R>, R: Renderer = SceneRenderer> {
 
 impl<T: StateLogic<SceneRenderer>> RenderingContext<T, SceneRenderer> {
     /// Creates a new rendering context for the given window.
-    pub async fn new(window: std::sync::Arc<Window>) -> anyhow::Result<Self> {
+    pub async fn new<FNew, FRet>(
+        window: std::sync::Arc<Window>,
+        new_fn: Rc<FNew>,
+    ) -> anyhow::Result<Self>
+    where
+        FNew: Fn(Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet + 'static,
+        FRet: Future<Output = anyhow::Result<T>>,
+    {
         let context = Rc::new(GraphicsContext::new(window).await?);
-        let resource_manager = Rc::new(ResourceManager::new(context.wgpu.clone()));
+        let resource_manager = Rc::new(ResourceManager::new(
+            context.wgpu.clone(),
+            include_bytes!("../src/text/fonts/JetBrainsMono-Regular.ttf"),
+        ));
         let renderer = SceneRenderer::new(context.clone(), resource_manager.clone());
-        let logic = T::new_from_graphics_context(context.clone(), resource_manager.clone()).await?;
+        let logic = new_fn(context.clone(), resource_manager.clone()).await?;
 
         Ok(Self {
             context,

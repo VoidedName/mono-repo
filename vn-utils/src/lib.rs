@@ -39,20 +39,33 @@ pub mod float {
 
     impl NaNTo for f32 {
         fn nan_to(&self, value: f32) -> f32 {
-            if self.is_nan() {
-                value
-            } else {
-                *self
-            }
+            if self.is_nan() { value } else { *self }
         }
     }
 
     impl NaNTo for f64 {
         fn nan_to(&self, value: f64) -> f64 {
-            if self.is_nan() {
-                value
-            } else {
-                *self
+            if self.is_nan() { value } else { *self }
+        }
+    }
+}
+
+pub mod result {
+    pub trait MonoResult<T> {
+        fn value_ref(&self) -> &T;
+        fn value(self) -> T;
+    }
+
+    impl<T> MonoResult<T> for Result<T, T> {
+        fn value_ref(&self) -> &T {
+            match self {
+                Ok(v) | Err(v) => v,
+            }
+        }
+
+        fn value(self) -> T {
+            match self {
+                Ok(v) | Err(v) => v,
             }
         }
     }

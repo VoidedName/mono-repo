@@ -27,7 +27,8 @@ module.exports = {
   plugins: [
     new CopyPlugin([
       path.resolve(__dirname, "static"),
-      { from: path.resolve(__dirname, "pkg/index_bg.wasm"), to: "index_bg.wasm" }
+      { from: path.resolve(__dirname, "pkg/index_bg.wasm"), to: "index_bg.wasm" },
+      { from: path.resolve(__dirname, "..", "assets"), to: "assets" }
     ]),
 
     new WasmPackPlugin({

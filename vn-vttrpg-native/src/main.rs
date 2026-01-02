@@ -1,4 +1,26 @@
 use env_logger::Env;
+use std::io::Read;
+use std::pin::Pin;
+use vn_vttrpg::logic::{FileLoader, FileLoadingError};
+
+pub async fn load_file(path: String) -> anyhow::Result<Vec<u8>, FileLoadingError> {
+    let mut file = std::fs::File::open(path)
+        .map_err(|e| FileLoadingError::GeneralError(format!("Failed to open file: {}", e)))?;
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer)
+        .map_err(|e| FileLoadingError::GeneralError(format!("Failed to read file: {}", e)))?;
+    Ok(buffer)
+}
+
+struct FL;
+impl FileLoader for FL {
+    fn load_file(
+        &self,
+        path: String,
+    ) -> Pin<Box<dyn Future<Output = anyhow::Result<Vec<u8>, FileLoadingError>>>> {
+        Box::pin(load_file(format!("assets/{}", path)))
+    }
+}
 
 fn main() {
     let log_level = std::env::var("MY_LOG_LEVEL").unwrap_or_else(|_| "Debug".to_string());
@@ -15,5 +37,5 @@ fn main() {
         log_style
     );
 
-    vn_vttrpg::init().expect("Failed to initialize!");
+    vn_vttrpg::init(Box::new(FL)).expect("Failed to initialize!");
 }

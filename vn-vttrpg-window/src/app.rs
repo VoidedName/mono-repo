@@ -1,24 +1,40 @@
+use crate::GraphicsContext;
 use crate::logic::StateLogic;
 use crate::rendering_context::RenderingContext;
+use crate::resource_manager::ResourceManager;
 use crate::scene_renderer::SceneRenderer;
+use std::rc::Rc;
 use std::sync::Arc;
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowId};
 
-pub struct App<T: StateLogic<SceneRenderer>> {
+pub struct App<FNew, FRet, T: StateLogic<SceneRenderer>>
+where
+    FNew: Fn(Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet + 'static,
+    FRet: Future<Output = anyhow::Result<T>>,
+{
     #[cfg(target_arch = "wasm32")]
     proxy: Option<winit::event_loop::EventLoopProxy<RenderingContext<T>>>,
     state: Option<RenderingContext<T>>,
+    new_fn: Rc<FNew>,
 }
 
-impl<T: StateLogic<SceneRenderer>> App<T> {
+impl<FNew, FRet, T: StateLogic<SceneRenderer>> App<FNew, FRet, T>
+where
+    FNew: Fn(Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet + 'static,
+    FRet: Future<Output = anyhow::Result<T>>,
+{
     pub fn new(
         #[cfg(target_arch = "wasm32")] event_loop: &winit::event_loop::EventLoop<
             RenderingContext<T>,
         >,
-    ) -> Self {
+        new_fn: FNew,
+    ) -> Self
+    where
+        FRet: Future<Output = anyhow::Result<T>>,
+    {
         #[cfg(target_arch = "wasm32")]
         let proxy = Some(event_loop.create_proxy());
 
@@ -26,11 +42,17 @@ impl<T: StateLogic<SceneRenderer>> App<T> {
             #[cfg(target_arch = "wasm32")]
             proxy,
             state: None,
+            new_fn: Rc::new(new_fn),
         }
     }
 }
 
-impl<T: StateLogic<SceneRenderer>> ApplicationHandler<RenderingContext<T>> for App<T> {
+impl<FNew, FRet, T: StateLogic<SceneRenderer>> ApplicationHandler<RenderingContext<T>>
+    for App<FNew, FRet, T>
+where
+    FNew: Fn(Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet + 'static,
+    FRet: Future<Output = anyhow::Result<T>>,
+{
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.state.is_some() {
             log::info!("Window already exists, skipping creation");
@@ -60,18 +82,22 @@ impl<T: StateLogic<SceneRenderer>> ApplicationHandler<RenderingContext<T>> for A
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            self.state = Some(pollster::block_on(RenderingContext::new(window)).unwrap());
+            self.state = Some(
+                pollster::block_on(RenderingContext::new(window, self.new_fn.clone())).unwrap(),
+            );
         }
 
         #[cfg(target_arch = "wasm32")]
         {
+            let new_fn = self.new_fn.clone();
+
             if let Some(proxy) = self.proxy.take() {
                 wasm_bindgen_futures::spawn_local(async move {
                     assert!(
                         // send_event sends it to user_event
                         proxy
                             .send_event(
-                                RenderingContext::new(window)
+                                RenderingContext::new(window, new_fn)
                                     .await
                                     .expect("Failed to create canvas!")
                             )

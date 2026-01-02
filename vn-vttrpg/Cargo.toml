@@ -17,4 +17,5 @@ log = { workspace = true }
 anyhow = { workspace = true }
 winit = { workspace = true }
 web-time = { workspace = true }
+thiserror = { workspace = true }
 

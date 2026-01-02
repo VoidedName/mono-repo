@@ -10,3 +10,4 @@ debug_outlines = ["vn-vttrpg/debug_outlines"]
 env_logger = { workspace = true }
 log = { workspace = true }
 vn-vttrpg = { path = "../vn-vttrpg" }
+anyhow = {workspace = true}
