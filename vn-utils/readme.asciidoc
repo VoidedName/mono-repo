@@ -1,0 +1,40 @@
+= vn-utils
+Voided Name
+v1.0, 2026-01-03
+:source-highlighter: rouge
+
+`vn-utils` is a collection of general-purpose utility traits and structures used across the VN-Suit workspace.
+
+== Architecture
+
+.Utility Modules
+[mermaid]
+----
+graph TD
+    Utils[vn-utils] --> Cache[cache: TimedLRUCache]
+    Utils --> Float[float: NaNTo]
+    Utils --> Result[result: MonoResult]
+    Utils --> String[string: CharIndex / Insert / Remove]
+    Utils --> Opt[UpdateOption]
+----
+
+The crate is organized into several modules, each providing a specific category of utilities.
+
+=== Core Modules
+
+* **cache**: Provides caching mechanisms (e.g., `TimedLRUCache`) for managing resources with expiration policies.
+* **float**: Trait `NaNTo` for safe handling of NaN values in floating-point calculations.
+* **result**: Trait `MonoResult` for simplifying results where `Ok` and `Err` share the same type.
+* **string**: Utilities for character-index based string manipulation (`InsertAtCharIndex`, `RemoveAtCharIndex`).
+* **UpdateOption**: A trait extending `Option<T>` with convenient update methods.
+
+=== Design Decisions
+
+* **Minimal Dependencies**: The crate aims to have as few dependencies as possible to keep it lightweight.
+* **Trait-Based Extensions**: Focuses on extending standard library types via traits to provide more ergonomic APIs.
+
+== TODO
+
+- [ ] Logging Utilities: Standardized logging macros or wrappers.
+- [ ] Math Utilities: Common 2D/3D math functions (e.g., lerp, clamp for non-float types).
+- [ ] Profiling Macros: Simple timing and profiling tools.

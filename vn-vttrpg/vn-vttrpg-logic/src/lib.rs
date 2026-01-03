@@ -1,11 +1,11 @@
 pub mod logic;
 
-use crate::logic::FileLoader;
+use crate::logic::PlatformHooks;
 pub use logic::MainLogic;
 use std::rc::Rc;
 use vn_wgpu_window::init_with_logic;
 
-pub fn init(new_fn: Box<dyn FileLoader>) -> anyhow::Result<()> {
+pub fn init(new_fn: Box<dyn PlatformHooks>) -> anyhow::Result<()> {
     log::info!("Initializing Application!");
 
     let new_fn = Rc::new(new_fn);

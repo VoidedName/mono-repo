@@ -61,6 +61,40 @@ For more details, see link:vn-vttrpg/readme.asciidoc[vn-vttrpg/readme.asciidoc].
 
 
 
+== Architecture & Design Decisions
+
+.Platform Abstraction (File Loading)
+[mermaid]
+----
+classDiagram
+    class FileLoader {
+        <<trait>>
+        +load_file(path)
+    }
+    class NativeFileLoader {
+        +load_file(path) // uses std::fs
+    }
+    class WebFileLoader {
+        +load_file(path) // uses fetch API
+    }
+    class ResourceManager {
+        -FileLoader loader
+        +get_texture(path)
+    }
+
+    FileLoader <|-- NativeFileLoader
+    FileLoader <|-- WebFileLoader
+    ResourceManager o-- FileLoader
+----
+
+The VN-Suit is designed with several core principles to ensure flexibility and portability:
+
+. **Crate-based Modularization**: The project is split into many small, focused crates. This promotes clean boundaries and allows for reusing only specific parts of the framework if needed.
+. **Platform Abstraction via Traits**: Platform-specific functionality (like file loading) is abstracted through traits. This allows the core logic to remain platform-agnostic while launchers (Native vs Web) provide the concrete implementation.
+. **Data-Oriented Scene Graph**: `vn-scene` defines the "what" to render as plain data structures, while `vn-wgpu-window` implements the "how" using WGPU.
+. **Cached UI Layout**: The UI system uses a layout cache to avoid redundant calculations, ensuring high performance even with complex UI trees.
+. **Reactive Animation System**: Animations are integrated into the UI properties, allowing for smooth transitions by simply interpolating values over time.
+
 == Things I still need to do
 
 .Todo List for the UI FW
@@ -71,8 +105,14 @@ For more details, see link:vn-vttrpg/readme.asciidoc[vn-vttrpg/readme.asciidoc].
 - [x] Animation: Support for interpolatable properties.
 - [ ] Optional: Anti Aliasing
 - [ ] Text-Atlas: Currently I render one texture per character per font per font_size used. Using a single Atlas would allow me to avoid most of the memory throughput overhead. (Instancing is implemented, but Atlas is still missing)
-- [ ] Text Glyphs should be rendered at certain breakpoints like 8pt, 16pt, 32pt etc. When drawing a glyph we should pick an appropriate one and then rescale it via sampling on the gpu. (We would have to recreate every glyph / atlas when font_size is animated for every frame)
+- [x] Text Glyphs should be rendered at certain breakpoints like 8pt, 16pt, 32pt etc. When drawing a glyph we should pick an appropriate one and then rescale it via sampling on the gpu. (We would have to recreate every glyph / atlas when font_size is animated for every frame)
 - [ ] Rich Text. Color, Font, Size, Clickable, Hoverable, (embedded ui elements?)
 - [ ] Web and Native colors don't match. One of them does not compensate for sRGB correctly.
 - [ ] Audio Engine
 - [x] Resource / File loading (Web vs Native)
+
+.General Framework TODOs
+- [ ] Improved Input System: Better handling of multi-key combos and gamepad support.
+- [ ] Localization Support: Framework-level support for translated strings.
+- [ ] Documentation: Move from basic READMEs to comprehensive documentation.
+- [ ] Testing: Implement automated UI and rendering tests.

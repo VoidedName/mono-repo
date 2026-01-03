@@ -2,7 +2,7 @@ use std::pin::Pin;
 use wasm_bindgen::prelude::*;
 
 use js_sys::Promise;
-use vn_vttrpg_logic::logic::{FileLoader, FileLoadingError};
+use vn_vttrpg_logic::logic::{PlatformHooks, FileLoadingError};
 use wasm_bindgen_futures::JsFuture;
 
 #[wasm_bindgen(module = "/src/helpers.js")]
@@ -29,7 +29,7 @@ pub async fn load_file(path: String) -> Result<Vec<u8>, FileLoadingError> {
 }
 
 struct FL;
-impl FileLoader for FL {
+impl PlatformHooks for FL {
     fn load_file(
         &self,
         path: String,

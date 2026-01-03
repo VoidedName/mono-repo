@@ -1,7 +1,7 @@
 use env_logger::Env;
 use std::io::Read;
 use std::pin::Pin;
-use vn_vttrpg_logic::logic::{FileLoader, FileLoadingError};
+use vn_vttrpg_logic::logic::{PlatformHooks, FileLoadingError};
 
 pub async fn load_file(path: String) -> anyhow::Result<Vec<u8>, FileLoadingError> {
     let mut file = std::fs::File::open(path)
@@ -13,7 +13,7 @@ pub async fn load_file(path: String) -> anyhow::Result<Vec<u8>, FileLoadingError
 }
 
 struct FL;
-impl FileLoader for FL {
+impl PlatformHooks for FL {
     fn load_file(
         &self,
         path: String,

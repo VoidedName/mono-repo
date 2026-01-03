@@ -1,0 +1,59 @@
+= vn-wgpu-window
+Voided Name
+v1.0, 2026-01-03
+:source-highlighter: rouge
+
+`vn-wgpu-window` is the rendering backend and windowing abstraction for the VN-Suit framework. It uses `wgpu` for hardware-accelerated rendering and `winit` for window management and event handling.
+
+== Architecture
+
+.Crate Interactions
+[mermaid]
+----
+graph LR
+    subgraph vn-wgpu-window
+        App[App / ApplicationHandler]
+        Renderer[Renderer / SceneRenderer]
+        RM[Resource Manager]
+    end
+    
+    subgraph UserSpace [Application]
+        Logic[MainLogic : StateLogic]
+    end
+
+    subgraph External
+        Winit[winit Event Loop]
+        WGPU[wgpu Graphics API]
+    end
+
+    App --> Logic
+    App --> Winit
+    Logic --> Renderer
+    Renderer --> WGPU
+    Renderer --> RM
+    RM --> WGPU
+----
+
+The crate acts as the "Engine" that drives the application.
+
+=== Core Components
+
+* **App**: Implements `winit`'s `ApplicationHandler` and manages the high-level application lifecycle.
+* **Renderer**: The core WGPU renderer that translates `vn-scene` primitives into GPU commands.
+* **ResourceManager**: Handles loading and caching of textures and fonts. It includes a `TimedLRUCache` for automatic cleanup of unused resources.
+* **SceneRenderer**: A specialized renderer for drawing `vn-scene` objects.
+* **StateLogic**: A trait that users implement to define their application's behavior.
+
+=== Design Decisions
+
+* **WGPU Integration**: Provides a modern, cross-platform graphics API that works on both Native (Vulkan, Metal, DX12) and Web (WebGPU, WebGL2).
+* **Resource Caching**: Textures and Glyphs are cached to minimize GPU uploads and memory usage.
+* **Main Loop Abstraction**: The `init_with_logic` function hides the complexity of setting up the `winit` event loop and WGPU surface.
+* **Font Rendering**: Uses `rusttype` for glyph layout and handles the complexity of rendering individual characters via a glyph cache.
+
+== TODO
+
+- [ ] Text-Atlas: Implement a unified texture atlas for all glyphs to improve rendering performance.
+- [ ] (Optional (Does it even make sense in web?)) Multi-Window Support: Support for applications with multiple windows.
+- [ ] MSAA: Support for Multi-Sample Anti-Aliasing.
+- [ ] Compute Shader Integration: Allow users to dispatch compute shaders easily.

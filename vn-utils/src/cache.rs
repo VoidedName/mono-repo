@@ -213,21 +213,21 @@ pub struct CacheEntry<K, V> {
     age: u64,
 }
 
-pub struct LRUCache<K, V> {
+pub struct TimedLRUCache<K, V> {
     lookup: HashMap<K, NodePtr<CacheEntry<K, V>>>,
     elements: LinkedList<CacheEntry<K, V>>,
     generation: u64,
 }
 
 #[derive(Default, Copy, Clone)]
-pub struct LRUCacheCleanupParams {
+pub struct TimedLRUCacheCleanupParams {
     /// If set, the cache will evict all members that are older than max_age many ticks
     pub max_age: Option<u64>,
     /// If set, the cache will evict the oldest members if it holds more than max_entries many members.
     pub max_entries: Option<usize>,
 }
 
-impl<K, V> LRUCache<K, V> {
+impl<K, V> TimedLRUCache<K, V> {
     pub fn new() -> Self {
         Self {
             lookup: HashMap::new(),
@@ -237,7 +237,7 @@ impl<K, V> LRUCache<K, V> {
     }
 }
 
-impl<K: Eq + std::hash::Hash + Clone, V> LRUCache<K, V> {
+impl<K: Eq + std::hash::Hash + Clone, V> TimedLRUCache<K, V> {
     pub fn insert(&mut self, key: K, value: V) {
         let node = self.elements.push_back(CacheEntry {
             key: key.clone(),
@@ -272,7 +272,7 @@ impl<K: Eq + std::hash::Hash + Clone, V> LRUCache<K, V> {
     }
 
     /// Removes all excess entries and those that are too old. Returns the keys of the removed entries.
-    pub fn cleanup(&mut self, cleanup_params: LRUCacheCleanupParams) -> Vec<(K, V)> {
+    pub fn cleanup(&mut self, cleanup_params: TimedLRUCacheCleanupParams) -> Vec<(K, V)> {
         let mut pruned = vec![];
 
         if let Some(max_entries) = cleanup_params.max_entries {

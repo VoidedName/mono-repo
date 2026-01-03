@@ -7,7 +7,7 @@ use std::fmt;
 use std::rc::Rc;
 use ttf_parser::GlyphId;
 use vn_utils::result::MonoResult;
-use vn_utils::{LRUCache, LRUCacheCleanupParams};
+use vn_utils::{TimedLRUCache, TimedLRUCacheCleanupParams};
 
 type GlyphKey = (String, u32, u32);
 
@@ -19,7 +19,7 @@ pub struct ResourceManager {
     fallback_font: Rc<Font>,
     text_renderer: RefCell<TextRenderer>,
     glyph_size_increment: Cell<f32>,
-    glyph_cache: RefCell<LRUCache<GlyphKey, Glyph>>,
+    glyph_cache: RefCell<TimedLRUCache<GlyphKey, Glyph>>,
 }
 
 use crate::text::Glyph;
@@ -51,7 +51,7 @@ impl ResourceManager {
             fonts: RefCell::new(HashMap::new()),
             fallback_font,
             glyph_size_increment: Cell::new(4.0),
-            glyph_cache: RefCell::new(LRUCache::new()),
+            glyph_cache: RefCell::new(TimedLRUCache::new()),
         }
     }
 
@@ -208,7 +208,7 @@ impl ResourceManager {
         let mut glyph_cache = self.glyph_cache.borrow_mut();
 
         // Prune glyph cache
-        let _ = glyph_cache.cleanup(LRUCacheCleanupParams {
+        let _ = glyph_cache.cleanup(TimedLRUCacheCleanupParams {
             max_age: Some(max_age),
             max_entries: Some(max_entries),
         });

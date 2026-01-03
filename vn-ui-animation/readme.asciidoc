@@ -1,0 +1,41 @@
+= vn-ui-animation
+Voided Name
+v1.0, 2026-01-03
+:source-highlighter: rouge
+
+`vn-ui-animation` provides a generic and extensible system for animating properties in the VN-Suit framework.
+
+== Architecture
+
+.Animation Update Flow
+[mermaid]
+----
+flowchart TD
+    Start([Tick / Update]) --> Delta[Get Delta Time]
+    Delta --> Controller[Update Animation Controller]
+    Controller --> Progress[Calculate Progress based on Speed/Mode]
+    Progress --> Easing[Apply Easing Function]
+    Easing --> Interpolate[Interpolate between Start and End values]
+    Interpolate --> End([Updated Property Value])
+----
+
+The crate is built around the concept of "Interpolatable" values and "Animation Controllers".
+
+=== Core Components
+
+* **Interpolatable Trait**: Defines how a value can be transitioned to another value over a progress `t` (0.0 to 1.0).
+* **Easing**: An enum providing various mathematical functions (Linear, Quad, etc.) to control the "feel" of the animation.
+* **Progress**: Defines the playback behavior (Once, Loop, Repeat, PingPong).
+* **Animation Controller**: Manages the state and timing of an animation for a specific property.
+
+=== Design Decisions
+
+* **Procedural Macro Integration**: The `vn-ui-animation-macros` crate provides a derive macro for `Interpolatable`, making it easy to make complex structs animatable.
+* **Separation of Timing and Value**: The system separates *when* an animation happens (Controller/Progress) from *how* the values change (Interpolatable/Easing).
+* **State Persistence**: Animation controllers can be converted into `Rc` to be shared or stored within UI elements.
+
+== TODO
+
+- [ ] Sequence Support: Ability to chain multiple animations together.
+- [ ] Grouped Animations: Animating multiple properties in sync.
+- [ ] Event Hooks: Callbacks for when an animation starts, completes, or repeats.

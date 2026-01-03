@@ -1,0 +1,30 @@
+= vn-ui-animation-macros
+Voided Name
+v1.0, 2026-01-03
+:source-highlighter: rouge
+
+`vn-ui-animation-macros` provides procedural macros for the `vn-ui-animation` crate.
+
+== Features
+
+.Macro Expansion
+[mermaid]
+----
+graph LR
+    Struct[Struct Definition] --> Macro[Interpolatable Derive Macro]
+    Macro --> Impl[Generated Interpolatable Impl]
+    
+    subgraph Fields
+        A[Field A: f32] --> Interp[Will Be Interpolated]
+        B[Field B: Color] --> Interp
+        C[Field C: String] -- "#[no_interpolation]" --> Skip[Keep Original Value]
+    end
+----
+
+* **Interpolatable Derive**: Automatically implements the `Interpolatable` trait for structs.
+** Supports `#[no_interpolation]` attribute to skip specific fields.
+
+== Design Decisions
+
+* **Procedural Macros**: Used to reduce boilerplate when making complex UI state structures animatable.
+* **Attribute-Based Control**: Allows users to fine-tune which fields should be interpolated, ensuring that non-numeric or non-interpolatable data (like Strings or IDs) can coexist in an animatable struct.

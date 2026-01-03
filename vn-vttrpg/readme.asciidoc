@@ -66,13 +66,24 @@ sequenceDiagram
 This structure allows the application to share the common framework (vn-wgpu-window, vn-ui) while maintaining separate launcher binaries for different platforms.
 The application logic crate (vn-vttrpg-logic) remains platform-agnostic by using trait-based abstractions (like `FileLoader`) for platform-specific functionality.
 
-== VTTRPG Features
+== Architecture & Design Decisions
 
-.features
-- [ ] Character Sheet
-- [ ] Map
-- [ ] Player/NPC Token
-- [ ] Multiplayer
+VTTRPG follows a strict separation between application logic and platform-specific entry points.
+
+. **Logic-Crate Pattern**: All application code resides in `vn-vttrpg-logic`. This crate is a library and contains no platform-specific code.
+. **Trait-Based Platform Abstraction**: Functionalities like file loading are handled through the `PlatformHooks` trait. `vn-vttrpg-native` provides an implementation using `std::fs`, while `vn-vttrpg-web` provides one using the `fetch` API.
+. **Unified Initialization**: Both launchers call a common `init()` function in the logic crate, ensuring consistent behavior across platforms.
+. **Asset Management**: Assets are loaded asynchronously (especially important on Web) and managed by the framework's resource manager.
+
+== VTTRPG Features & TODO
+
+.Immediate TODOs
+- [ ] Character Sheet: Basic implementation of stats and skills.
+- [ ] Map: Loading and displaying a 2D grid-based map.
+- [ ] Player/NPC Token: Rendering and moving tokens on the map.
+- [ ] Multiplayer: Synchronizing state between multiple clients.
+
+.Future Ideas
 - [ ] Lightshed on a Map
 - [ ] Pathing on a Map
 - [ ] Automatic Triggers?

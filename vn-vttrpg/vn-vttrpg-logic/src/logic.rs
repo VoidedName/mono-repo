@@ -112,7 +112,7 @@ pub enum FileLoadingError {
     GeneralError(String),
 }
 
-pub trait FileLoader {
+pub trait PlatformHooks {
     fn load_file(
         &self,
         path: String,
@@ -129,12 +129,12 @@ pub struct MainLogic {
     ui: RefCell<Box<dyn Element>>,
     event_manager: Rc<RefCell<EventManager>>,
     input_controller: Rc<RefCell<InputTextFieldController>>,
-    file_loader: Rc<Box<dyn FileLoader>>,
+    file_loader: Rc<Box<dyn PlatformHooks>>,
 }
 
 impl MainLogic {
     pub(crate) async fn new(
-        file_loader: Rc<Box<dyn FileLoader>>,
+        file_loader: Rc<Box<dyn PlatformHooks>>,
         graphics_context: Rc<GraphicsContext>,
         resource_manager: Rc<ResourceManager>,
     ) -> anyhow::Result<Self> {

@@ -1,0 +1,59 @@
+= vn-ui
+Voided Name
+v1.0, 2026-01-03
+:source-highlighter: rouge
+
+`vn-ui` is a flexible 2D UI framework built on top of `vn-scene`. It handles layouting, event propagation, and state-driven rendering.
+
+== Architecture
+
+.Layout & Draw Flow
+[mermaid]
+----
+sequenceDiagram
+    participant P as Parent Element
+    participant C as Child Element
+    participant LC as Layout Cache
+
+    Note over P, C: Layout Phase
+    P->>C: layout(SizeConstraints)
+    C->>LC: lookup(ID, Constraints)
+    alt Cache Hit
+        LC-->>C: ElementSize
+    else Cache Miss
+        C->>C: layout_impl(Constraints)
+        C->>LC: cache(ID, Constraints, Size)
+        LC-->>C: void
+    end
+    C-->>P: ElementSize
+
+    Note over P, C: Draw Phase
+    P->>C: draw(Origin, Size, Scene)
+    C->>C: draw_impl(Origin, Size, Scene)
+    C->>Scene: add_box / add_image / etc.
+----
+
+The UI is represented as a tree of objects implementing the `Element` trait.
+
+=== Core Components
+
+* **Element Trait**: The foundation of the UI. It separates the internal implementation (`ElementImpl`) from the public API (`Element`).
+* **Layout System**: A constraint-based layout system where parent elements provide `SizeConstraints` to their children, and children return their `ElementSize`.
+* **Layout Cache**: A mechanism to avoid expensive re-calculations of element sizes when constraints haven't changed.
+* **Event Manager**: Handles the propagation of input events (mouse, keyboard) through the UI tree.
+* **Components**: Pre-defined UI elements like `Button`, `Stack`, `TextField`, etc.
+
+=== Design Decisions
+
+* **Trait-Based Composition**: Elements are composed via traits, allowing for highly flexible and extensible UI structures.
+* **Separation of Concerns**: `ElementImpl` handles the "how" (layout and draw logic), while `Element` provides the "what" (public interface and caching).
+* **Debug Outlines**: Built-in support for visualizing element boundaries and IDs when the `debug_outlines` feature is enabled.
+* **Stateless vs Stateful**: Encourages a pattern where elements look up data from an external state rather than holding it internally, avoiding stale references.
+
+== TODO
+
+- [ ] Focus Management: Better handling of keyboard focus and tab navigation.
+- [ ] Scroll Containers: Implementation of scrollable areas.
+- [x] Tooltips: Support for hover-based information popups.
+- [ ] Style Sheets: A more centralized way to manage UI styles (colors, margins, etc.).
+- [ ] (Optional) Accessibility: Basic support for screen readers and high-contrast modes.

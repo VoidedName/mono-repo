@@ -1,0 +1,32 @@
+= vn-scene
+Voided Name
+v1.0, 2026-01-03
+:source-highlighter: rouge
+
+`vn-scene` defines the core data structures and traits for representing a 2D scene. It acts as the bridge between the high-level UI/Logic and the low-level rendering backend.
+
+== Architecture
+
+The crate is built around the `Scene` trait, which provides a standard interface for adding various primitives to a scene.
+
+=== Core Components
+
+* **Primitives**: Plain data structures representing renderable objects:
+** `BoxPrimitiveData`: For rectangles with borders and rounded corners.
+** `ImagePrimitiveData`: For textures/images.
+** `TextPrimitiveData`: For text blocks.
+** `GlyphData`: For individual character glyphs.
+* **Transform**: A 2D transformation structure supporting translation, rotation, scale, and origin.
+* **Color**: A 4-component RGBA color structure with utility methods for lightening, darkening, and alpha adjustment.
+* **Rect**: A simple rectangle structure used for positioning and clipping.
+
+=== Design Decisions
+
+* **Data-Only Primitives**: Primitives are simple structs without logic. This makes them easy to serialize, clone, and pass across crate boundaries.
+* **Layer-Based Rendering**: The `Scene` trait supports a hierarchical layer system (`with_next_layer`), allowing for complex Z-ordering and clipping.
+* **Backend Agnostic**: `vn-scene` does not know about WGPU or any other rendering API. It only defines the *contract* of what a scene should contain.
+
+== TODO
+
+- [ ] (Optional) Support for more primitive types (e.g., circles, polygons).
+- [ ] Improved clipping support (nested clips).
