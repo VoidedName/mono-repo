@@ -7,11 +7,11 @@ edition = "2024"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-debug_outlines = ["vn-vttrpg-ui/debug_outlines"]
+debug_outlines = ["vn-ui/debug_outlines"]
 
 [dependencies]
-vn-vttrpg-window = { path = "../vn-vttrpg-window" }
-vn-vttrpg-ui = { path = "../vn-vttrpg-ui" }
+vn-window = { path = "../vn-window" }
+vn-ui = { path = "../vn-ui" }
 vn-utils = { path = "../vn-utils" }
 log = { workspace = true }
 anyhow = { workspace = true }

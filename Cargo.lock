@@ -1962,6 +1962,39 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
+name = "vn-ui"
+version = "0.1.0"
+dependencies = [
+ "getrandom",
+ "log",
+ "rand",
+ "vn-ui-animation",
+ "vn-ui-animation-macros",
+ "vn-utils",
+ "vn-window",
+ "web-time",
+ "winit",
+]
+
+[[package]]
+name = "vn-ui-animation"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "vn-utils",
+ "web-time",
+]
+
+[[package]]
+name = "vn-ui-animation-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "vn-utils"
 version = "0.1.0"
 
@@ -1972,9 +2005,9 @@ dependencies = [
  "anyhow",
  "log",
  "thiserror 2.0.17",
+ "vn-ui",
  "vn-utils",
- "vn-vttrpg-ui",
- "vn-vttrpg-window",
+ "vn-window",
  "web-time",
  "winit",
 ]
@@ -1987,39 +2020,6 @@ dependencies = [
  "env_logger",
  "log",
  "vn-vttrpg",
-]
-
-[[package]]
-name = "vn-vttrpg-ui"
-version = "0.1.0"
-dependencies = [
- "getrandom",
- "log",
- "rand",
- "vn-utils",
- "vn-vttrpg-ui-animation",
- "vn-vttrpg-ui-animation-macros",
- "vn-vttrpg-window",
- "web-time",
- "winit",
-]
-
-[[package]]
-name = "vn-vttrpg-ui-animation"
-version = "0.1.0"
-dependencies = [
- "log",
- "vn-utils",
- "web-time",
-]
-
-[[package]]
-name = "vn-vttrpg-ui-animation-macros"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -2038,7 +2038,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "vn-vttrpg-window"
+name = "vn-window"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -2048,9 +2048,9 @@ dependencies = [
  "pollster",
  "thiserror 2.0.17",
  "ttf-parser",
+ "vn-ui-animation",
+ "vn-ui-animation-macros",
  "vn-utils",
- "vn-vttrpg-ui-animation",
- "vn-vttrpg-ui-animation-macros",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",

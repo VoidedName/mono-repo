@@ -3,12 +3,12 @@ resolver = "3"
 members = [
     "vn-vttrpg",
     "vn-vttrpg-native",
-    "vn-vttrpg-window",
+    "vn-window",
     "vn-vttrpg-web",
-    "vn-vttrpg-ui",
+    "vn-ui",
     "vn-utils",
-    "vn-vttrpg-ui-animation",
-    "vn-vttrpg-ui-animation-macros",
+    "vn-ui-animation",
+    "vn-ui-animation-macros",
 ]
 
 [workspace.dependencies]

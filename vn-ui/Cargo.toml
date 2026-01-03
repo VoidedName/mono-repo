@@ -1,0 +1,19 @@
+[package]
+name = "vn-ui"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+vn-window = { path = "../vn-window" }
+vn-ui-animation = { path = "../vn-ui-animation" }
+vn-ui-animation-macros = { path = "../vn-ui-animation-macros" }
+vn-utils = { path = "../vn-utils" }
+winit = { workspace = true }
+web-time = { workspace = true }
+# ide marks it as unused, but it is very much used by rand
+getrandom = { workspace = true, features = ["wasm_js"] }
+rand = { workspace = true }
+log = "0.4.29"
+
+[features]
+debug_outlines = []

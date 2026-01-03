@@ -2,18 +2,18 @@ use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
 use thiserror::Error;
-use vn_vttrpg_ui::{
+use vn_ui::{
     Anchor, AnchorLocation, Card, CardParams, DynamicSize, DynamicTextFieldController, Easing,
     Element, ElementSize, EventManager, Fill, InputTextFieldController,
     InputTextFieldControllerExt, Interactive, InteractiveParams, Interpolatable, Padding,
     PaddingParams, Progress, SimpleLayoutCache, SizeConstraints, Stack, TextField, TextFieldParams,
     TextMetrics, UiContext,
 };
-use vn_vttrpg_window::graphics::GraphicsContext;
-use vn_vttrpg_window::input::InputState;
-use vn_vttrpg_window::resource_manager::ResourceManager;
-use vn_vttrpg_window::scene_renderer::SceneRenderer;
-use vn_vttrpg_window::{Color, StateLogic};
+use vn_window::graphics::GraphicsContext;
+use vn_window::input::InputState;
+use vn_window::resource_manager::ResourceManager;
+use vn_window::scene_renderer::SceneRenderer;
+use vn_window::{Color, StateLogic};
 use web_time::Instant;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
@@ -49,7 +49,7 @@ impl TextMetrics for TextMetric {
         text: &str,
         font: &str,
         font_size: f32,
-    ) -> Vec<vn_vttrpg_window::text::Glyph> {
+    ) -> Vec<vn_window::text::Glyph> {
         self.rm.get_glyphs(&self.gc, text, font, font_size)
     }
 }
@@ -170,7 +170,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
 
         for (id, interaction_event) in events {
             if id == self.input_controller.borrow().id {
-                if let vn_vttrpg_ui::InteractionEvent::Keyboard(key_event) = interaction_event {
+                if let vn_ui::InteractionEvent::Keyboard(key_event) = interaction_event {
                     self.input_controller.borrow_mut().handle_key(&key_event);
                 }
             }
@@ -192,7 +192,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
         button: winit::event::MouseButton,
         state: winit::event::ElementState,
     ) {
-        use vn_vttrpg_ui::MouseButton;
+        use vn_ui::MouseButton;
         let button = match button {
             winit::event::MouseButton::Left => MouseButton::Left,
             winit::event::MouseButton::Right => MouseButton::Right,
@@ -214,7 +214,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
 
         for (id, event) in events {
             match event {
-                vn_vttrpg_ui::InteractionEvent::Click { x, y, .. } => {
+                vn_ui::InteractionEvent::Click { x, y, .. } => {
                     if id == self.input_controller.borrow().id {
                         self.input_controller.borrow_mut().handle_click(x, y);
                     }
@@ -228,10 +228,10 @@ impl StateLogic<SceneRenderer> for MainLogic {
         self.size = (width, height);
     }
 
-    fn render_target(&self) -> vn_vttrpg_window::scene::Scene {
+    fn render_target(&self) -> vn_window::scene::Scene {
         self.fps_stats.borrow_mut().tick();
         let mut scene =
-            vn_vttrpg_window::scene::Scene::new((self.size.0 as f32, self.size.1 as f32));
+            vn_window::scene::Scene::new((self.size.0 as f32, self.size.1 as f32));
 
         let mut ui = self.ui.borrow_mut();
 
@@ -296,7 +296,7 @@ impl MainLogic {
             interactive: true,
         };
 
-        use vn_vttrpg_ui::AnchorParams;
+        use vn_ui::AnchorParams;
 
         let text_input_animation = TextFieldParams {
             font: "jetbrains-bold".to_string(),

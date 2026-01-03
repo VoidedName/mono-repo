@@ -3,7 +3,7 @@ pub mod logic;
 use crate::logic::FileLoader;
 pub use logic::MainLogic;
 use std::rc::Rc;
-use vn_vttrpg_window::init_with_logic;
+use vn_window::init_with_logic;
 
 pub fn init(new_fn: Box<dyn FileLoader>) -> anyhow::Result<()> {
     log::info!("Initializing Application!");
