@@ -2,6 +2,7 @@ use crate::graphics::{GraphicsContext, VertexDescription};
 use crate::pipeline_builder::PipelineBuilder;
 use crate::primitives::QUAD_VERTICES;
 use crate::primitives::{Globals, Vertex};
+use crate::resource_manager::ResourceManager;
 use crate::text::{Font, FontFaceTrueScale};
 use crate::texture::Texture;
 use bytemuck::{Pod, Zeroable};
@@ -194,6 +195,7 @@ impl TextRenderer {
     pub fn render_glyph(
         &mut self,
         graphics_context: &GraphicsContext,
+        resource_manager: &ResourceManager,
         font: &Font,
         glyph_id: ttf_parser::GlyphId,
         font_size: f32,
@@ -345,11 +347,16 @@ impl TextRenderer {
 
         queue.submit(std::iter::once(encoder.finish()));
 
+        let target_texture = Rc::new(target_texture);
+
+        resource_manager.add_texture(target_texture.clone());
+
         Ok(crate::text::Glyph {
-            texture: Rc::new(target_texture),
+            texture: target_texture.id.clone(),
             advance,
             x_bearing: min_x,
             y_offset: 0.0,
+            size: (width as f32, height as f32),
         })
     }
 }

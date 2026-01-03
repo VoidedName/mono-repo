@@ -4,12 +4,12 @@ pub mod renderer;
 pub use font::Font;
 pub use renderer::TextRenderer;
 
-use crate::Texture;
-use std::rc::Rc;
+use crate::texture::TextureId;
 
 #[derive(Clone, Debug)]
 pub struct Glyph {
-    pub texture: Rc<Texture>,
+    pub texture: TextureId,
+    pub size: (f32, f32),
     pub advance: f32,
     pub x_bearing: f32,
     pub y_offset: f32,

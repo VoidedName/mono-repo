@@ -33,7 +33,7 @@ impl<T: StateLogic<SceneRenderer>> RenderingContext<T, SceneRenderer> {
         ));
 
         let renderer = SceneRenderer::new(context.clone(), resource_manager.clone());
-        
+
         let logic = new_fn(context.clone(), resource_manager.clone()).await?;
 
         Ok(Self {
@@ -93,7 +93,8 @@ impl<T: StateLogic<R>, R: Renderer> RenderingContext<T, R> {
 
         let render_target = self.logic.render_target();
 
-        self.resource_manager.cleanup_unused_text();
-        self.renderer.render(&self.context, &render_target)
+        self.renderer.render(&self.context, &render_target)?;
+
+        Ok(())
     }
 }

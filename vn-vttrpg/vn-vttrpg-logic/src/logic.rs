@@ -36,7 +36,7 @@ impl TextMetrics for TextMetric {
 
         for glyph in glyphs {
             width += glyph.advance;
-            height = height.max(glyph.texture.texture.height() as f32);
+            height = height.max(glyph.size.1);
         }
         (width, height)
     }
@@ -50,14 +50,11 @@ impl TextMetrics for TextMetric {
         glyphs
             .into_iter()
             .map(|g| vn_scene::GlyphData {
-                texture_id: g.texture.id.clone(),
+                texture_id: g.texture.clone(),
                 advance: g.advance,
                 x_bearing: g.x_bearing,
                 y_offset: g.y_offset,
-                size: [
-                    g.texture.texture.width() as f32,
-                    g.texture.texture.height() as f32,
-                ],
+                size: [g.size.0, g.size.1],
                 uv_rect: vn_scene::Rect {
                     position: [0.0, 0.0],
                     size: [1.0, 1.0],
@@ -142,11 +139,6 @@ impl MainLogic {
         graphics_context: Rc<GraphicsContext>,
         resource_manager: Rc<ResourceManager>,
     ) -> anyhow::Result<Self> {
-
-        let current_dir = current_dir();
-        let current_exe = current_exe();
-        log::info!("Current dir: {:?}", current_dir);
-
         let font_bytes = file_loader
             .load_file("fonts/JetBrainsMono-Bold.ttf".to_string())
             .await?;
@@ -248,8 +240,11 @@ impl StateLogic<SceneRenderer> for MainLogic {
     }
 
     fn render_target(&self) -> vn_wgpu_window::scene::WgpuScene {
+        self.resource_manager.update();
+
         self.fps_stats.borrow_mut().tick();
-        let mut scene = vn_wgpu_window::scene::WgpuScene::new((self.size.0 as f32, self.size.1 as f32));
+        let mut scene =
+            vn_wgpu_window::scene::WgpuScene::new((self.size.0 as f32, self.size.1 as f32));
 
         let mut ui = self.ui.borrow_mut();
 
@@ -288,6 +283,8 @@ impl StateLogic<SceneRenderer> for MainLogic {
             },
             &mut scene,
         );
+
+        self.resource_manager.cleanup(60, 1000);
 
         scene
     }
@@ -328,7 +325,7 @@ impl MainLogic {
             state.duration = web_time::Duration::from_millis(5000);
             state.target_value = TextFieldParams {
                 font: "jetbrains-bold".to_string(),
-                font_size: 18.0,
+                font_size: 36.0,
                 color: Color::GREEN,
             };
             state.progress = Progress::PingPong;
