@@ -66,7 +66,7 @@ impl ElementImpl for Button {
             border_color = Color::WHITE;
         }
 
-        // We need a way to get the current layer ID without vn-window.
+        // We need a way to get the current layer ID without vn-wgpu-window.
         // Actually, we don't necessarily need it if register_hitbox doesn't use it,
         // but it does. Let's assume for now 0 is fine or we add it to the Canvas trait.
         // Wait, Canvas trait could have a method for this.

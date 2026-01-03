@@ -9,7 +9,7 @@ v1.0, 2025-12-15
 - This means that it must be rather sort of flexible
 
 .Sub Project Ideas
-- VTTRPG (virtual table top rpg system)
+- VTTRPG (virtual table top rpg system) - see link:vn-vttrpg/readme.asciidoc[vn-vttrpg/readme.asciidoc]
 - Platformer like Hollow Knight
 - Automation Game like Factorio / Shapez
 - Knowledge Manager
@@ -18,159 +18,45 @@ v1.0, 2025-12-15
 
 The VN-Suit workspace is organized into several interconnected crates that provide a flexible framework for building different applications while sharing common functionality.
 
-.Workspace Architecture
+.Workspace Architecture & Interconnections
 [mermaid]
 ----
 graph TD
-    subgraph Workspace [vn-suit workspace]
+    subgraph RootWorkspace [vn-suit workspace]
         Root[vn-suit root]
         
         subgraph Core [Core Framework Crates]
-            vn-window[vn-window]
+            vn-wgpu-window[vn-wgpu-window]
             vn-scene[vn-scene]
             vn-ui[vn-ui]
             vn-ui-animation[vn-ui-animation]
             vn-ui-animation-macros[vn-ui-animation-macros]
             vn-utils[vn-utils]
+
+            vn-ui --> vn-scene
+            vn-ui --> vn-ui-animation
+            vn-ui --> vn-ui-animation-macros
+            vn-ui --> vn-utils
+
+            vn-wgpu-window --> vn-scene
+            vn-wgpu-window --> vn-utils
+
+            vn-scene --> vn-ui-animation
+            vn-scene --> vn-ui-animation-macros
+
+            vn-ui-animation --> vn-utils
         end
-        
-        subgraph Apps [Application Crates]
-            subgraph vttrpg [vttrpg]
-                vn-vttrpg[vn-vttrpg]
-                vn-vttrpg-native[vn-vttrpg-native]
-                vn-vttrpg-web[vn-vttrpg-web]
-            end
-        end
-        
-        Root --> Core
-        Root --> Apps
     end
-----
-
-.Core Framework Interconnections
-[mermaid]
-----
-graph TD
-    vn-ui[vn-ui]
-    vn-window[vn-window]
-    vn-scene[vn-scene]
-    vn-ui-animation[vn-ui-animation]
-    vn-ui-animation-macros[vn-ui-animation-macros]
-    vn-utils[vn-utils]
-
-    vn-ui --> vn-scene
-    vn-ui --> vn-ui-animation
-    vn-ui --> vn-ui-animation-macros
-    vn-ui --> vn-utils
-
-    vn-window --> vn-scene
-    vn-window --> vn-utils
-
-    vn-scene --> vn-ui-animation
-    vn-scene --> vn-ui-animation-macros
-
-    vn-ui-animation --> vn-utils
-----
-
-.Application Interconnections (vttrpg)
-[mermaid]
-----
-graph TD
-    vn-vttrpg-native[vn-vttrpg-native]
-    vn-vttrpg-web[vn-vttrpg-web]
-    vn-vttrpg[vn-vttrpg]
     
-    subgraph Core [Core Framework]
-        vn-window[vn-window]
-        vn-ui[vn-ui]
-        vn-scene[vn-scene]
-        vn-utils[vn-utils]
-    end
-
-    vn-vttrpg-native --> vn-vttrpg
-    vn-vttrpg-web --> vn-vttrpg
-
-    vn-vttrpg --> vn-window
-    vn-vttrpg --> vn-ui
-    vn-vttrpg --> vn-scene
-    vn-vttrpg --> vn-utils
+    Root --> Core
 ----
 
-.Crate Responsibilities
-* *vn-window*: Provides the `init_with_logic()` function that handles platform-specific initialization, creates the window, sets up the GPU context via WGPU, and runs the main event loop.
-It also implements the rendering backend for `vn-scene`.
-
-* *vn-scene*: Defines the platform-agnostic rendering primitives (`Box`, `Image`, `Text`) and the `Scene` trait.
-This crate serves as the abstraction layer between the UI framework and the actual rendering engine.
-
-* *vn-ui*: Contains the UI components, layout system, and event handling.
-It uses `vn-scene` to describe what should be rendered, making it independent of the underlying graphics API.
-
-* *vn-vttrpg*: Contains the application-specific logic as a library crate.
-Implements the `MainLogic` trait and exports an `init()` function that bridges to `vn-window::init_with_logic()`.
-
-* *vn-vttrpg-native*: Native binary launcher that sets up logging, implements platform-specific file loading, and calls `vn_vttrpg::init()`.
-
-* *vn-vttrpg-web*: WebAssembly binary launcher that sets up web-specific logging, implements browser-based file loading via fetch API, and calls `vn_vttrpg::init()`.
-
-.Launch Flow
-[mermaid]
-----
-sequenceDiagram
-    participant Native as vn-vttrpg-native
-    participant Web as vn-vttrpg-web
-    participant Lib as vn-vttrpg
-    participant Window as vn-window
-
-    Note over Native: Setup env_logger
-    Note over Native: Create FileLoader (fs)
-    Native->>Lib: init()
-    
-    Note over Web: Setup console_log
-    Note over Web: Create FileLoader (fetch)
-    Web->>Lib: init()
-
-    Lib->>Window: init_with_logic()
-    Window->>Window: Create window
-    Window->>Window: Initialize WGPU
-    Window->>Window: Instantiate MainLogic
-    Window->>Window: Run event loop
-----
-
-This structure allows each application to share the common framework (vn-window, vn-ui) while maintaining separate launcher binaries for different platforms.
-The application logic crate (vn-vttrpg) remains platform-agnostic by using trait-based abstractions (like `FileLoader`) for platform-specific functionality.
+This structure allows the framework to be shared by different applications.
 
 [NOTE]
 ====
-I am currently unsure about how to structure the subprojects. For now, I will keep them in the same workspace. But an issue I have is the launching. Currently, I need three crates for launching. One per Platform (web / native) and one containing the actual application logic. The Web and Native crates will always be more or less the same. Maybe I should use features instead? But they would need to be exclusive...
-[source, rust]
-----
-#[cfg(feature = "vttrpg")]
-pub fn init() -> anyhow::Result<()> {
-    use vttrpg::MainLogic;
-
-    log::info!("Initializing Application!");
-    init_with_logic::<MainLogic>()?;
-
-    log::info!("Application terminated!");
-    Ok(())
-}
-
-#[cfg(feature = "automation")]
-pub fn init() -> anyhow::Result<()> {
-    use automation::MainLogic;
-
-    log::info!("Initializing Application!");
-    init_with_logic::<MainLogic>()?;
-
-    log::info!("Application terminated!");
-    Ok(())
-}
-----
-
-This way, if two features are enabled, it should be a compilation error.
-
-One problem with this is assets / resources. Right now assets are handled by just dumping the asset folder into the dist via webpack and native just accesses assets. But for different projects, especially webpack, we may not want to include all of the assets... this needs consideration
+VTTRPG related packages and assets are located in their own workspace in the `vn-vttrpg` directory.
+For more details, see link:vn-vttrpg/readme.asciidoc[vn-vttrpg/readme.asciidoc].
 ====
 
 
@@ -190,18 +76,3 @@ One problem with this is assets / resources. Right now assets are handled by jus
 - [ ] Web and Native colors don't match. One of them does not compensate for sRGB correctly.
 - [ ] Audio Engine
 - [x] Resource / File loading (Web vs Native)
-
-== VTTRPG
-
-.features
-- [ ] Character Sheet
-- [ ] Map
-- [ ] Player/NPC Token
-- [ ] Multiplayer
-- [ ] Lightshed on a Map
-- [ ] Pathing on a Map
-- [ ] Automatic Triggers?
-- [ ] Pause / Continue
-- [ ] GM or Elevated vs Player / Capability System (like player can edit their own sheet)
-- [ ] Dice Rolls
-- [ ] Mechanics / Rule System?!

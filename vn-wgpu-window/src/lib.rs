@@ -29,7 +29,10 @@ pub use texture::Texture;
 
 use winit::event_loop::EventLoop;
 
-pub fn init_with_logic<FNew, FRet, T: StateLogic<SceneRenderer>>(new_fn: FNew) -> anyhow::Result<()>
+pub fn init_with_logic<FNew, FRet, T: StateLogic<SceneRenderer>>(
+    title: String,
+    new_fn: FNew,
+) -> anyhow::Result<()>
 where
     FNew: Fn(std::rc::Rc<GraphicsContext>, std::rc::Rc<resource_manager::ResourceManager>) -> FRet
         + 'static,
@@ -41,6 +44,7 @@ where
     let mut app = App::new(
         #[cfg(target_arch = "wasm32")]
         &event_loop,
+        title,
         new_fn,
     );
 

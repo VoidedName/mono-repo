@@ -2,7 +2,7 @@ use std::pin::Pin;
 use wasm_bindgen::prelude::*;
 
 use js_sys::Promise;
-use vn_vttrpg::logic::{FileLoader, FileLoadingError};
+use vn_vttrpg_logic::logic::{FileLoader, FileLoadingError};
 use wasm_bindgen_futures::JsFuture;
 
 #[wasm_bindgen(module = "/src/helpers.js")]
@@ -44,7 +44,7 @@ pub fn main_web() -> Result<(), JsValue> {
     console_log::init_with_level(log::Level::Info).expect("Failed to initialize console_log");
     log::info!("Logging initialized with level: {:?}", log::Level::Info);
 
-    vn_vttrpg::init(Box::new(FL)).map_err(|e| JsValue::from_str(&e.to_string()))?;
+    vn_vttrpg_logic::init(Box::new(FL)).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     Ok(())
 }

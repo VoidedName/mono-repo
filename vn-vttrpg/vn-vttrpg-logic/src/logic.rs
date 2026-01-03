@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::env::{current_dir, current_exe};
 use std::pin::Pin;
 use std::rc::Rc;
 use thiserror::Error;
@@ -9,11 +10,11 @@ use vn_ui::{
     PaddingParams, Progress, SimpleLayoutCache, SizeConstraints, Stack, TextField, TextFieldParams,
     TextMetrics, UiContext,
 };
-use vn_window::graphics::GraphicsContext;
-use vn_window::input::InputState;
-use vn_window::resource_manager::ResourceManager;
-use vn_window::scene_renderer::SceneRenderer;
-use vn_window::{Color, StateLogic};
+use vn_wgpu_window::graphics::GraphicsContext;
+use vn_wgpu_window::input::InputState;
+use vn_wgpu_window::resource_manager::ResourceManager;
+use vn_wgpu_window::scene_renderer::SceneRenderer;
+use vn_wgpu_window::{Color, StateLogic};
 use web_time::Instant;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
@@ -141,6 +142,11 @@ impl MainLogic {
         graphics_context: Rc<GraphicsContext>,
         resource_manager: Rc<ResourceManager>,
     ) -> anyhow::Result<Self> {
+
+        let current_dir = current_dir();
+        let current_exe = current_exe();
+        log::info!("Current dir: {:?}", current_dir);
+
         let font_bytes = file_loader
             .load_file("fonts/JetBrainsMono-Bold.ttf".to_string())
             .await?;
@@ -241,9 +247,9 @@ impl StateLogic<SceneRenderer> for MainLogic {
         self.size = (width, height);
     }
 
-    fn render_target(&self) -> vn_window::scene::WgpuScene {
+    fn render_target(&self) -> vn_wgpu_window::scene::WgpuScene {
         self.fps_stats.borrow_mut().tick();
-        let mut scene = vn_window::scene::WgpuScene::new((self.size.0 as f32, self.size.1 as f32));
+        let mut scene = vn_wgpu_window::scene::WgpuScene::new((self.size.0 as f32, self.size.1 as f32));
 
         let mut ui = self.ui.borrow_mut();
 

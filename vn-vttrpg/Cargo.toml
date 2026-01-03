@@ -1,22 +1,28 @@
-[package]
-name = "vn-vttrpg"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+resolver = "3"
+members = [
+    "vn-vttrpg-logic",
+    "vn-vttrpg-native",
+    "vn-vttrpg-web",
+]
 
-[lib]
-crate-type = ["cdylib", "rlib"]
-
-[features]
-debug_outlines = ["vn-ui/debug_outlines"]
-
-[dependencies]
-vn-scene = { path = "../vn-scene" }
-vn-window = { path = "../vn-window" }
-vn-ui = { path = "../vn-ui" }
-vn-utils = { path = "../vn-utils" }
-log = { workspace = true }
-anyhow = { workspace = true }
-winit = { workspace = true }
-web-time = { workspace = true }
-thiserror = { workspace = true }
-
+[workspace.dependencies]
+log = "0.4.29"
+anyhow = "1.0.100"
+winit = "0.30.12"
+web-time = "1.1.0"
+thiserror = "2.0.17"
+env_logger = "0.11.8"
+wasm-bindgen = "0.2.106"
+console_error_panic_hook = "0.1.7"
+console_log = "1.0.0"
+web-sys = { version = "0.3.83", features = [
+    "Document",
+    "Window",
+    "Element",
+    "Request",
+    "RequestInit",
+    "Response",
+] }
+wasm-bindgen-futures = "0.4.56"
+js-sys = "0.3.83"

@@ -19,6 +19,7 @@ where
     proxy: Option<winit::event_loop::EventLoopProxy<RenderingContext<T>>>,
     state: Option<RenderingContext<T>>,
     new_fn: Rc<FNew>,
+    title: String,
 }
 
 impl<FNew, FRet, T: StateLogic<SceneRenderer>> App<FNew, FRet, T>
@@ -30,6 +31,7 @@ where
         #[cfg(target_arch = "wasm32")] event_loop: &winit::event_loop::EventLoop<
             RenderingContext<T>,
         >,
+        title: String,
         new_fn: FNew,
     ) -> Self
     where
@@ -43,6 +45,7 @@ where
             proxy,
             state: None,
             new_fn: Rc::new(new_fn),
+            title,
         }
     }
 }
@@ -60,7 +63,7 @@ where
         }
 
         #[allow(unused_mut)]
-        let mut window_attributes = Window::default_attributes();
+        let mut window_attributes = Window::default_attributes().with_title(&self.title);
 
         #[cfg(target_arch = "wasm32")]
         {

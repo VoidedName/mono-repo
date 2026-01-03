@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-debug_outlines = ["vn-vttrpg/debug_outlines"]
+debug_outlines = ["vn-vttrpg-logic/debug_outlines"]
 
 [dependencies]
 env_logger = { workspace = true }
 log = { workspace = true }
-vn-vttrpg = { path = "../vn-vttrpg" }
+vn-vttrpg-logic = { path = "../vn-vttrpg-logic" }
 anyhow = {workspace = true}

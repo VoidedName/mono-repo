@@ -1,7 +1,7 @@
 use env_logger::Env;
 use std::io::Read;
 use std::pin::Pin;
-use vn_vttrpg::logic::{FileLoader, FileLoadingError};
+use vn_vttrpg_logic::logic::{FileLoader, FileLoadingError};
 
 pub async fn load_file(path: String) -> anyhow::Result<Vec<u8>, FileLoadingError> {
     let mut file = std::fs::File::open(path)
@@ -23,7 +23,8 @@ impl FileLoader for FL {
 }
 
 fn main() {
-    let log_level = std::env::var("MY_LOG_LEVEL").unwrap_or_else(|_| "Debug".to_string());
+    let log_level = std::env::var("MY_LOG_LEVEL")
+        .unwrap_or_else(|_| "Debug, wgpu_hal=WARN, wgpu_core=WARN, naga=WARN".to_string());
     let log_style = std::env::var("MY_LOG_STYLE").unwrap_or_else(|_| "always".to_string());
 
     let env = Env::default()
@@ -37,5 +38,5 @@ fn main() {
         log_style
     );
 
-    vn_vttrpg::init(Box::new(FL)).expect("Failed to initialize!");
+    vn_vttrpg_logic::init(Box::new(FL)).expect("Failed to initialize!");
 }

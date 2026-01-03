@@ -31,7 +31,9 @@ impl<T: StateLogic<SceneRenderer>> RenderingContext<T, SceneRenderer> {
             context.wgpu.clone(),
             include_bytes!("../src/text/fonts/JetBrainsMono-Regular.ttf"),
         ));
+
         let renderer = SceneRenderer::new(context.clone(), resource_manager.clone());
+        
         let logic = new_fn(context.clone(), resource_manager.clone()).await?;
 
         Ok(Self {

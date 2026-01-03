@@ -1,0 +1,22 @@
+[package]
+name = "vn-vttrpg-logic"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+debug_outlines = ["vn-ui/debug_outlines"]
+
+[dependencies]
+vn-scene = { path = "../../vn-scene" }
+vn-wgpu-window = { path = "../../vn-wgpu-window" }
+vn-ui = { path = "../../vn-ui" }
+vn-utils = { path = "../../vn-utils" }
+log = { workspace = true }
+anyhow = { workspace = true }
+winit = { workspace = true }
+web-time = { workspace = true }
+thiserror = { workspace = true }
+

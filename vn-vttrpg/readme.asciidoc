@@ -1,0 +1,82 @@
+= VTTRPG
+Voided Name
+v1.0, 2025-12-15
+:source-highlighter: rouge
+
+VTTRPG is a virtual table top rpg system built on top of the VN-Suit framework.
+
+== Project Structure
+
+.Application Interconnections (vn-vttrpg)
+[mermaid]
+----
+graph TD
+    vn-vttrpg-native[vn-vttrpg-native]
+    vn-vttrpg-web[vn-vttrpg-web]
+    vn-vttrpg-logic[vn-vttrpg-logic]
+    
+    subgraph Core [Core Framework]
+        vn-wgpu-window[vn-wgpu-window]
+        vn-ui[vn-ui]
+        vn-scene[vn-scene]
+        vn-utils[vn-utils]
+    end
+
+    vn-vttrpg-native --> vn-vttrpg-logic
+    vn-vttrpg-web --> vn-vttrpg-logic
+
+    vn-vttrpg-logic --> vn-wgpu-window
+    vn-vttrpg-logic --> vn-ui
+    vn-vttrpg-logic --> vn-scene
+    vn-vttrpg-logic --> vn-utils
+----
+
+.Crate Responsibilities
+* *vn-vttrpg-logic*: Contains the application-specific logic as a library crate.
+Implements the `MainLogic` trait and exports an `init()` function that bridges to `vn-wgpu-window::init_with_logic()`.
+
+* *vn-vttrpg-native*: Native binary launcher that sets up logging, implements platform-specific file loading, and calls `vn-vttrpg-logic::init()`.
+
+* *vn-vttrpg-web*: WebAssembly binary launcher that sets up web-specific logging, implements browser-based file loading via fetch API, and calls `vn-vttrpg-logic::init()`.
+
+.Launch Flow
+[mermaid]
+----
+sequenceDiagram
+    participant Native as vn-vttrpg-native
+    participant Web as vn-vttrpg-web
+    participant Lib as vn-vttrpg-logic
+    participant Window as vn-wgpu-window
+
+    Note over Native: Setup env_logger
+    Note over Native: Create FileLoader (fs)
+    Native->>Lib: init()
+    
+    Note over Web: Setup console_log
+    Note over Web: Create FileLoader (fetch)
+    Web->>Lib: init()
+
+    Lib->>Window: init_with_logic()
+    Window->>Window: Create window
+    Window->>Window: Initialize WGPU
+    Window->>Window: Instantiate MainLogic
+    Window->>Window: Run event loop
+----
+
+This structure allows the application to share the common framework (vn-wgpu-window, vn-ui) while maintaining separate launcher binaries for different platforms.
+The application logic crate (vn-vttrpg-logic) remains platform-agnostic by using trait-based abstractions (like `FileLoader`) for platform-specific functionality.
+
+== VTTRPG Features
+
+.features
+- [ ] Character Sheet
+- [ ] Map
+- [ ] Player/NPC Token
+- [ ] Multiplayer
+- [ ] Lightshed on a Map
+- [ ] Pathing on a Map
+- [ ] Automatic Triggers?
+- [ ] Pause / Continue
+- [ ] GM or Elevated vs Player / Capability System (like player can edit their own sheet)
+- [ ] Dice Rolls
+- [ ] Mechanics / Rule System?!
