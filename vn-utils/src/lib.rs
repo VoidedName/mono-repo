@@ -28,6 +28,9 @@ impl<T> UpdateOption<T> for Option<T> {
     }
 }
 
+pub mod cache;
+pub use cache::*;
+
 pub mod float {
     pub trait NaNTo: Sized {
         fn nan_to(&self, value: Self) -> Self;

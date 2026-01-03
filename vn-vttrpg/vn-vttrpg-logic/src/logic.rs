@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::env::{current_dir, current_exe};
 use std::pin::Pin;
 use std::rc::Rc;
 use thiserror::Error;
@@ -144,6 +143,8 @@ impl MainLogic {
             .await?;
         resource_manager.load_font_from_bytes("jetbrains-bold", &font_bytes)?;
 
+        resource_manager.set_glyph_size_increment(12.0);
+
         let event_manager = Rc::new(RefCell::new(EventManager::new()));
         let input_controller = Rc::new(RefCell::new(InputTextFieldController::new(
             event_manager.borrow_mut().next_id(),
@@ -284,7 +285,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
             &mut scene,
         );
 
-        self.resource_manager.cleanup(60, 1000);
+        self.resource_manager.cleanup(60, 10000);
 
         scene
     }
@@ -325,7 +326,7 @@ impl MainLogic {
             state.duration = web_time::Duration::from_millis(5000);
             state.target_value = TextFieldParams {
                 font: "jetbrains-bold".to_string(),
-                font_size: 36.0,
+                font_size: 12.0,
                 color: Color::GREEN,
             };
             state.progress = Progress::PingPong;

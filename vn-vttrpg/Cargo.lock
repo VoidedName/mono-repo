@@ -2008,6 +2008,9 @@ dependencies = [
 [[package]]
 name = "vn-utils"
 version = "0.1.0"
+dependencies = [
+ "log",
+]
 
 [[package]]
 name = "vn-vttrpg-logic"

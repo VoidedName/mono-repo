@@ -7,6 +7,7 @@ use std::fmt;
 use std::rc::Rc;
 use ttf_parser::GlyphId;
 use vn_utils::result::MonoResult;
+use vn_utils::{LRUCache, LRUCacheCleanupParams};
 
 type GlyphKey = (String, u32, u32);
 
@@ -17,8 +18,8 @@ pub struct ResourceManager {
     fonts: RefCell<HashMap<String, Rc<Font>>>,
     fallback_font: Rc<Font>,
     text_renderer: RefCell<TextRenderer>,
-    glyph_cache: RefCell<HashMap<GlyphKey, (Glyph, u64)>>,
-    frame_count: Cell<u64>,
+    glyph_size_increment: Cell<f32>,
+    glyph_cache: RefCell<LRUCache<GlyphKey, Glyph>>,
 }
 
 use crate::text::Glyph;
@@ -48,10 +49,14 @@ impl ResourceManager {
             wgpu,
             textures: RefCell::new(HashMap::new()),
             fonts: RefCell::new(HashMap::new()),
-            glyph_cache: RefCell::new(HashMap::new()),
             fallback_font,
-            frame_count: Cell::new(0),
+            glyph_size_increment: Cell::new(4.0),
+            glyph_cache: RefCell::new(LRUCache::new()),
         }
+    }
+
+    pub fn set_glyph_size_increment(&self, increment: f32) {
+        self.glyph_size_increment.set(increment);
     }
 
     pub fn load_texture_from_bytes(&self, bytes: &[u8]) -> Result<Rc<Texture>, anyhow::Error> {
@@ -142,7 +147,10 @@ impl ResourceManager {
         let mut glyphs = Vec::new();
         let font_ptr = Rc::as_ptr(&font.data) as usize;
         let font_id = format!("{:x}", font_ptr);
-        let frame = self.frame_count.get();
+
+        let increment = self.glyph_size_increment.get();
+        let quantized_size = (font_size / increment).ceil() * increment;
+        let scale_factor = font_size / quantized_size;
 
         for c in text.chars() {
             let glyph_id = face.glyph_index(c).unwrap_or(GlyphId(0));
@@ -150,12 +158,18 @@ impl ResourceManager {
             let key = (
                 font_id.clone(),
                 glyph_id.0 as u32,
-                (font_size * 100.0) as u32,
+                (quantized_size * 100.0) as u32,
             );
 
-            if let Some((glyph, last_used)) = self.glyph_cache.borrow_mut().get_mut(&key) {
-                *last_used = frame;
-                glyphs.push(glyph.clone());
+            if let Some(glyph) = self.glyph_cache.borrow_mut().get(&key) {
+                let mut glyph = glyph.clone();
+                glyph.size.0 *= scale_factor;
+                glyph.size.1 *= scale_factor;
+                glyph.advance *= scale_factor;
+                glyph.x_bearing *= scale_factor;
+                glyph.y_offset *= scale_factor;
+
+                glyphs.push(glyph);
                 continue;
             }
 
@@ -164,12 +178,19 @@ impl ResourceManager {
                 self,
                 &font,
                 glyph_id,
-                font_size,
+                quantized_size,
             ) {
-                Ok(glyph) => {
+                Ok(mut glyph) => {
                     self.glyph_cache
                         .borrow_mut()
-                        .insert(key.clone(), (glyph.clone(), frame));
+                        .insert(key.clone(), glyph.clone());
+
+                    glyph.size.0 *= scale_factor;
+                    glyph.size.1 *= scale_factor;
+                    glyph.advance *= scale_factor;
+                    glyph.x_bearing *= scale_factor;
+                    glyph.y_offset *= scale_factor;
+
                     glyphs.push(glyph);
                 }
                 Err(e) => log::error!("Failed to render glyph {}: {}", c, e),
@@ -180,37 +201,20 @@ impl ResourceManager {
     }
 
     pub fn update(&self) {
-        self.frame_count.set(self.frame_count.get() + 1);
+        self.glyph_cache.borrow_mut().update();
     }
 
     pub fn cleanup(&self, max_age: u64, max_entries: usize) {
-        let frame = self.frame_count.get();
+        let mut glyph_cache = self.glyph_cache.borrow_mut();
 
-        // 1. Prune glyph cache
-        {
-            let mut glyph_cache = self.glyph_cache.borrow_mut();
-
-            // Age based pruning
-            glyph_cache.retain(|_, (_, last_used)| frame.saturating_sub(*last_used) < max_age);
-
-            // Capacity based pruning (LRU)
-            if glyph_cache.len() > max_entries {
-                let mut entries: Vec<_> = glyph_cache
-                    .iter()
-                    .map(|(k, v)| (k.clone(), v.1))
-                    .collect();
-                
-                // Sort by last_used ascending (oldest first)
-                entries.sort_by_key(|e| e.1);
-                
-                let to_remove = glyph_cache.len() - max_entries;
-                for i in 0..to_remove {
-                    glyph_cache.remove(&entries[i].0);
-                }
-            }
-        }
+        // Prune glyph cache
+        let _ = glyph_cache.cleanup(LRUCacheCleanupParams {
+            max_age: Some(max_age),
+            max_entries: Some(max_entries),
+        });
 
         // 2. Prune textures
+        // probably a better way to do this... but works for now
         {
             let mut textures = self.textures.borrow_mut();
             textures.retain(|_, texture| {
@@ -220,7 +224,7 @@ impl ResourceManager {
                 }
 
                 // Keep if someone else holds a strong reference to the TextureId (e.g. a Glyph)
-                // We expect 2 references internally: one in the Map key and one in the Texture struct itself.
+                // We expect 2 references internally: one in the cache and one in the Texture struct itself.
                 if Rc::strong_count(&texture.id) > 2 {
                     return true;
                 }
