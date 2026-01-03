@@ -1,5 +1,5 @@
 use crate::TextMetrics;
-use vn_window::Glyph;
+use vn_scene::GlyphData;
 
 #[derive(Clone)]
 pub enum LineTermination {
@@ -12,7 +12,7 @@ pub struct LaidOutLine {
     /// Glyphs that make up this line. The last glyph is the one that ends the line.
     /// unless [Self::terminator] is [LineTermination:Newline], in which case the newline
     /// character is not contained here as there is no rendered glyph for it.
-    pub glyphs: Vec<Glyph>,
+    pub glyphs: Vec<GlyphData>,
     pub width: f32,
     pub height: f32,
     /// First character index of this line

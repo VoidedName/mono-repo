@@ -10,6 +10,7 @@ crate-type = ["cdylib", "rlib"]
 debug_outlines = ["vn-ui/debug_outlines"]
 
 [dependencies]
+vn-scene = { path = "../vn-scene" }
 vn-window = { path = "../vn-window" }
 vn-ui = { path = "../vn-ui" }
 vn-utils = { path = "../vn-utils" }

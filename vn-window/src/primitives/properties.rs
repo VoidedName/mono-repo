@@ -1,11 +1,10 @@
 use crate::graphics::VertexDescription;
 use crate::primitives::rect::Rect;
 use crate::primitives::transform::Transform;
-use vn_ui_animation_macros::Interpolatable;
 
 /// Common properties shared by all rendering primitives.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable, Interpolatable)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct PrimitiveProperties {
     pub transform: Transform,
     /// The rectangular area where the primitive is visible.
@@ -34,9 +33,7 @@ impl PrimitivePropertiesBuilder {
 
     pub fn transform<F>(mut self, f: F) -> Self
     where
-        F: FnOnce(
-            crate::primitives::transform::TransformBuilder,
-        ) -> crate::primitives::transform::TransformBuilder,
+        F: FnOnce(vn_scene::TransformBuilder) -> vn_scene::TransformBuilder,
     {
         self.properties.transform = f(Transform::builder()).build();
         self
@@ -44,7 +41,7 @@ impl PrimitivePropertiesBuilder {
 
     pub fn clip_area<F>(mut self, f: F) -> Self
     where
-        F: FnOnce(crate::primitives::rect::RectBuilder) -> crate::primitives::rect::RectBuilder,
+        F: FnOnce(vn_scene::RectBuilder) -> vn_scene::RectBuilder,
     {
         self.properties.clip_area = f(Rect::builder()).build();
         self

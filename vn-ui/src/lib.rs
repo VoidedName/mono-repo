@@ -37,14 +37,13 @@ pub use sizes::*;
 pub use vn_ui_animation::*;
 pub use vn_ui_animation_macros::*;
 
-pub use vn_window::input::{KeyCode, KeyEvent};
-pub use vn_window::{Color, Glyph, Rect, Scene, TextPrimitive};
+pub use vn_scene::{Color, KeyCode, KeyEvent, Rect, Scene};
 
 /// This keeps the UI agnostic to any specific graphics and resource management
 pub trait TextMetrics {
     fn size_of_text(&self, text: &str, font: &str, font_size: f32) -> (f32, f32);
     fn line_height(&self, font: &str, font_size: f32) -> f32;
-    fn get_glyphs(&self, text: &str, font: &str, font_size: f32) -> Vec<Glyph>;
+    fn get_glyphs(&self, text: &str, font: &str, font_size: f32) -> Vec<vn_scene::GlyphData>;
 }
 
 #[derive(Clone, Interpolatable)]

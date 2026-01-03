@@ -1,6 +1,5 @@
 use crate::LayoutCache;
 use std::collections::{HashMap, HashSet};
-use vn_window::Rect;
 
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
 pub struct ElementId(pub u32);
@@ -22,13 +21,13 @@ pub enum InteractionEvent {
     MouseLeave,
     FocusGained,
     FocusLost,
-    Keyboard(vn_window::input::KeyEvent),
+    Keyboard(crate::KeyEvent),
 }
 
 pub struct EventManager {
     next_id: u32,
     insertion_order: u32,
-    hitboxes: HashMap<ElementId, (u32, u32, Rect)>, // id -> (layer, insertion_order, bounds)
+    hitboxes: HashMap<ElementId, (u32, u32, crate::Rect)>, // id -> (layer, insertion_order, bounds)
     hovered_elements: HashSet<ElementId>,
     focused_element: Option<ElementId>,
     // We might need a parent mapping to implement bubbling correctly if we don't do it during tree traversal
@@ -53,7 +52,7 @@ impl EventManager {
         id
     }
 
-    pub fn register_hitbox(&mut self, id: ElementId, layer: u32, bounds: Rect) {
+    pub fn register_hitbox(&mut self, id: ElementId, layer: u32, bounds: crate::Rect) {
         self.hitboxes
             .insert(id, (layer, self.insertion_order, bounds));
         self.insertion_order += 1;
@@ -179,10 +178,7 @@ impl EventManager {
         events
     }
 
-    pub fn handle_key(
-        &mut self,
-        event: &vn_window::input::KeyEvent,
-    ) -> Vec<(ElementId, InteractionEvent)> {
+    pub fn handle_key(&mut self, event: &crate::KeyEvent) -> Vec<(ElementId, InteractionEvent)> {
         let mut events = Vec::new();
         if let Some(id) = self.focused_element {
             events.push((id, InteractionEvent::Keyboard(event.clone())));
@@ -234,7 +230,7 @@ pub struct UiContext<'a> {
 }
 
 impl UiContext<'_> {
-    pub fn with_hitbox_hierarchy<F>(&mut self, id: ElementId, layer: u32, bounds: Rect, f: F)
+    pub fn with_hitbox_hierarchy<F>(&mut self, id: ElementId, layer: u32, bounds: crate::Rect, f: F)
     where
         F: FnOnce(&mut Self),
     {

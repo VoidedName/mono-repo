@@ -5,8 +5,8 @@ use crate::{
 };
 use std::cell::RefCell;
 use std::rc::Rc;
+use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, TextPrimitiveData, Transform};
 use vn_ui_animation::AnimationController;
-use vn_window::{BoxPrimitive, Color, Scene, TextPrimitive};
 use web_time::Instant;
 
 pub trait TextFieldController {
@@ -394,7 +394,7 @@ impl ElementImpl for TextField {
         ctx: &mut UiContext,
         origin: (f32, f32),
         size: ElementSize,
-        scene: &mut Scene,
+        canvas: &mut dyn Scene,
     ) {
         let params = self.animation_controller.value(self.layout_time);
 
@@ -408,67 +408,72 @@ impl ElementImpl for TextField {
 
         ctx.with_hitbox_hierarchy(
             self.id,
-            scene.current_layer_id(),
-            vn_window::Rect {
+            canvas.current_layer_id(),
+            Rect {
                 position: origin.to_array(),
                 size: size.to_array(),
             },
             |_ctx| {
                 if let Some(layout) = self.controller.borrow().current_layout() {
                     for (i, line) in layout.lines.iter().enumerate() {
-                        let mut text_builder = TextPrimitive::builder();
                         let line_y_offset = i as f32 * self.line_height;
-                        text_builder = text_builder
-                            .transform(|t| {
-                                t.translation([
-                                    origin.0 + caret_space / 2.0,
-                                    origin.1 + line_y_offset,
-                                ])
-                            })
-                            .tint(params.color)
-                            .clip_area(|c| {
-                                c.size(size.to_array())
-                                    .position([-caret_space / 2.0, -line_y_offset])
-                            });
 
+                        let mut glyphs = Vec::new();
                         let mut current_x = 0.0;
                         for glyph in &line.glyphs {
-                            text_builder =
-                                text_builder.add_glyph(vn_window::GlyphInstance {
-                                    texture: glyph.texture.clone(),
-                                    position: [current_x + glyph.x_bearing, glyph.y_offset],
-                                    size: [
-                                        glyph.texture.texture.width() as f32,
-                                        glyph.texture.texture.height() as f32,
-                                    ],
-                                });
+                            glyphs.push(vn_scene::GlyphInstanceData {
+                                texture_id: glyph.texture_id.clone(),
+                                position: [current_x + glyph.x_bearing, glyph.y_offset],
+                                size: glyph.size,
+                                uv_rect: glyph.uv_rect,
+                            });
                             current_x += glyph.advance;
                         }
-                        scene.add_text(text_builder.build());
+
+                        canvas.add_text(TextPrimitiveData {
+                            transform: Transform {
+                                translation: [
+                                    origin.0 + caret_space / 2.0,
+                                    origin.1 + line_y_offset,
+                                ],
+                                ..Transform::DEFAULT
+                            },
+                            tint: params.color,
+                            glyphs,
+                            clip_rect: Rect {
+                                position: [-caret_space / 2.0, -line_y_offset],
+                                size: size.to_array(),
+                            },
+                        });
                     }
 
                     if self.show_caret {
                         if let Some(caret_position) = self.caret_position {
-                            scene.with_next_layer(|scene| {
+                            canvas.with_next_layer(&mut |canvas| {
                                 let (caret_x_offset, caret_y_offset) =
                                     layout.get_caret_pos(caret_position);
 
                                 let caret_x = origin.0 + caret_x_offset + self.caret_width / 2.0;
                                 let caret_y = origin.1 + caret_y_offset + caret_y_extra_offset;
 
-                                scene.add_box(
-                                    BoxPrimitive::builder()
-                                        .transform(|t| t.translation([caret_x, caret_y]))
-                                        .clip_area(|c| {
-                                            c.size(size.to_array()).position([
-                                                -caret_x_offset - self.caret_width / 2.0,
-                                                -(caret_y_offset + caret_y_extra_offset),
-                                            ])
-                                        })
-                                        .size([self.caret_width, caret_height])
-                                        .color(params.color)
-                                        .build(),
-                                );
+                                canvas.add_box(BoxPrimitiveData {
+                                    transform: Transform {
+                                        translation: [caret_x, caret_y],
+                                        ..Transform::DEFAULT
+                                    },
+                                    size: [self.caret_width, caret_height],
+                                    color: params.color,
+                                    border_color: Color::TRANSPARENT,
+                                    border_thickness: 0.0,
+                                    border_radius: 0.0,
+                                    clip_rect: Rect {
+                                        position: [
+                                            -caret_x_offset - self.caret_width / 2.0,
+                                            -(caret_y_offset + caret_y_extra_offset),
+                                        ],
+                                        size: size.to_array(),
+                                    },
+                                });
                             });
                         }
                     }

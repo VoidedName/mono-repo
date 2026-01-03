@@ -1,6 +1,6 @@
 use crate::utils::ToArray;
 use crate::{Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
-use vn_window::{Rect, Scene};
+use vn_scene::{Rect, Scene};
 
 pub struct ExtendedHitbox {
     id: ElementId,
@@ -30,17 +30,17 @@ impl ElementImpl for ExtendedHitbox {
         ctx: &mut UiContext,
         origin: (f32, f32),
         size: ElementSize,
-        scene: &mut Scene,
+        canvas: &mut dyn Scene,
     ) {
         ctx.with_hitbox_hierarchy(
             self.id,
-            scene.current_layer_id(),
+            canvas.current_layer_id(),
             Rect {
                 position: origin.to_array(),
                 size: size.to_array(),
             },
             |ctx| {
-                self.element.draw(ctx, origin, size, scene);
+                self.element.draw(ctx, origin, size, canvas);
             },
         );
     }

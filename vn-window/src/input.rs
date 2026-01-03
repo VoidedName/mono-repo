@@ -1,6 +1,5 @@
 use std::collections::HashSet;
-pub use winit::event::{ElementState, KeyEvent};
-pub use winit::keyboard::{KeyCode, PhysicalKey};
+pub use vn_scene::{ElementState, KeyCode, KeyEvent, PhysicalKey};
 
 /// Tracks the current state of keyboard input.
 pub struct InputState {

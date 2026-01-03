@@ -1,5 +1,5 @@
 use crate::{Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
-use vn_window::Scene;
+use vn_scene::Scene;
 
 #[derive(Clone, Copy)]
 pub enum FlexDirection {
@@ -125,7 +125,7 @@ impl ElementImpl for Flex {
         ctx: &mut UiContext,
         origin: (f32, f32),
         size: ElementSize,
-        scene: &mut Scene,
+        canvas: &mut dyn Scene,
     ) {
         let mut offset = match self.params.direction {
             FlexDirection::Row => origin.0,
@@ -140,7 +140,7 @@ impl ElementImpl for Flex {
                     child_size.width = child_size.width.min(size.width - (offset - origin.0));
                     child_size.height = child_size.height.min(size.height);
 
-                    child.draw(ctx, (offset, origin.1), child_size, scene);
+                    child.draw(ctx, (offset, origin.1), child_size, canvas);
                     offset += self.layout[idx].width;
                 }
                 FlexDirection::Column => {
@@ -148,7 +148,7 @@ impl ElementImpl for Flex {
                     child_size.width = child_size.width.min(size.width);
                     child_size.height = child_size.height.min(size.height - (offset - origin.1));
 
-                    child.draw(ctx, (origin.0, offset), child_size, scene);
+                    child.draw(ctx, (origin.0, offset), child_size, canvas);
                     offset += self.layout[idx].height;
                 }
             }

@@ -1,0 +1,10 @@
+[package]
+name = "vn-scene"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+winit = { workspace = true }
+bytemuck = { workspace = true, features = ["derive"] }
+vn-ui-animation = { path = "../vn-ui-animation" }
+vn-ui-animation-macros = { path = "../vn-ui-animation-macros" }

@@ -1,5 +1,7 @@
 use crate::{Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
 
+use vn_scene::Scene;
+
 pub struct Fill {
     id: ElementId,
     element: Box<dyn Element>,
@@ -49,8 +51,8 @@ impl ElementImpl for Fill {
         ctx: &mut UiContext,
         origin: (f32, f32),
         size: ElementSize,
-        scene: &mut vn_window::Scene,
+        canvas: &mut dyn Scene,
     ) {
-        self.element.draw(ctx, origin, size, scene);
+        self.element.draw(ctx, origin, size, canvas);
     }
 }

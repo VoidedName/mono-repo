@@ -1,5 +1,5 @@
 use crate::{Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
-use vn_window::Scene;
+use vn_scene::Scene;
 
 pub struct Interactive {
     id: ElementId,
@@ -35,10 +35,10 @@ impl ElementImpl for Interactive {
         ctx: &mut UiContext,
         origin: (f32, f32),
         size: ElementSize,
-        scene: &mut Scene,
+        canvas: &mut dyn Scene,
     ) {
         ctx.with_interactivity(self.interactive, |ctx| {
-            self.child.draw(ctx, origin, size, scene);
+            self.child.draw(ctx, origin, size, canvas);
         });
     }
 }

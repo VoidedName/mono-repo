@@ -1,84 +1,70 @@
 use crate::graphics::WgpuContext;
-use crate::text::{Font, FontFaceTrueScale};
-use crate::texture::Texture;
+use crate::text::{Font, FontFaceTrueScale, TextRenderer};
+use crate::texture::{Texture, TextureId};
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::fmt;
 use std::rc::Rc;
 use ttf_parser::GlyphId;
 use vn_utils::result::MonoResult;
 
+type GlyphKey = (String, u32, u32);
+
 /// Manages textures, fonts, and cached text rendering.
 pub struct ResourceManager {
     wgpu: Rc<WgpuContext>,
-    textures: RefCell<HashMap<String, Rc<Texture>>>,
+    textures: RefCell<HashMap<TextureId, Rc<Texture>>>,
     fonts: RefCell<HashMap<String, Rc<Font>>>,
     fallback_font: Rc<Font>,
-    text_renderer: RefCell<Option<crate::text::renderer::TextRenderer>>,
-    glyph_cache: RefCell<HashMap<(String, u32, u32), Glyph>>,
+    text_renderer: RefCell<TextRenderer>,
+    glyph_cache: RefCell<HashMap<GlyphKey, Glyph>>,
+    unused_glyphs: RefCell<HashSet<GlyphKey>>,
 }
 
 use crate::text::Glyph;
 
+impl fmt::Debug for ResourceManager {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ResourceManager")
+            .field(
+                "textures",
+                &format!("{} loaded", self.textures.borrow().len()),
+            )
+            .field("fonts", &format!("{} loaded", self.fonts.borrow().len()))
+            .field(
+                "glyph_cache",
+                &format!("{} cached", self.glyph_cache.borrow().len()),
+            )
+            .finish_non_exhaustive()
+    }
+}
+
 impl ResourceManager {
-    // TODO: (bugs) implement fallback fonts
-
     pub fn new(wgpu: Rc<WgpuContext>, fallback_font: &[u8]) -> Self {
-
         let fallback_font = Rc::new(Font::new(fallback_font.to_vec()));
 
         Self {
+            text_renderer: RefCell::new(TextRenderer::new(&wgpu.device)),
             wgpu,
             textures: RefCell::new(HashMap::new()),
             fonts: RefCell::new(HashMap::new()),
-            text_renderer: RefCell::new(None),
             glyph_cache: RefCell::new(HashMap::new()),
+            unused_glyphs: RefCell::new(HashSet::new()),
             fallback_font,
         }
     }
 
-    pub fn load_texture_from_bytes(
-        &self,
-        name: &str,
-        bytes: &[u8],
-    ) -> Result<Rc<Texture>, anyhow::Error> {
-        {
-            let textures = self.textures.borrow();
-            if let Some(texture) = textures.get(name) {
-                return Ok(texture.clone());
-            }
-        }
-
-        let texture = Texture::from_bytes(&self.wgpu.device, &self.wgpu.queue, bytes, Some(name))?;
+    pub fn load_texture_from_bytes(&self, bytes: &[u8]) -> Result<Rc<Texture>, anyhow::Error> {
+        let texture = Texture::from_bytes(&self.wgpu.device, &self.wgpu.queue, bytes)?;
 
         let texture = Rc::new(texture);
         let mut textures = self.textures.borrow_mut();
-        textures.insert(name.to_string(), texture.clone());
+        textures.insert(texture.id.clone(), texture.clone());
         Ok(texture)
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn load_texture_from_path(
-        &self,
-        name: &str,
-        path: &std::path::Path,
-    ) -> Result<Rc<Texture>, anyhow::Error> {
-        {
-            let textures = self.textures.borrow();
-            if let Some(texture) = textures.get(name) {
-                return Ok(texture.clone());
-            }
-        }
-
-        let texture = Texture::from_file(&self.wgpu.device, &self.wgpu.queue, path, Some(name))?;
-
-        let texture = Rc::new(texture);
-        let mut textures = self.textures.borrow_mut();
-        textures.insert(name.to_string(), texture.clone());
-        Ok(texture)
-    }
-
-    pub fn get_texture(&self, name: &str) -> Option<Rc<Texture>> {
-        self.textures.borrow().get(name).cloned()
+    pub fn get_texture(&self, id: TextureId) -> Option<Rc<Texture>> {
+        self.textures.borrow().get(&id).cloned()
     }
 
     pub fn load_font_from_bytes(
@@ -139,12 +125,6 @@ impl ResourceManager {
 
         let font = self.get_font(font_name).value();
 
-        let mut text_renderer = self.text_renderer.borrow_mut();
-        if text_renderer.is_none() {
-            *text_renderer = Some(crate::text::renderer::TextRenderer::new(&self.wgpu.device));
-        }
-        let renderer = text_renderer.as_mut().unwrap();
-
         let face = match font.face() {
             Ok(f) => f,
             Err(e) => {
@@ -167,13 +147,24 @@ impl ResourceManager {
             );
 
             if let Some(glyph) = self.glyph_cache.borrow().get(&key) {
+                self.unused_glyphs.borrow_mut().remove(&key);
                 glyphs.push(glyph.clone());
                 continue;
             }
 
-            match renderer.render_glyph(graphics_context, &font, glyph_id, font_size) {
+            match self.text_renderer.borrow_mut().render_glyph(
+                graphics_context,
+                &font,
+                glyph_id,
+                font_size,
+            ) {
                 Ok(glyph) => {
-                    self.glyph_cache.borrow_mut().insert(key, glyph.clone());
+                    self.glyph_cache
+                        .borrow_mut()
+                        .insert(key.clone(), glyph.clone());
+                    self.textures
+                        .borrow_mut()
+                        .insert(glyph.texture.id.clone(), glyph.texture.clone());
                     glyphs.push(glyph);
                 }
                 Err(e) => log::error!("Failed to render glyph {}: {}", c, e),
@@ -183,8 +174,22 @@ impl ResourceManager {
         glyphs
     }
 
+    // TODO: better cleanup strategy
     pub fn cleanup_unused_text(&self) {
         let mut glyph_cache = self.glyph_cache.borrow_mut();
-        glyph_cache.retain(|_, glyph| Rc::strong_count(&glyph.texture) > 1);
+        let mut unused_glyphs = self.unused_glyphs.borrow_mut();
+
+        glyph_cache.retain(|key, _| !unused_glyphs.contains(key));
+
+        for unused_glyph in unused_glyphs.drain() {
+            let glyph = glyph_cache.remove(&unused_glyph);
+            if let Some(glyph) = glyph {
+                self.textures.borrow_mut().remove(&glyph.texture.id);
+            }
+        }
+
+        for key in glyph_cache.keys() {
+            unused_glyphs.insert(key.clone());
+        }
     }
 }

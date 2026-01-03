@@ -1,5 +1,5 @@
 use crate::{Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
-use vn_window::Scene;
+use vn_scene::Scene;
 
 #[derive(Clone, Copy)]
 pub enum AnchorLocation {
@@ -65,7 +65,7 @@ impl ElementImpl for Anchor {
         ctx: &mut UiContext,
         origin: (f32, f32),
         size: ElementSize,
-        scene: &mut Scene,
+        canvas: &mut dyn Scene,
     ) {
         match self.params.location {
             AnchorLocation::TOP => self.child.draw(
@@ -75,7 +75,7 @@ impl ElementImpl for Anchor {
                     origin.1,
                 ),
                 self.child_size,
-                scene,
+                canvas,
             ),
             AnchorLocation::BOTTOM => self.child.draw(
                 ctx,
@@ -84,7 +84,7 @@ impl ElementImpl for Anchor {
                     origin.1 + size.height - self.child_size.height,
                 ),
                 self.child_size,
-                scene,
+                canvas,
             ),
             AnchorLocation::LEFT => self.child.draw(
                 ctx,
@@ -93,7 +93,7 @@ impl ElementImpl for Anchor {
                     origin.1 + size.height / 2.0 - self.child_size.height / 2.0,
                 ),
                 self.child_size,
-                scene,
+                canvas,
             ),
             AnchorLocation::RIGHT => self.child.draw(
                 ctx,
@@ -102,20 +102,20 @@ impl ElementImpl for Anchor {
                     origin.1 + size.height / 2.0 - self.child_size.height / 2.0,
                 ),
                 self.child_size,
-                scene,
+                canvas,
             ),
-            AnchorLocation::TopLeft => self.child.draw(ctx, origin, self.child_size, scene),
+            AnchorLocation::TopLeft => self.child.draw(ctx, origin, self.child_size, canvas),
             AnchorLocation::TopRight => self.child.draw(
                 ctx,
                 (origin.0 + size.width - self.child_size.width, origin.1),
                 self.child_size,
-                scene,
+                canvas,
             ),
             AnchorLocation::BottomLeft => self.child.draw(
                 ctx,
                 (origin.0, origin.1 + size.height - self.child_size.height),
                 self.child_size,
-                scene,
+                canvas,
             ),
             AnchorLocation::BottomRight => self.child.draw(
                 ctx,
@@ -124,7 +124,7 @@ impl ElementImpl for Anchor {
                     origin.1 + size.height - self.child_size.height,
                 ),
                 self.child_size,
-                scene,
+                canvas,
             ),
             AnchorLocation::CENTER => self.child.draw(
                 ctx,
@@ -133,7 +133,7 @@ impl ElementImpl for Anchor {
                     origin.1 + size.height / 2.0 - self.child_size.height / 2.0,
                 ),
                 self.child_size,
-                scene,
+                canvas,
             ),
         }
     }

@@ -2,7 +2,9 @@ use crate::graphics::{GraphicsContext, VertexDescription};
 use crate::pipeline_builder::PipelineBuilder;
 use crate::primitives::{_TexturePrimitive, BoxPrimitive, Globals, QUAD_VERTICES, Vertex};
 use crate::resource_manager::ResourceManager;
-use crate::{Renderer, Texture, TextureDescriptor};
+use crate::scene::WgpuScene;
+use crate::texture::TextureId;
+use crate::{Renderer, Texture};
 use std::collections::HashMap;
 use std::rc::Rc;
 use wgpu::include_wgsl;
@@ -258,8 +260,10 @@ impl SceneRenderer {
         let mut current_texture: Option<Rc<Texture>> = None;
         let mut batch = Vec::new();
 
+        // todo: use the same batching as in text rendering
+
         for image in images {
-            let resolved = self.resolve_texture(&image.texture);
+            let resolved = self.resolve_texture(image.texture.clone());
 
             if let Some(texture) = resolved {
                 if let Some(ref current) = current_texture {
@@ -298,12 +302,23 @@ impl SceneRenderer {
 
         // we can batch the glyphs like this because we have layers. Text that is rendered overlapping on
         // the same layer will have "undefined" behaviour.
-        let mut batches = HashMap::<*const Texture, (Rc<Texture>, Vec<_TexturePrimitive>)>::new();
+        let mut batches = HashMap::<TextureId, (Rc<Texture>, Vec<_TexturePrimitive>)>::new();
         for text in texts {
             for glyph in &text.glyphs {
+                let texture = self.resolve_texture(glyph.texture.clone());
+                if texture.is_none() {
+                    todo!(
+                        "Implement FallBack Texture: Missing texture {:?}",
+                        glyph.texture
+                    );
+                }
+
+                let texture = texture.unwrap();
+
                 batches
-                    .entry(Rc::as_ptr(&glyph.texture))
-                    .or_insert_with(|| (glyph.texture.clone(), Vec::new()))
+                    .entry(glyph.texture.clone())
+                    // todo: i could do the texture lookup in the batch draw call
+                    .or_insert_with(|| (texture.clone(), Vec::new()))
                     .1
                     .push({
                         let mut common = text.common;
@@ -326,45 +341,8 @@ impl SceneRenderer {
         }
     }
 
-    fn resolve_texture(&self, descriptor: &TextureDescriptor) -> Option<Rc<Texture>> {
-        match descriptor {
-            TextureDescriptor::Name(name) => self.resource_manager.get_texture(name),
-            TextureDescriptor::Path(path) => {
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    let name = path.to_string_lossy();
-                    if let Some(tex) = self.resource_manager.get_texture(&name) {
-                        Some(tex)
-                    } else {
-                        match self.resource_manager.load_texture_from_path(&name, path) {
-                            Ok(tex) => Some(tex),
-                            Err(e) => {
-                                log::error!("Failed to load texture from path {:?}: {}", path, e);
-                                None
-                            }
-                        }
-                    }
-                }
-                #[cfg(target_arch = "wasm32")]
-                {
-                    log::error!("Path loading not supported on WASM in render loop");
-                    None
-                }
-            }
-            TextureDescriptor::Bytes { name, bytes } => {
-                if let Some(tex) = self.resource_manager.get_texture(name) {
-                    Some(tex)
-                } else {
-                    match self.resource_manager.load_texture_from_bytes(name, bytes) {
-                        Ok(tex) => Some(tex),
-                        Err(e) => {
-                            log::error!("Failed to load texture from bytes {}: {}", name, e);
-                            None
-                        }
-                    }
-                }
-            }
-        }
+    fn resolve_texture(&self, descriptor: TextureId) -> Option<Rc<Texture>> {
+        self.resource_manager.get_texture(descriptor)
     }
 
     fn draw_texture_batch<'a>(
@@ -412,7 +390,7 @@ impl SceneRenderer {
 }
 
 impl Renderer for SceneRenderer {
-    type RenderTarget = crate::scene::Scene;
+    type RenderTarget = WgpuScene;
 
     fn render(
         &mut self,

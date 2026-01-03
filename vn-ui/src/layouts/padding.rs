@@ -1,9 +1,9 @@
 use crate::{Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
 use std::rc::Rc;
-use vn_utils::UpdateOption;
+use vn_scene::Scene;
 use vn_ui_animation::AnimationController;
 use vn_ui_animation_macros::Interpolatable;
-use vn_window::Scene;
+use vn_utils::UpdateOption;
 use web_time::Instant;
 
 #[derive(Clone, Copy, Debug, Interpolatable)]
@@ -90,7 +90,7 @@ impl ElementImpl for Padding {
         ctx: &mut UiContext,
         origin: (f32, f32),
         size: ElementSize,
-        scene: &mut Scene,
+        canvas: &mut dyn Scene,
     ) {
         let params = self.controller.value(self.layout_time);
 
@@ -104,7 +104,7 @@ impl ElementImpl for Padding {
                 width: size.width.max(x_padding) - x_padding,
                 height: size.height.max(y_padding) - y_padding,
             },
-            scene,
+            canvas,
         );
     }
 }

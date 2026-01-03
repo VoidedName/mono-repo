@@ -1,54 +1,80 @@
-// Probably will need to extend texture creation to handle various other things, but simple starts...
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::sync::Mutex;
 
-/// Describes how to load or reference a texture.
-#[derive(Debug, Clone)]
-pub enum TextureDescriptor {
-    /// Reference a texture already loaded in the [`ResourceManager`](crate::resource_manager::ResourceManager) by name.
-    Name(String),
-    /// Load a texture from the specified file path.
-    Path(std::path::PathBuf),
-    /// Load a texture from raw bytes.
-    Bytes { name: String, bytes: Vec<u8> },
-}
-
-impl TextureDescriptor {
-    /// Creates a descriptor that references a texture by name.
-    pub fn name(name: impl Into<String>) -> Self {
-        Self::Name(name.into())
-    }
-
-    /// Creates a descriptor that loads a texture from a file path.
-    pub fn path(path: impl Into<std::path::PathBuf>) -> Self {
-        Self::Path(path.into())
-    }
-
-    /// Creates a descriptor that loads a texture from raw bytes.
-    pub fn bytes(name: impl Into<String>, bytes: Vec<u8>) -> Self {
-        Self::Bytes {
-            name: name.into(),
-            bytes,
-        }
-    }
-}
+pub type TextureId = Rc<u32>;
 
 /// Represents a loaded GPU texture with its view and sampler.
-#[derive(Debug)]
 pub struct Texture {
+    pub id: TextureId,
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
 }
 
+impl std::fmt::Debug for Texture {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Texture")
+            .field("id", &self.id)
+            .finish_non_exhaustive()
+    }
+}
+
+// TODO: This is sort of hacky, ideally i would just pass around some "Texture World"
+//  to derive ids from.
+static TEXTURE_ID_MANAGER: Mutex<RefCell<TextureIdManager>> =
+    Mutex::new(RefCell::new(TextureIdManager {
+        free_ids: Vec::new(),
+        next_id: 1,
+    }));
+
+#[derive(Debug)]
+struct TextureIdManager {
+    free_ids: Vec<u32>,
+    next_id: u32,
+}
+
+fn next_texture_id() -> TextureId {
+    let manager = TEXTURE_ID_MANAGER.lock().unwrap();
+    let mut manager = manager.borrow_mut();
+
+    if let Some(id) = manager.free_ids.pop() {
+        return Rc::new(id);
+    }
+
+    let id = manager.next_id;
+    manager.next_id += 1;
+
+    Rc::new(id)
+}
+
+fn drop_textures(texture: &Texture) {
+    let manager = TEXTURE_ID_MANAGER.lock().unwrap();
+    let mut manager = manager.borrow_mut();
+
+    manager.free_ids.push(*texture.id);
+}
+
+impl Drop for Texture {
+    fn drop(&mut self) {
+        drop_textures(self);
+    }
+}
+
 impl Texture {
+    pub fn next_id() -> TextureId {
+        let id = next_texture_id();
+        id
+    }
+
     /// Loads a texture from raw bytes (supports various image formats).
     pub fn from_bytes(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         bytes: &[u8],
-        label: Option<&str>,
     ) -> anyhow::Result<Self> {
         let img = image::load_from_memory(bytes)?;
-        Self::from_image(device, queue, &img, label)
+        Self::from_image(device, queue, &img)
     }
 
     /// Loads a texture from a file path.
@@ -57,10 +83,9 @@ impl Texture {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         path: impl AsRef<std::path::Path>,
-        label: Option<&str>,
     ) -> anyhow::Result<Self> {
         let img = image::open(path)?;
-        Self::from_image(device, queue, &img, label)
+        Self::from_image(device, queue, &img)
     }
 
     /// Loads a texture from a [`DynamicImage`].
@@ -68,12 +93,11 @@ impl Texture {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         img: &image::DynamicImage,
-        label: Option<&str>,
     ) -> anyhow::Result<Self> {
         let rgba = img.to_rgba8();
         let dimensions = rgba.dimensions();
 
-        Self::from_rgba(device, queue, &rgba, dimensions, label)
+        Self::from_rgba(device, queue, &rgba, dimensions)
     }
 
     /// Loads a texture from raw RGBA pixel data.
@@ -82,8 +106,9 @@ impl Texture {
         queue: &wgpu::Queue,
         rgba: &[u8],
         dimensions: (u32, u32),
-        label: Option<&str>,
     ) -> anyhow::Result<Self> {
+        let id = Self::next_id();
+
         let size = wgpu::Extent3d {
             width: dimensions.0,
             height: dimensions.1,
@@ -91,7 +116,7 @@ impl Texture {
         };
 
         let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label,
+            label: Some(format!("Texture {}", id).as_str()),
             size,
             mip_level_count: 1,
             sample_count: 1,
@@ -129,6 +154,7 @@ impl Texture {
         });
 
         Ok(Self {
+            id,
             texture,
             view,
             sampler,
@@ -169,6 +195,7 @@ impl Texture {
         });
 
         Self {
+            id: Self::next_id(),
             texture,
             view,
             sampler,

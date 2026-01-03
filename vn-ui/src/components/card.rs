@@ -3,9 +3,9 @@ use crate::{
     UiContext,
 };
 use std::rc::Rc;
+use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
 use vn_ui_animation::{AnimationController, Interpolatable};
 use vn_ui_animation_macros::Interpolatable;
-use vn_window::{BoxPrimitive, Color, Scene};
 
 #[derive(Clone, Copy, Interpolatable)]
 pub struct CardParams {
@@ -68,21 +68,23 @@ impl ElementImpl for Card {
         ctx: &mut UiContext,
         origin: (f32, f32),
         size: ElementSize,
-        scene: &mut Scene,
+        canvas: &mut dyn Scene,
     ) {
         let params = self.controller.value(self.layout_time);
 
-        scene.add_box(
-            BoxPrimitive::builder()
-                .transform(|t| t.translation([origin.0, origin.1]))
-                .color(params.background_color)
-                .border_color(params.border_color)
-                .corner_radius(params.corner_radius)
-                .border_thickness(params.border_size)
-                .size([size.width, size.height])
-                .build(),
-        );
+        canvas.add_box(BoxPrimitiveData {
+            transform: Transform {
+                translation: [origin.0, origin.1],
+                ..Transform::DEFAULT
+            },
+            size: [size.width, size.height],
+            color: params.background_color,
+            border_color: params.border_color,
+            border_thickness: params.border_size,
+            border_radius: params.corner_radius,
+            clip_rect: Rect::NO_CLIP,
+        });
 
-        self.child.draw(ctx, origin, size, scene);
+        self.child.draw(ctx, origin, size, canvas);
     }
 }

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-vn-window = { path = "../vn-window" }
+vn-scene = { path = "../vn-scene" }
 vn-ui-animation = { path = "../vn-ui-animation" }
 vn-ui-animation-macros = { path = "../vn-ui-animation-macros" }
 vn-utils = { path = "../vn-utils" }

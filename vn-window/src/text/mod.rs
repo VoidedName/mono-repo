@@ -7,7 +7,7 @@ pub use renderer::TextRenderer;
 use crate::Texture;
 use std::rc::Rc;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Glyph {
     pub texture: Rc<Texture>,
     pub advance: f32,

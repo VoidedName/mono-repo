@@ -42,21 +42,18 @@ impl BoxPrimitiveBuilder {
     //noinspection ALL (duplicate code)
     pub fn transform<F>(mut self, f: F) -> Self
     where
-        F: FnOnce(
-            crate::primitives::transform::TransformBuilder,
-        ) -> crate::primitives::transform::TransformBuilder,
+        F: FnOnce(vn_scene::TransformBuilder) -> vn_scene::TransformBuilder,
     {
-        self.primitive.common.transform =
-            f(crate::primitives::transform::Transform::builder()).build();
+        self.primitive.common.transform = f(vn_scene::Transform::builder()).build();
         self
     }
 
     //noinspection ALL (duplicate code)
     pub fn clip_area<F>(mut self, f: F) -> Self
     where
-        F: FnOnce(crate::primitives::rect::RectBuilder) -> crate::primitives::rect::RectBuilder,
+        F: FnOnce(vn_scene::RectBuilder) -> vn_scene::RectBuilder,
     {
-        self.primitive.common.clip_area = f(crate::primitives::rect::Rect::builder()).build();
+        self.primitive.common.clip_area = f(vn_scene::Rect::builder()).build();
         self
     }
 

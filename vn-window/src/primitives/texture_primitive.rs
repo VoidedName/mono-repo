@@ -1,7 +1,7 @@
-use crate::TextureDescriptor;
 use crate::graphics::VertexDescription;
 use crate::primitives::color::Color;
 use crate::primitives::properties::PrimitiveProperties;
+use crate::texture::TextureId;
 
 /// Internal representation of a textured primitive sent to the GPU.
 #[repr(C)]
@@ -37,21 +37,18 @@ impl TexturePrimitiveBuilder {
     //noinspection ALL (duplicate code)
     pub fn transform<F>(mut self, f: F) -> Self
     where
-        F: FnOnce(
-            crate::primitives::transform::TransformBuilder,
-        ) -> crate::primitives::transform::TransformBuilder,
+        F: FnOnce(vn_scene::TransformBuilder) -> vn_scene::TransformBuilder,
     {
-        self.primitive.common.transform =
-            f(crate::primitives::transform::Transform::builder()).build();
+        self.primitive.common.transform = f(vn_scene::Transform::builder()).build();
         self
     }
 
     //noinspection ALL (duplicate code)
     pub fn clip_area<F>(mut self, f: F) -> Self
     where
-        F: FnOnce(crate::primitives::rect::RectBuilder) -> crate::primitives::rect::RectBuilder,
+        F: FnOnce(vn_scene::RectBuilder) -> vn_scene::RectBuilder,
     {
-        self.primitive.common.clip_area = f(crate::primitives::rect::Rect::builder()).build();
+        self.primitive.common.clip_area = f(vn_scene::Rect::builder()).build();
         self
     }
 
@@ -109,7 +106,7 @@ pub struct ImagePrimitive {
     /// Common properties shared by all primitives (transform, clipping).
     pub common: PrimitiveProperties,
     pub size: [f32; 2],
-    pub texture: TextureDescriptor,
+    pub texture: TextureId,
     pub tint: Color,
 }
 
@@ -120,7 +117,7 @@ pub struct ImagePrimitiveBuilder {
 
 impl ImagePrimitiveBuilder {
     /// Creates a new builder for an [`ImagePrimitive`] with the specified texture.
-    pub fn new(texture: TextureDescriptor) -> Self {
+    pub fn new(texture: TextureId) -> Self {
         Self {
             primitive: ImagePrimitive {
                 common: PrimitiveProperties::DEFAULT,
@@ -139,21 +136,18 @@ impl ImagePrimitiveBuilder {
     //noinspection ALL (duplicate code)
     pub fn transform<F>(mut self, f: F) -> Self
     where
-        F: FnOnce(
-            crate::primitives::transform::TransformBuilder,
-        ) -> crate::primitives::transform::TransformBuilder,
+        F: FnOnce(vn_scene::TransformBuilder) -> vn_scene::TransformBuilder,
     {
-        self.primitive.common.transform =
-            f(crate::primitives::transform::Transform::builder()).build();
+        self.primitive.common.transform = f(vn_scene::Transform::builder()).build();
         self
     }
 
     //noinspection ALL (duplicate code)
     pub fn clip_area<F>(mut self, f: F) -> Self
     where
-        F: FnOnce(crate::primitives::rect::RectBuilder) -> crate::primitives::rect::RectBuilder,
+        F: FnOnce(vn_scene::RectBuilder) -> vn_scene::RectBuilder,
     {
-        self.primitive.common.clip_area = f(crate::primitives::rect::Rect::builder()).build();
+        self.primitive.common.clip_area = f(vn_scene::Rect::builder()).build();
         self
     }
 
@@ -173,7 +167,7 @@ impl ImagePrimitiveBuilder {
 }
 
 impl ImagePrimitive {
-    pub fn builder(texture: TextureDescriptor) -> ImagePrimitiveBuilder {
+    pub fn builder(texture: TextureId) -> ImagePrimitiveBuilder {
         ImagePrimitiveBuilder::new(texture)
     }
 }
@@ -189,7 +183,7 @@ pub struct TextPrimitive {
 
 #[derive(Debug, Clone)]
 pub struct GlyphInstance {
-    pub texture: std::rc::Rc<crate::Texture>,
+    pub texture: TextureId,
     pub position: [f32; 2],
     pub size: [f32; 2],
 }
@@ -219,21 +213,18 @@ impl TextPrimitiveBuilder {
     //noinspection ALL (duplicate code)
     pub fn transform<F>(mut self, f: F) -> Self
     where
-        F: FnOnce(
-            crate::primitives::transform::TransformBuilder,
-        ) -> crate::primitives::transform::TransformBuilder,
+        F: FnOnce(vn_scene::TransformBuilder) -> vn_scene::TransformBuilder,
     {
-        self.primitive.common.transform =
-            f(crate::primitives::transform::Transform::builder()).build();
+        self.primitive.common.transform = f(vn_scene::Transform::builder()).build();
         self
     }
 
     //noinspection ALL (duplicate code)
     pub fn clip_area<F>(mut self, f: F) -> Self
     where
-        F: FnOnce(crate::primitives::rect::RectBuilder) -> crate::primitives::rect::RectBuilder,
+        F: FnOnce(vn_scene::RectBuilder) -> vn_scene::RectBuilder,
     {
-        self.primitive.common.clip_area = f(crate::primitives::rect::Rect::builder()).build();
+        self.primitive.common.clip_area = f(vn_scene::Rect::builder()).build();
         self
     }
 

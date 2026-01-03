@@ -1,5 +1,3 @@
-use vn_window::scene::SceneSize;
-
 // instead? in addition to? anyway, consider
 // returning a complex size for elements instead
 // usecase: while we can indicate to greedy growing components that the container is unsized
@@ -11,6 +9,8 @@ pub struct ElementSize {
     pub width: f32,
     pub height: f32,
 }
+
+pub type SceneSize = (f32, f32);
 
 impl ElementSize {
     pub const ZERO: ElementSize = ElementSize {

@@ -27,6 +27,7 @@ graph TD
         
         subgraph Core [Core Framework Crates]
             vn-window[vn-window]
+            vn-scene[vn-scene]
             vn-ui[vn-ui]
             vn-ui-animation[vn-ui-animation]
             vn-ui-animation-macros[vn-ui-animation-macros]
@@ -46,11 +47,64 @@ graph TD
     end
 ----
 
+.Core Framework Interconnections
+[mermaid]
+----
+graph TD
+    vn-ui[vn-ui]
+    vn-window[vn-window]
+    vn-scene[vn-scene]
+    vn-ui-animation[vn-ui-animation]
+    vn-ui-animation-macros[vn-ui-animation-macros]
+    vn-utils[vn-utils]
+
+    vn-ui --> vn-scene
+    vn-ui --> vn-ui-animation
+    vn-ui --> vn-ui-animation-macros
+    vn-ui --> vn-utils
+
+    vn-window --> vn-scene
+    vn-window --> vn-utils
+
+    vn-scene --> vn-ui-animation
+    vn-scene --> vn-ui-animation-macros
+
+    vn-ui-animation --> vn-utils
+----
+
+.Application Interconnections (vttrpg)
+[mermaid]
+----
+graph TD
+    vn-vttrpg-native[vn-vttrpg-native]
+    vn-vttrpg-web[vn-vttrpg-web]
+    vn-vttrpg[vn-vttrpg]
+    
+    subgraph Core [Core Framework]
+        vn-window[vn-window]
+        vn-ui[vn-ui]
+        vn-scene[vn-scene]
+        vn-utils[vn-utils]
+    end
+
+    vn-vttrpg-native --> vn-vttrpg
+    vn-vttrpg-web --> vn-vttrpg
+
+    vn-vttrpg --> vn-window
+    vn-vttrpg --> vn-ui
+    vn-vttrpg --> vn-scene
+    vn-vttrpg --> vn-utils
+----
+
 .Crate Responsibilities
 * *vn-window*: Provides the `init_with_logic()` function that handles platform-specific initialization, creates the window, sets up the GPU context via WGPU, and runs the main event loop.
+It also implements the rendering backend for `vn-scene`.
 
-* *vn-ui*: Contains the UI rendering primitives, text rendering, layout system, and scene management.
-This is the core of the visual framework.
+* *vn-scene*: Defines the platform-agnostic rendering primitives (`Box`, `Image`, `Text`) and the `Scene` trait.
+This crate serves as the abstraction layer between the UI framework and the actual rendering engine.
+
+* *vn-ui*: Contains the UI components, layout system, and event handling.
+It uses `vn-scene` to describe what should be rendered, making it independent of the underlying graphics API.
 
 * *vn-vttrpg*: Contains the application-specific logic as a library crate.
 Implements the `MainLogic` trait and exports an `init()` function that bridges to `vn-window::init_with_logic()`.
@@ -125,12 +179,12 @@ One problem with this is assets / resources. Right now assets are handled by jus
 
 .Todo List for the UI FW
 - [x] Primitive Rendering
-- [x] Text Rendering
+- [x] Text Rendering: Support for glyph instancing.
 - [x] Layout / Drawing Flow
 - [x] Scene Rendering
-- [ ] Animation: WIP
+- [x] Animation: Support for interpolatable properties.
 - [ ] Optional: Anti Aliasing
-- [ ] Text-Atlas: Currently I render one texture per character per font per font_size used. This is not very efficient as I have to make a draw call per unique glyph per layer. Using Instancing and a single Atlas would allow me to just make one (or a few) draw calls and avoid most of the memory throughput overhead.
+- [ ] Text-Atlas: Currently I render one texture per character per font per font_size used. Using a single Atlas would allow me to avoid most of the memory throughput overhead. (Instancing is implemented, but Atlas is still missing)
 - [ ] Text Glyphs should be rendered at certain breakpoints like 8pt, 16pt, 32pt etc. When drawing a glyph we should pick an appropriate one and then rescale it via sampling on the gpu. (We would have to recreate every glyph / atlas when font_size is animated for every frame)
 - [ ] Rich Text. Color, Font, Size, Clickable, Hoverable, (embedded ui elements?)
 - [ ] Web and Native colors don't match. One of them does not compensate for sRGB correctly.

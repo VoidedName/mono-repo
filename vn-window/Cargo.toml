@@ -7,8 +7,7 @@ edition = "2024"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-vn-ui-animation = { path = "../vn-ui-animation" }
-vn-ui-animation-macros = { path = "../vn-ui-animation-macros" }
+vn-scene = { path = "../vn-scene" }
 vn-utils = { path = "../vn-utils" }
 log = { workspace = true }
 winit = { workspace = true }

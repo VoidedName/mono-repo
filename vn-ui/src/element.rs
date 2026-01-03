@@ -1,6 +1,6 @@
 use crate::{ElementId, ElementSize, SizeConstraints, UiContext};
 use std::collections::HashMap;
-use vn_window::Scene;
+use vn_scene::{Scene, Transform};
 
 pub struct SimpleLayoutCache {
     cache: HashMap<ElementId, (SizeConstraints, ElementSize)>,
@@ -59,7 +59,7 @@ pub trait ElementImpl {
         ctx: &mut UiContext,
         origin: (f32, f32),
         size: ElementSize,
-        scene: &mut Scene,
+        canvas: &mut dyn Scene,
     );
 }
 
@@ -95,14 +95,14 @@ pub trait Element: ElementImpl {
         ctx: &mut UiContext,
         origin: (f32, f32),
         size: ElementSize,
-        scene: &mut Scene,
+        canvas: &mut dyn Scene,
     ) {
-        self.draw_impl(ctx, origin, size, scene);
+        self.draw_impl(ctx, origin, size, canvas);
         #[cfg(feature = "debug_outlines")]
         {
             use rand::rngs::SmallRng;
             use rand::{Rng, SeedableRng};
-            use vn_window::{BoxPrimitive, Color};
+            use vn_scene::{BoxPrimitiveData, Color, Rect};
             let mut rng = SmallRng::seed_from_u64(self.id().0 as u64);
 
             let color = Color {
@@ -114,20 +114,22 @@ pub trait Element: ElementImpl {
 
             const DEBUG_THICKNESS: f32 = 2.0;
 
-            scene.with_next_layer(|scene| {
-                scene.add_box(
-                    BoxPrimitive::builder()
-                        .transform(|t| {
-                            t.translation([
-                                origin.0 - DEBUG_THICKNESS / 2.0,
-                                origin.1 - DEBUG_THICKNESS / 2.0,
-                            ])
-                        })
-                        .size([size.width + DEBUG_THICKNESS, size.height + DEBUG_THICKNESS])
-                        .border_color(color.with_alpha(0.5))
-                        .border_thickness(DEBUG_THICKNESS)
-                        .build(),
-                )
+            canvas.with_next_layer(&mut |canvas| {
+                canvas.add_box(BoxPrimitiveData {
+                    transform: Transform {
+                        translation: [
+                            origin.0 - DEBUG_THICKNESS / 2.0,
+                            origin.1 - DEBUG_THICKNESS / 2.0,
+                        ],
+                        ..Transform::DEFAULT
+                    },
+                    size: [size.width + DEBUG_THICKNESS, size.height + DEBUG_THICKNESS],
+                    color: Color::TRANSPARENT,
+                    border_color: color.with_alpha(0.5),
+                    border_thickness: DEBUG_THICKNESS,
+                    border_radius: 0.0,
+                    clip_rect: Rect::NO_CLIP,
+                })
             });
         }
     }

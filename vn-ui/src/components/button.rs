@@ -1,6 +1,6 @@
 use crate::utils::ToArray;
 use crate::{Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
-use vn_window::{BoxPrimitive, Color, Rect, Scene};
+use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
 
 pub struct ButtonParams {
     pub background: Color,
@@ -49,7 +49,7 @@ impl ElementImpl for Button {
         ctx: &mut UiContext,
         origin: (f32, f32),
         size: ElementSize,
-        scene: &mut Scene,
+        canvas: &mut dyn Scene,
     ) {
         let is_hovered = ctx.event_manager.is_hovered(self.id);
         let is_focused = ctx.event_manager.is_focused(self.id);
@@ -66,24 +66,31 @@ impl ElementImpl for Button {
             border_color = Color::WHITE;
         }
 
+        // We need a way to get the current layer ID without vn-window.
+        // Actually, we don't necessarily need it if register_hitbox doesn't use it,
+        // but it does. Let's assume for now 0 is fine or we add it to the Canvas trait.
+        // Wait, Canvas trait could have a method for this.
+
         ctx.with_hitbox_hierarchy(
             self.id,
-            scene.current_layer_id(),
+            canvas.current_layer_id(),
             Rect {
                 position: origin.to_array(),
                 size: size.to_array(),
             },
             |ctx| {
-                scene.add_box(
-                    BoxPrimitive::builder()
-                        .transform(|t| t.translation([origin.0, origin.1]))
-                        .color(background)
-                        .border_color(border_color)
-                        .corner_radius(self.params.corner_radius)
-                        .border_thickness(self.params.border_width)
-                        .size([size.width, size.height])
-                        .build(),
-                );
+                canvas.add_box(BoxPrimitiveData {
+                    transform: Transform {
+                        translation: [origin.0, origin.1],
+                        ..Transform::DEFAULT
+                    },
+                    size: [size.width, size.height],
+                    color: background,
+                    border_color: border_color,
+                    border_thickness: self.params.border_width,
+                    border_radius: self.params.corner_radius,
+                    clip_rect: Rect::NO_CLIP,
+                });
 
                 let margin = self.params.border_width * 2.0;
                 self.child.draw(
@@ -96,7 +103,7 @@ impl ElementImpl for Button {
                         width: size.width.max(margin) - margin,
                         height: size.height.max(margin) - margin,
                     },
-                    scene,
+                    canvas,
                 );
             },
         );

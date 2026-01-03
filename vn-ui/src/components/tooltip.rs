@@ -3,8 +3,8 @@ use crate::utils::ToArray;
 use crate::{
     DynamicSize, Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext,
 };
+use vn_scene::{Rect, Scene};
 use vn_ui_animation_macros::Interpolatable;
-use vn_window::{Rect, Scene};
 use web_time::{Duration, Instant};
 
 #[derive(Clone, Copy, Debug, Default, Interpolatable)]
@@ -108,24 +108,24 @@ impl ElementImpl for ToolTip {
         ctx: &mut UiContext,
         origin: (f32, f32),
         size: ElementSize,
-        scene: &mut Scene,
+        canvas: &mut dyn Scene,
     ) {
         ctx.with_hitbox_hierarchy(
             self.id,
-            scene.current_layer_id(),
+            canvas.current_layer_id(),
             Rect {
                 position: origin.to_array(),
                 size: size.to_array(),
             },
             |ctx| {
-                self.element.draw(ctx, origin, size, scene);
+                self.element.draw(ctx, origin, size, canvas);
                 if self.show_tooltip {
                     // todo: to some more intelligent positioning of the tooltip
                     let tooltip_origin = (origin.0, origin.1 - self.tool_tip_size.height - 10.0);
 
-                    scene.with_next_layer(|scene| {
+                    canvas.with_next_layer(&mut |canvas| {
                         self.tooltip
-                            .draw(ctx, tooltip_origin, self.tool_tip_size, scene)
+                            .draw(ctx, tooltip_origin, self.tool_tip_size, canvas)
                     });
                 }
             },

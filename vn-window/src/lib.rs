@@ -23,9 +23,9 @@ pub use primitives::{
 };
 pub use renderer::Renderer;
 pub use rendering_context::RenderingContext;
-pub use scene::{Layer, Scene};
+pub use scene::{Layer, WgpuScene};
 pub use scene_renderer::SceneRenderer;
-pub use texture::{Texture, TextureDescriptor};
+pub use texture::Texture;
 
 use winit::event_loop::EventLoop;
 

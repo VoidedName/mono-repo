@@ -44,13 +44,25 @@ impl TextMetrics for TextMetric {
         self.rm.line_height(font, font_size)
     }
 
-    fn get_glyphs(
-        &self,
-        text: &str,
-        font: &str,
-        font_size: f32,
-    ) -> Vec<vn_window::text::Glyph> {
-        self.rm.get_glyphs(&self.gc, text, font, font_size)
+    fn get_glyphs(&self, text: &str, font: &str, font_size: f32) -> Vec<vn_scene::GlyphData> {
+        let glyphs = self.rm.get_glyphs(&self.gc, text, font, font_size);
+        glyphs
+            .into_iter()
+            .map(|g| vn_scene::GlyphData {
+                texture_id: g.texture.id.clone(),
+                advance: g.advance,
+                x_bearing: g.x_bearing,
+                y_offset: g.y_offset,
+                size: [
+                    g.texture.texture.width() as f32,
+                    g.texture.texture.height() as f32,
+                ],
+                uv_rect: vn_scene::Rect {
+                    position: [0.0, 0.0],
+                    size: [1.0, 1.0],
+                },
+            })
+            .collect()
     }
 }
 
@@ -129,8 +141,9 @@ impl MainLogic {
         graphics_context: Rc<GraphicsContext>,
         resource_manager: Rc<ResourceManager>,
     ) -> anyhow::Result<Self> {
-
-        let font_bytes = file_loader.load_file("fonts/JetBrainsMono-Bold.ttf".to_string()).await?;
+        let font_bytes = file_loader
+            .load_file("fonts/JetBrainsMono-Bold.ttf".to_string())
+            .await?;
         resource_manager.load_font_from_bytes("jetbrains-bold", &font_bytes)?;
 
         let event_manager = Rc::new(RefCell::new(EventManager::new()));
@@ -228,10 +241,9 @@ impl StateLogic<SceneRenderer> for MainLogic {
         self.size = (width, height);
     }
 
-    fn render_target(&self) -> vn_window::scene::Scene {
+    fn render_target(&self) -> vn_window::scene::WgpuScene {
         self.fps_stats.borrow_mut().tick();
-        let mut scene =
-            vn_window::scene::Scene::new((self.size.0 as f32, self.size.1 as f32));
+        let mut scene = vn_window::scene::WgpuScene::new((self.size.0 as f32, self.size.1 as f32));
 
         let mut ui = self.ui.borrow_mut();
 

@@ -1,7 +1,7 @@
 use crate::{
     DynamicSize, Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext,
 };
-use vn_window::Scene;
+use vn_scene::Scene;
 
 pub struct Stack {
     id: ElementId,
@@ -49,12 +49,12 @@ impl ElementImpl for Stack {
         ctx: &mut UiContext,
         origin: (f32, f32),
         size: ElementSize,
-        scene: &mut Scene,
+        canvas: &mut dyn Scene,
     ) {
         let mut first_drawn = false;
 
         let mut draw_child =
-            |child: &mut Box<dyn Element>, child_size: ElementSize, scene: &mut Scene| {
+            |child: &mut Box<dyn Element>, child_size: ElementSize, canvas: &mut dyn Scene| {
                 child.draw(
                     ctx,
                     (origin.0, origin.1),
@@ -64,19 +64,19 @@ impl ElementImpl for Stack {
                             width: Some(size.width),
                             height: Some(size.height),
                         },
-                        scene_size: scene.scene_size(),
+                        scene_size: (size.width, size.height), // Approximation
                     }),
-                    scene,
+                    canvas,
                 );
             };
 
         for (idx, child) in self.children.iter_mut().enumerate() {
             match first_drawn {
-                true => {
-                    scene.with_top_layer(|scene| draw_child(child, self.children_size[idx], scene))
-                }
+                true => canvas.with_next_layer(&mut |canvas| {
+                    draw_child(child, self.children_size[idx], canvas)
+                }),
                 false => {
-                    draw_child(child, self.children_size[idx], scene);
+                    draw_child(child, self.children_size[idx], canvas);
                     first_drawn = true;
                 }
             }
