@@ -3,7 +3,9 @@ Voided Name
 v1.0, 2026-01-03
 :source-highlighter: rouge
 
-`vn-scene` defines the core data structures and traits for representing a 2D scene. It acts as the bridge between the high-level UI/Logic and the low-level rendering backend.
+`vn-scene` defines the core data structures and traits for representing a 2D scene. It acts as the bridge between the high-level link:../vn-ui/readme.asciidoc[UI]/Logic and the low-level link:../vn-wgpu-window/readme.asciidoc[rendering backend].
+
+Part of the link:../readme.asciidoc[VN-Suit] framework.
 
 == Architecture
 

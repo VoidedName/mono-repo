@@ -3,7 +3,7 @@ Voided Name
 v1.0, 2026-01-03
 :source-highlighter: rouge
 
-`vn-ui-animation` provides a generic and extensible system for animating properties in the VN-Suit framework.
+`vn-ui-animation` provides a generic and extensible system for animating properties in the link:../readme.asciidoc[VN-Suit] framework. It is used extensively by link:../vn-ui/readme.asciidoc[`vn-ui`] and complemented by link:../vn-ui-animation-macros/readme.asciidoc[`vn-ui-animation-macros`].
 
 == Architecture
 

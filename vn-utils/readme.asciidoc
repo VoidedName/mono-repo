@@ -3,7 +3,7 @@ Voided Name
 v1.0, 2026-01-03
 :source-highlighter: rouge
 
-`vn-utils` is a collection of general-purpose utility traits and structures used across the VN-Suit workspace.
+`vn-utils` is a collection of general-purpose utility traits and structures used across the link:../readme.asciidoc[VN-Suit] workspace.
 
 == Architecture
 

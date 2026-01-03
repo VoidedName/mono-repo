@@ -3,7 +3,7 @@ Voided Name
 v1.0, 2025-12-15
 :source-highlighter: rouge
 
-VTTRPG is a virtual table top rpg system built on top of the VN-Suit framework.
+VTTRPG is a virtual table top rpg system built on top of the link:../readme.asciidoc[VN-Suit] framework.
 
 == Project Structure
 
@@ -16,10 +16,10 @@ graph TD
     vn-vttrpg-logic[vn-vttrpg-logic]
     
     subgraph Core [Core Framework]
-        vn-wgpu-window[vn-wgpu-window]
-        vn-ui[vn-ui]
-        vn-scene[vn-scene]
-        vn-utils[vn-utils]
+        vn-wgpu-window[link:../vn-wgpu-window/readme.asciidoc[vn-wgpu-window]]
+        vn-ui[link:../vn-ui/readme.asciidoc[vn-ui]]
+        vn-scene[link:../vn-scene/readme.asciidoc[vn-scene]]
+        vn-utils[link:../vn-utils/readme.asciidoc[vn-utils]]
     end
 
     vn-vttrpg-native --> vn-vttrpg-logic
