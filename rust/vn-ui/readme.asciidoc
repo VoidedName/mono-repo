@@ -2,7 +2,13 @@
 Voided Name
 v1.0, 2026-01-03
 :source-highlighter: rouge
-include::../../github_mermaid_fix.asciidoc[]
+// What a jank pointless pain github inflicts on all of us just because they don't conform to the asciidoc spec... thx: https://github.com/orgs/community/discussions/106933#discussioncomment-14246791 for the fix
+ifdef::env-github[]
+:MERMAID: source, mermaid
+endif::[]
+ifndef::env-github[]
+:MERMAID: mermaid
+endif::[]
 
 `vn-ui` is a flexible 2D UI framework built on top of link:../vn-scene/readme.asciidoc[`vn-scene`]. It handles layouting, event propagation, and state-driven rendering. It also integrates with link:../vn-ui-animation/readme.asciidoc[`vn-ui-animation`] and uses link:../vn-ui-animation-macros/readme.asciidoc[`vn-ui-animation-macros`] for property interpolation.
 
