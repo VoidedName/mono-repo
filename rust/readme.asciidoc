@@ -2,6 +2,7 @@
 Voided Name
 v1.0, 2025-12-15
 :source-highlighter: rouge
+include::../github_mermaid_fix.asciidoc[]
 
 .Main Project Goals
 1. Improve my skill-set and learn more about gpu based programming.
@@ -19,7 +20,7 @@ v1.0, 2025-12-15
 The VN-Suit workspace is organized into several interconnected crates that provide a flexible framework for building different applications while sharing common functionality.
 
 .Workspace Architecture & Interconnections
-[mermaid]
+[{MERMAID}]
 ----
 graph TD
     subgraph RootWorkspace [vn-suit workspace]

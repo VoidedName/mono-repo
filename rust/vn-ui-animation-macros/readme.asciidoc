@@ -2,13 +2,14 @@
 Voided Name
 v1.0, 2026-01-03
 :source-highlighter: rouge
+include::../../github_mermaid_fix.asciidoc[]
 
 `vn-ui-animation-macros` provides procedural macros for the link:../vn-ui-animation/readme.asciidoc[`vn-ui-animation`] crate within the link:../readme.asciidoc[VN-Suit] framework.
 
 == Features
 
 .Macro Expansion
-[mermaid]
+[{MERMAID}]
 ----
 graph LR
     Struct[Struct Definition] --> Macro[Interpolatable Derive Macro]

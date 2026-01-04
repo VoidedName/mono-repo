@@ -2,13 +2,14 @@
 Voided Name
 v1.0, 2025-12-15
 :source-highlighter: rouge
+include::../../github_mermaid_fix.asciidoc[]
 
 VTTRPG is a virtual table top rpg system built on top of the link:../readme.asciidoc[VN-Suit] framework.
 
 == Project Structure
 
 .Application Interconnections (vn-vttrpg)
-[mermaid]
+[{MERMAID}]
 ----
 graph TD
     vn-vttrpg-native[vn-vttrpg-native]

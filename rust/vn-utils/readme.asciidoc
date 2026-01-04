@@ -2,13 +2,14 @@
 Voided Name
 v1.0, 2026-01-03
 :source-highlighter: rouge
+include::../../github_mermaid_fix.asciidoc[]
 
 `vn-utils` is a collection of general-purpose utility traits and structures used across the link:../readme.asciidoc[VN-Suit] workspace.
 
 == Architecture
 
 .Utility Modules
-[mermaid]
+[{MERMAID}]
 ----
 graph TD
     Utils[vn-utils] --> Cache[cache: TimedLRUCache]

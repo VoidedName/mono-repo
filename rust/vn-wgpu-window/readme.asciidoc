@@ -2,13 +2,14 @@
 Voided Name
 v1.0, 2026-01-03
 :source-highlighter: rouge
+include::../../github_mermaid_fix.asciidoc[]
 
 `vn-wgpu-window` is the rendering backend and windowing abstraction for the link:../readme.asciidoc[VN-Suit] framework. It uses `wgpu` for hardware-accelerated rendering and `winit` for window management and event handling. It translates link:../vn-scene/readme.asciidoc[`vn-scene`] primitives into GPU commands.
 
 == Architecture
 
 .Crate Interactions
-[mermaid]
+[{MERMAID}]
 ----
 graph LR
     subgraph vn-wgpu-window
