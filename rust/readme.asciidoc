@@ -2,7 +2,13 @@
 Voided Name
 v1.0, 2025-12-15
 :source-highlighter: rouge
-include::../github_mermaid_fix.asciidoc[]
+// What a jank pointless pain github inflicts on all of us just because they don't conform to the asciidoc spec... thx: https://github.com/orgs/community/discussions/106933#discussioncomment-14246791 for the fix
+ifdef::env-github[]
+:MERMAID: source, mermaid
+endif::[]
+ifndef::env-github[]
+:MERMAID: mermaid
+endif::[]
 
 .Main Project Goals
 1. Improve my skill-set and learn more about gpu based programming.
