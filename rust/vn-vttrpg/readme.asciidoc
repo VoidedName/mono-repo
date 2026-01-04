@@ -23,10 +23,10 @@ graph TD
     vn-vttrpg-logic[vn-vttrpg-logic]
     
     subgraph Core [Core Framework]
-        vn-wgpu-window[link:../vn-wgpu-window/readme.asciidoc[vn-wgpu-window]]
-        vn-ui[link:../vn-ui/readme.asciidoc[vn-ui]]
-        vn-scene[link:../vn-scene/readme.asciidoc[vn-scene]]
-        vn-utils[link:../vn-utils/readme.asciidoc[vn-utils]]
+        vn-wgpu-window
+        vn-ui
+        vn-scene
+        vn-utils
     end
 
     vn-vttrpg-native --> vn-vttrpg-logic
@@ -47,7 +47,7 @@ Implements the `MainLogic` trait and exports an `init()` function that bridges t
 * *vn-vttrpg-web*: WebAssembly binary launcher that sets up web-specific logging, implements browser-based file loading via fetch API, and calls `vn-vttrpg-logic::init()`.
 
 .Launch Flow
-[mermaid]
+[{MERMAID}]
 ----
 sequenceDiagram
     participant Native as vn-vttrpg-native
