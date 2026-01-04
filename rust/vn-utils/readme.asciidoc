@@ -15,7 +15,7 @@ graph TD
     Utils --> Float[float: NaNTo]
     Utils --> Result[result: MonoResult]
     Utils --> String[string: CharIndex / Insert / Remove]
-    Utils --> Opt[UpdateOption]
+    Utils --> Opt[option: UpdateOption]
 ----
 
 The crate is organized into several modules, each providing a specific category of utilities.
@@ -26,7 +26,7 @@ The crate is organized into several modules, each providing a specific category 
 * **float**: Trait `NaNTo` for safe handling of NaN values in floating-point calculations.
 * **result**: Trait `MonoResult` for simplifying results where `Ok` and `Err` share the same type.
 * **string**: Utilities for character-index based string manipulation (`InsertAtCharIndex`, `RemoveAtCharIndex`).
-* **UpdateOption**: A trait extending `Option<T>` with convenient update methods.
+* **option**: A trait extending `UpdateOption` with convenient update methods for Options.
 
 === Design Decisions
 

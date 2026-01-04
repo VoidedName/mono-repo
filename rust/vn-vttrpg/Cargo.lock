@@ -2021,7 +2021,6 @@ dependencies = [
  "thiserror 2.0.17",
  "vn-scene",
  "vn-ui",
- "vn-utils",
  "vn-wgpu-window",
  "web-time",
  "winit",
@@ -2049,7 +2048,6 @@ dependencies = [
  "vn-vttrpg-logic",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "web-sys",
 ]
 
 [[package]]

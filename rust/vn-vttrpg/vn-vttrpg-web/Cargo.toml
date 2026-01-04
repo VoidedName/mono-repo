@@ -20,7 +20,6 @@ wasm-bindgen = { workspace = true }
 console_error_panic_hook = { workspace = true }
 console_log = { workspace = true }
 log = { workspace = true }
-web-sys = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 js-sys = { workspace = true }
 anyhow = { workspace = true }

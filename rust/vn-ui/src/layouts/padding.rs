@@ -3,7 +3,7 @@ use std::rc::Rc;
 use vn_scene::Scene;
 use vn_ui_animation::AnimationController;
 use vn_ui_animation_macros::Interpolatable;
-use vn_utils::UpdateOption;
+use vn_utils::option::UpdateOption;
 use web_time::Instant;
 
 #[derive(Clone, Copy, Debug, Interpolatable)]

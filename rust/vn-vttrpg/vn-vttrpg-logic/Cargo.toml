@@ -13,10 +13,8 @@ debug_outlines = ["vn-ui/debug_outlines"]
 vn-scene = { path = "../../vn-scene" }
 vn-wgpu-window = { path = "../../vn-wgpu-window" }
 vn-ui = { path = "../../vn-ui" }
-vn-utils = { path = "../../vn-utils" }
 log = { workspace = true }
 anyhow = { workspace = true }
-winit = { workspace = true }
-web-time = { workspace = true }
 thiserror = { workspace = true }
-
+web-time = { workspace = true }
+winit = { workspace = true }

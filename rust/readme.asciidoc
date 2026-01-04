@@ -65,11 +65,11 @@ For more details, see link:vn-vttrpg/readme.asciidoc[vn-vttrpg/readme.asciidoc].
 
 The VN-Suit is designed with several core principles to ensure flexibility and portability:
 
-. **Crate-based Modularization**: The project is split into many small, focused crates (see link:vn-utils/README.asciidoc[vn-utils]). This promotes clean boundaries and allows for reusing only specific parts of the framework if needed.
-. **Platform Abstraction via Traits**: Platform-specific functionality (like file loading) is abstracted through traits. This allows the core logic to remain platform-agnostic while launchers (Native vs Web) provide the concrete implementation. (See link:vn-wgpu-window/README.asciidoc[vn-wgpu-window])
-. **Data-Oriented Scene Graph**: link:vn-scene/README.asciidoc[`vn-scene`] defines the "what" to render as plain data structures, while link:vn-wgpu-window/README.asciidoc[`vn-wgpu-window`] implements the "how" using WGPU.
-. **Cached UI Layout**: The link:vn-ui/README.asciidoc[UI system] uses a layout cache to avoid redundant calculations, ensuring high performance even with complex UI trees.
-. **Reactive Animation System**: link:vn-ui-animation/README.asciidoc[Animations] are integrated into the UI properties, allowing for smooth transitions by simply interpolating values over time. (See also link:vn-ui-animation-macros/README.asciidoc[vn-ui-animation-macros])
+. **Crate-based Modularization**: The project is split into many small, focused crates (see link:vn-utils/readme.asciidoc[vn-utils]). This promotes clean boundaries and allows for reusing only specific parts of the framework if needed.
+. **Platform Abstraction via Traits**: Platform-specific functionality (like file loading) is abstracted through traits. This allows the core logic to remain platform-agnostic while launchers (Native vs Web) provide the concrete implementation. (See link:vn-wgpu-window/readme.asciidoc[vn-wgpu-window])
+. **Data-Oriented Scene Graph**: link:vn-scene/readme.asciidoc[`vn-scene`] defines the "what" to render as plain data structures, while link:vn-wgpu-window/readme.asciidoc[`vn-wgpu-window`] implements the "how" using WGPU.
+. **Cached UI Layout**: The link:vn-ui/readme.asciidoc[UI system] uses a layout cache to avoid redundant calculations, ensuring high performance even with complex UI trees.
+. **Reactive Animation System**: link:vn-ui-animation/readme.asciidoc[Animations] are integrated into the UI properties, allowing for smooth transitions by simply interpolating values over time. (See also link:vn-ui-animation-macros/readme.asciidoc[vn-ui-animation-macros])
 
 == Things I still need to do
 

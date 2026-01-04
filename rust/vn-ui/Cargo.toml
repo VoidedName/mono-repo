@@ -13,7 +13,7 @@ web-time = { workspace = true }
 # ide marks it as unused, but it is very much used by rand
 getrandom = { workspace = true, features = ["wasm_js"] }
 rand = { workspace = true }
-log = "0.4.29"
+log = { workspace = true }
 
 [features]
 debug_outlines = []
