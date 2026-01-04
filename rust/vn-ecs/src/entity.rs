@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Entity {
     pub(crate) id: u32,
@@ -12,19 +14,19 @@ impl Entity {
 
 pub struct EntityManager {
     pub(crate) generations: Vec<u32>,
-    free_indices: Vec<u32>,
+    free_indices: VecDeque<u32>,
 }
 
 impl EntityManager {
     pub fn new() -> Self {
         Self {
             generations: Vec::new(),
-            free_indices: Vec::new(),
+            free_indices: VecDeque::new(),
         }
     }
 
     pub fn spawn(&mut self) -> Entity {
-        if let Some(id) = self.free_indices.pop() {
+        if let Some(id) = self.free_indices.pop_front() {
             Entity {
                 id,
                 generation: self.generations[id as usize],
@@ -38,9 +40,9 @@ impl EntityManager {
 
     pub fn despawn(&mut self, entity: Entity) -> bool {
         let index = entity.id as usize;
-        if index < self.generations.len() && self.generations[index] == entity.generation {
+        if self.is_alive(entity) {
             self.generations[index] += 1;
-            self.free_indices.push(entity.id);
+            self.free_indices.push_back(entity.id);
             true
         } else {
             false
