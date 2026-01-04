@@ -1,0 +1,134 @@
+= vn-ecs
+Voided Name
+v0.1, 2026-01-04
+:source-highlighter: rouge
+// What a jank pointless pain github inflicts on all of us just because they don't conform to the asciidoc spec... thx: https://github.com/orgs/community/discussions/106933#discussioncomment-14246791 for the fix
+ifdef::env-github[]
+:MERMAID: source, mermaid
+endif::[]
+ifndef::env-github[]
+:MERMAID: mermaid
+endif::[]
+
+`vn-ecs` is a flexible and extensible Entity Component System (ECS) implemented in Rust. It provides efficient storage and querying of entities and their components, with integrated support for spatial and ordered indexing.
+
+Part of the link:../readme.asciidoc[VN-Suit] framework.
+
+== Architecture
+
+The crate is designed for performance and flexibility, utilizing sparse sets for component storage and generational IDs for safe entity management.
+
+=== Core Components
+
+* **Entity Management**: Uses a generational ID system to allow safe reuse of entity IDs without "stale" handle issues.
+* **Sparse Set Storage**: Components are stored in sparse sets by default, providing `O(1)` access and removal while maintaining cache-friendly iteration for dense data.
+* **Storage Registration**: Allows explicit registration of custom storage implementations for specific component types via the `ComponentStorage` trait.
+* **Global Resources**: Supports storing global data both by type and under a unique "Key + Type" combination (named resources).
+* **Indexing System**:
+** **BTreeIndex**: A custom B-Tree implementation supporting range queries on component values. Built using `BTreeIndexBuilder`.
+** **RTreeIndex**: A custom N-dimensional R-Tree implementation for spatial queries (bounding box searches). Built using `RTreeIndexBuilder`.
+* **Component Tagging**: Allows attaching Zero-Sized Types (ZSTs) as tags to specific components on an entity for efficient filtering and metadata.
+* **System Orchestration**: Provides a `System` trait and `SystemManager` to coordinate logic execution across the `World`.
+
+=== Design Decisions
+
+* **No External Dependencies**: The entire ECS, including the B-Tree and R-Tree data structures, is implemented using the Rust standard library and custom logic.
+* **Trait-Based Storage**: The `World` interacts with component storage through the `ComponentStorage` trait, avoiding direct downcasting to specific implementations and allowing for custom storage backends.
+* **Type Safety**: Leverages Rust's type system (`Any`, `TypeId`) to allow arbitrary types as components and resources.
+* **Decoupled Indexing**: Indices are updated automatically when components are added or removed. They are constructed using a builder pattern (`IndexBuilder`) which allows for efficient bulk-loading from existing data.
+* **Generics and Const Generics**: Uses generics for numeric types (in R-Tree) and const generics for configuration (e.g., B-Tree order, R-Tree dimensions).
+* **Flexible Logic**: Systems are decoupled from the `World` and can be enabled, disabled, or removed at runtime via the `SystemManager`.
+
+== Systems
+
+Systems implement the `System` trait to define logic that operates on the `World`.
+
+[source,rust]
+----
+struct MovementSystem;
+
+impl System for MovementSystem {
+    fn run(&mut self, world: &mut World) {
+        let entities = world.query_entities_with_all(&[
+            TypeId::of::<Position>(),
+            TypeId::of::<Velocity>(),
+        ]);
+
+        for entity in entities {
+            let vel = *world.get_component::<Velocity>(entity).unwrap();
+            let mut pos = world.get_component_mut::<Position>(entity).unwrap();
+            pos.x += vel.dx;
+            pos.y += vel.dy;
+        }
+    }
+}
+----
+
+The `SystemManager` handles the registration and execution of these systems.
+
+[source,rust]
+----
+let mut sm = SystemManager::new();
+sm.add_system(MovementSystem);
+
+// Execute all enabled systems
+sm.run(&mut world);
+
+// Manage systems by their type name
+let name = std::any::type_name::<MovementSystem>();
+sm.set_enabled_by_name(name, false);
+sm.remove_system_by_name(name);
+----
+
+=== Execution Flow
+
+[{MERMAID}]
+----
+graph TD
+    World[World State] --> SM[SystemManager]
+    SM --> S1[System 1]
+    SM --> S2[System 2: Disabled]
+    SM --> S3[System 3]
+    S1 --> World
+    S3 --> World
+----
+
+== Example
+
+[source,rust]
+----
+let mut world = World::new();
+
+// Spawn an entity with components
+let entity = world.spawn();
+world.add_component(entity, Position { x: 10.0, y: 20.0 });
+world.add_component(entity, Velocity { dx: 1.0, dy: 1.0 });
+
+// Add a spatial index using a builder
+world.add_index::<Position, RTreeIndex<Position, f32, 2>, _>(
+    RTreeIndexBuilder::new(|p: &Position| [p.x, p.y])
+);
+
+// Query entities with all specified components
+let entities = world.query_entities_with_all(&[
+    TypeId::of::<Position>(),
+    TypeId::of::<Velocity>()
+]);
+
+// Tag a component with a ZST
+struct PlayerTag;
+world.tag_component::<Position, PlayerTag>(entity);
+
+// Remove a component
+let pos: Option<Position> = world.remove_component::<Position>(entity);
+
+// Manage resources
+world.insert_resource(Config { gravity: 9.81 });
+let config = world.get_resource::<Config>();
+----
+
+== TODO
+
+- [ ] More complex query combinators (e.g., OR, NOT).
+- [ ] System Dependency Graph (Topological Sorting). (Create a dependency graph where a system can have a required / optional / no predecessors. Cycles are forbidden.)
+- [ ] Serialization Support (`serde`).

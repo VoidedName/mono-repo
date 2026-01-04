@@ -6,7 +6,7 @@ members = [
     "vn-utils",
     "vn-ui-animation",
     "vn-ui-animation-macros",
-    "vn-scene",
+    "vn-scene", "vn-ecs",
 ]
 
 [workspace.dependencies]

@@ -38,6 +38,7 @@ graph TD
             vn-ui-animation
             vn-ui-animation-macros
             vn-utils
+            vn-ecs
             vn-wgpu-window
 
             vn-ui --> vn-scene
@@ -77,6 +78,7 @@ The VN-Suit is designed with several core principles to ensure flexibility and p
 . **Data-Oriented Scene Graph**: link:vn-scene/readme.asciidoc[`vn-scene`] defines the "what" to render as plain data structures, while link:vn-wgpu-window/readme.asciidoc[`vn-wgpu-window`] implements the "how" using WGPU.
 . **Cached UI Layout**: The link:vn-ui/readme.asciidoc[UI system] uses a layout cache to avoid redundant calculations, ensuring high performance even with complex UI trees.
 . **Reactive Animation System**: link:vn-ui-animation/readme.asciidoc[Animations] are integrated into the UI properties, allowing for smooth transitions by simply interpolating values over time. (See also link:vn-ui-animation-macros/readme.asciidoc[vn-ui-animation-macros])
+. **Entity Component System**: link:vn-ecs/readme.asciidoc[ECS] is a modular approach to model entities as a composition of multiple components. This differs from the traditional class hierarchy based one in that an entity, typically just some id, has no bias or opinion on what it is and its role and functionality within the "world" can be freely changed and modified simply by adding or removing components from it. A typical example is NPC or even PC capabilities, such as ranged vs melee attacks typically requiring individualised types that represent these and then their combination. Add a magic type, maybe some other and it explodes in combinatorical complexity.
 
 == Things I still need to do
 
@@ -99,3 +101,4 @@ The VN-Suit is designed with several core principles to ensure flexibility and p
 - [ ] Localization Support: Framework-level support for translated strings.
 - [ ] Documentation: Move from basic READMEs to comprehensive documentation.
 - [ ] Testing: Implement automated UI and rendering tests.
+- [ ] ECS: WIP
