@@ -68,6 +68,25 @@ The application logic crate (vn-vttrpg-logic) remains platform-agnostic by using
 
 == Architecture & Design Decisions
 
+.Platform Abstraction (Platform Hooks)
+[mermaid]
+----
+classDiagram
+    class PlatformHooks {
+        <<trait>>
+        +load_file(path)
+    }
+    class NativePlatformHooks {
+        +load_file(path) // uses std::fs
+    }
+    class WebPlatformHooks {
+        +load_file(path) // uses fetch API
+    }
+
+    PlatformHooks <|-- NativePlatformHooks
+    PlatformHooks <|-- WebPlatformHooks
+----
+
 VTTRPG follows a strict separation between application logic and platform-specific entry points.
 
 . **Logic-Crate Pattern**: All application code resides in `vn-vttrpg-logic`. This crate is a library and contains no platform-specific code.

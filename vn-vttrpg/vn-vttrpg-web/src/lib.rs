@@ -28,8 +28,8 @@ pub async fn load_file(path: String) -> Result<Vec<u8>, FileLoadingError> {
     Ok(file_bytes.to_vec())
 }
 
-struct FL;
-impl PlatformHooks for FL {
+struct WebPlatformHooks;
+impl PlatformHooks for WebPlatformHooks {
     fn load_file(
         &self,
         path: String,
@@ -44,7 +44,7 @@ pub fn main_web() -> Result<(), JsValue> {
     console_log::init_with_level(log::Level::Info).expect("Failed to initialize console_log");
     log::info!("Logging initialized with level: {:?}", log::Level::Info);
 
-    vn_vttrpg_logic::init(Box::new(FL)).map_err(|e| JsValue::from_str(&e.to_string()))?;
+    vn_vttrpg_logic::init(Box::new(WebPlatformHooks)).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     Ok(())
 }

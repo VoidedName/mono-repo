@@ -12,8 +12,8 @@ pub async fn load_file(path: String) -> anyhow::Result<Vec<u8>, FileLoadingError
     Ok(buffer)
 }
 
-struct FL;
-impl PlatformHooks for FL {
+struct NativePlatformHooks;
+impl PlatformHooks for NativePlatformHooks {
     fn load_file(
         &self,
         path: String,
@@ -38,5 +38,5 @@ fn main() {
         log_style
     );
 
-    vn_vttrpg_logic::init(Box::new(FL)).expect("Failed to initialize!");
+    vn_vttrpg_logic::init(Box::new(NativePlatformHooks)).expect("Failed to initialize!");
 }

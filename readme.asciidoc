@@ -63,25 +63,6 @@ For more details, see link:vn-vttrpg/readme.asciidoc[vn-vttrpg/readme.asciidoc].
 
 == Architecture & Design Decisions
 
-.Platform Abstraction (File Loading)
-[mermaid]
-----
-classDiagram
-    class FileLoader {
-        <<trait>>
-        +load_file(path)
-    }
-    class NativeFileLoader {
-        +load_file(path) // uses std::fs
-    }
-    class WebFileLoader {
-        +load_file(path) // uses fetch API
-    }
-
-    FileLoader <|-- NativeFileLoader
-    FileLoader <|-- WebFileLoader
-----
-
 The VN-Suit is designed with several core principles to ensure flexibility and portability:
 
 . **Crate-based Modularization**: The project is split into many small, focused crates (see link:vn-utils/README.asciidoc[vn-utils]). This promotes clean boundaries and allows for reusing only specific parts of the framework if needed.
