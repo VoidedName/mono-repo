@@ -76,7 +76,7 @@ The application logic crate (vn-vttrpg-logic) remains platform-agnostic by using
 == Architecture & Design Decisions
 
 .Platform Abstraction (Platform Hooks)
-[mermaid]
+[{MERMAID}]
 ----
 classDiagram
     class PlatformHooks {
