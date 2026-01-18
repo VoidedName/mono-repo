@@ -28,7 +28,6 @@ pub struct Padding<State> {
     id: ElementId,
     child: Box<dyn Element<State = State>>,
     params: StateToParams<State, PaddingParams>,
-    child_size: ElementSize,
 }
 
 impl<State> Padding<State> {
@@ -41,7 +40,6 @@ impl<State> Padding<State> {
             id: ctx.event_manager.next_id(),
             child,
             params,
-            child_size: ElementSize::ZERO,
         }
     }
 }
@@ -74,11 +72,11 @@ impl<State> ElementImpl for Padding<State> {
         child_constraints.min_size.height =
             child_constraints.min_size.height.max(y_padding) - y_padding;
 
-        self.child_size = self.child.layout(ctx, state, child_constraints);
+        let child_size = self.child.layout(ctx, state, child_constraints);
 
         ElementSize {
-            width: self.child_size.width + x_padding,
-            height: self.child_size.height + y_padding,
+            width: child_size.width + x_padding,
+            height: child_size.height + y_padding,
         }
         .clamp_to_constraints(constraints)
     }

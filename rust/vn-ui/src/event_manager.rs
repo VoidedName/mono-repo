@@ -229,6 +229,7 @@ pub struct UiContext<'a> {
     /// sensitive to parameter changes, we MUST supply a fresh cache for each render cycle
     pub layout_cache: Box<dyn LayoutCache>,
     pub interactive: bool,
+    /// Now should never change within a render cycle (i.e. between layout and render calls)
     pub now: web_time::Instant,
 }
 
