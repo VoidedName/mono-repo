@@ -1,6 +1,6 @@
 use crate::{ElementId, ElementSize, SizeConstraints, UiContext};
 use std::collections::HashMap;
-use vn_scene::{Scene, Transform};
+use vn_scene::Scene;
 
 pub struct SimpleLayoutCache {
     cache: HashMap<ElementId, (SizeConstraints, ElementSize)>,
@@ -23,14 +23,13 @@ impl LayoutCache for SimpleLayoutCache {
     fn lookup(&self, element_id: ElementId, constraints: SizeConstraints) -> Option<ElementSize> {
         self.cache
             .get(&element_id)
-            .map(|(cached_constraints, s)| {
+            .and_then(|(cached_constraints, s)| {
                 if constraints == *cached_constraints {
                     Some(*s)
                 } else {
                     None
                 }
             })
-            .flatten()
     }
 
     fn cache(&mut self, element_id: ElementId, constraints: SizeConstraints, size: ElementSize) {
@@ -41,6 +40,8 @@ impl LayoutCache for SimpleLayoutCache {
 /// Concrete implementation of an element. Implementing this automatically also implements [Element].
 /// Use the [Element] trait to interact with elements and do not call anything in here manually.
 pub trait ElementImpl {
+    type State;
+
     /// This ID is used in both the layout cache and for identifying elements in the UI and **MUST**
     /// be unique for each element.
     fn id_impl(&self) -> ElementId;
@@ -49,7 +50,12 @@ pub trait ElementImpl {
     /// And you can assume that the size you return here is the size the element will be drawn with.
     ///
     /// !!! DO NOT MANUALLY CALL THIS, CALL [layout](Self::layout) INSTEAD !!!
-    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize;
+    fn layout_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        constraints: SizeConstraints,
+    ) -> ElementSize;
 
     /// Draws the element at the specified origin with the given size into the scene.
     ///
@@ -57,6 +63,7 @@ pub trait ElementImpl {
     fn draw_impl(
         &mut self,
         ctx: &mut UiContext,
+        state: &Self::State,
         origin: (f32, f32),
         size: ElementSize,
         canvas: &mut dyn Scene,
@@ -66,6 +73,7 @@ pub trait ElementImpl {
 /// Represents a UI element that can be laid out and drawn.
 /// This trait is automatically implemented for all types that implement [ElementImpl].
 pub trait Element: ElementImpl {
+
     /// Returns the unique ID of this element.
     fn id(&self) -> ElementId {
         self.id_impl()
@@ -75,12 +83,17 @@ pub trait Element: ElementImpl {
     /// And elements assume that the size they get drawn with is the size they report here.
     ///
     /// !!! IF YOU OVERWRITE THIS METHOD, YOU MUST IMPLEMENT LAYOUT CACHING YOURSELF !!!
-    fn layout(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
+    fn layout(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        constraints: SizeConstraints,
+    ) -> ElementSize {
         if let Some(cached_size) = ctx.layout_cache.lookup(self.id(), constraints) {
             return cached_size;
         }
 
-        let size = self.layout_impl(ctx, constraints);
+        let size = self.layout_impl(ctx, state, constraints);
 
         ctx.layout_cache.cache(self.id(), constraints, size);
 
@@ -93,11 +106,12 @@ pub trait Element: ElementImpl {
     fn draw(
         &mut self,
         ctx: &mut UiContext,
+        state: &Self::State,
         origin: (f32, f32),
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        self.draw_impl(ctx, origin, size, canvas);
+        self.draw_impl(ctx, state, origin, size, canvas);
         #[cfg(feature = "debug_outlines")]
         {
             use rand::rngs::SmallRng;
@@ -135,4 +149,5 @@ pub trait Element: ElementImpl {
     }
 }
 
-impl<T: ElementImpl> Element for T {}
+impl<State, T: ElementImpl<State = State>> Element for T {}
+

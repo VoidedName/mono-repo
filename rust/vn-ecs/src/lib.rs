@@ -458,18 +458,18 @@ mod tests {
         assert_eq!(world.get_component::<Counter>(e).unwrap().0, 1);
 
         // Disable
-        let name = std::any::type_name::<IncrementSystem>();
-        sm.set_enabled_by_name(name, false);
+        let name = TypeId::of::<IncrementSystem>();
+        sm.set_enabled_by_type(name, false);
         sm.run(&mut world);
         assert_eq!(world.get_component::<Counter>(e).unwrap().0, 1);
 
         // Enable
-        sm.set_enabled_by_name(name, true);
+        sm.set_enabled_by_type(name, true);
         sm.run(&mut world);
         assert_eq!(world.get_component::<Counter>(e).unwrap().0, 2);
 
         // Remove
-        sm.remove_system_by_name(name);
+        sm.remove_system_by_type(name);
         sm.run(&mut world);
         assert_eq!(world.get_component::<Counter>(e).unwrap().0, 2);
     }

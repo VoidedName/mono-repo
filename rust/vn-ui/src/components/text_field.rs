@@ -1,26 +1,50 @@
 use crate::text::layout::TextLayout;
 use crate::utils::ToArray;
 use crate::{
-    ElementId, ElementImpl, ElementSize, SizeConstraints, TextFieldParams, TextMetrics, UiContext,
+    ElementId, ElementImpl, ElementSize, SizeConstraints, StateToParams, TextFieldCallbacks,
+    TextMetrics, UiContext,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, TextPrimitiveData, Transform};
-use vn_ui_animation::AnimationController;
+use vn_ui_animation_macros::Interpolatable;
 use web_time::Instant;
 
-pub trait TextFieldController {
-    fn text(&self) -> String;
-    fn caret_position(&self) -> Option<usize>;
-    // I'm not entirely sure if this is the right place for this, but it's the easiest place to put it for now.
-    // I need to somehow / somewhere report the text layout so that the logic can respond to it correctly.
-    fn set_current_layout(&mut self, layout: TextLayout);
-    fn current_layout(&self) -> Option<&TextLayout>;
+#[derive(Clone, PartialEq, Interpolatable)]
+pub struct TextVisuals {
+    #[no_interpolation]
+    pub text: String,
+    #[no_interpolation]
+    pub caret_position: Option<usize>,
+    #[no_interpolation]
+    pub font: String,
+    pub font_size: f32,
+    pub color: Color,
+    #[interpolate_none_as_default]
+    pub caret_width: Option<f32>,
+    #[interpolate_none_as_default]
+    pub caret_blink_duration: Option<f32>,
+}
+
+#[derive(Clone, Interpolatable)]
+pub struct TextFieldParams {
+    pub visuals: TextVisuals,
+    #[no_interpolation]
+    pub controller: Rc<RefCell<dyn TextFieldCallbacks>>,
+    #[no_interpolation]
+    pub metrics: Rc<dyn TextMetrics>,
+}
+
+pub struct DynamicString(pub Box<dyn Fn() -> String>);
+
+pub enum TextFieldText {
+    Static(String),
+    Dynamic(DynamicString),
 }
 
 pub struct StaticTextFieldController {
     text_layout: Option<TextLayout>,
-    text: String,
+    pub text: String,
 }
 
 impl StaticTextFieldController {
@@ -30,22 +54,15 @@ impl StaticTextFieldController {
             text_layout: None,
         }
     }
+
+    pub fn current_layout(&self) -> Option<&TextLayout> {
+        self.text_layout.as_ref()
+    }
 }
 
-impl TextFieldController for StaticTextFieldController {
-    fn text(&self) -> String {
-        self.text.clone()
-    }
-    fn caret_position(&self) -> Option<usize> {
-        None
-    }
-
-    fn set_current_layout(&mut self, layout: TextLayout) {
-        self.text_layout = Some(layout);
-    }
-
-    fn current_layout(&self) -> Option<&TextLayout> {
-        self.text_layout.as_ref()
+impl TextFieldCallbacks for StaticTextFieldController {
+    fn text_layout_changed(&mut self, layout: &TextLayout) {
+        self.text_layout = Some(layout.clone());
     }
 }
 
@@ -61,21 +78,19 @@ impl DynamicTextFieldController {
             text_layout: None,
         }
     }
-}
 
-impl TextFieldController for DynamicTextFieldController {
-    fn text(&self) -> String {
+    pub fn text(&self) -> String {
         (self.f)()
     }
-    fn caret_position(&self) -> Option<usize> {
-        None
-    }
 
-    fn set_current_layout(&mut self, layout: TextLayout) {
-        self.text_layout = Some(layout);
-    }
-    fn current_layout(&self) -> Option<&TextLayout> {
+    pub fn current_layout(&self) -> Option<&TextLayout> {
         self.text_layout.as_ref()
+    }
+}
+
+impl TextFieldCallbacks for DynamicTextFieldController {
+    fn text_layout_changed(&mut self, layout: &TextLayout) {
+        self.text_layout = Some(layout.clone());
     }
 }
 
@@ -99,21 +114,15 @@ impl InputTextFieldController {
             text_layout: None,
         }
     }
+
+    pub fn current_layout(&self) -> Option<&TextLayout> {
+        self.text_layout.as_ref()
+    }
 }
 
-impl TextFieldController for InputTextFieldController {
-    fn text(&self) -> String {
-        self.text.clone()
-    }
-    fn caret_position(&self) -> Option<usize> {
-        Some(self.caret)
-    }
-
-    fn set_current_layout(&mut self, layout: TextLayout) {
-        self.text_layout = Some(layout);
-    }
-    fn current_layout(&self) -> Option<&TextLayout> {
-        self.text_layout.as_ref()
+impl TextFieldCallbacks for InputTextFieldController {
+    fn text_layout_changed(&mut self, layout: &TextLayout) {
+        self.text_layout = Some(layout.clone());
     }
 }
 
@@ -216,7 +225,7 @@ impl InputTextFieldControllerExt for InputTextFieldController {
     fn handle_click(&mut self, x: f32, y: f32) {
         let c_pos = self
             .current_layout()
-            .and_then(|layout| layout.hit_test(x, y));
+            .and_then(|layout: &TextLayout| layout.hit_test(x, y));
 
         if let Some(c_pos) = c_pos {
             self.caret = c_pos;
@@ -228,91 +237,39 @@ impl InputTextFieldControllerExt for InputTextFieldController {
     }
 }
 
-pub struct TextField {
+pub struct TextField<State> {
     id: ElementId,
-    animation_controller: Rc<AnimationController<TextFieldParams>>,
-    controller: Rc<RefCell<dyn TextFieldController>>,
-    text: String,
-    caret_position: Option<usize>,
-    text_metrics: Rc<dyn TextMetrics>,
+    params: StateToParams<State, TextFieldParams>,
+    visuals: Option<TextVisuals>,
+    layout: Option<TextLayout>,
     size: ElementSize,
     gained_focus_at: Option<Instant>,
     show_caret: bool,
-    caret_blink_duration: f32,
     line_height: f32,
-    caret_width: f32,
     last_max_width: Option<f32>,
-    layout_time: Instant,
-    last_font_size: Option<f32>,
-    last_font: Option<String>,
-    last_color: Option<Color>,
 }
 
-impl TextField {
-    pub fn new<T: TextMetrics + 'static>(
-        animation_controller: Rc<AnimationController<TextFieldParams>>,
-        controller: Rc<RefCell<dyn TextFieldController>>,
-        text_metrics: Rc<T>,
+impl<State> TextField<State> {
+    pub fn new(
+        params: StateToParams<State, TextFieldParams>,
         ctx: &mut UiContext,
     ) -> Self {
-        let text = controller.borrow().text();
-        let caret_position = controller.borrow().caret_position();
-
-        let layout_time = Instant::now();
-        let params = animation_controller.value(layout_time);
-
-        let caret_width = 2.0;
-        let line_height = text_metrics.line_height(&params.font, params.font_size);
-
         Self {
             id: ctx.event_manager.next_id(),
-            line_height,
-            text,
-            caret_position,
-            animation_controller,
-            controller,
+            line_height: 0.0,
+            visuals: None,
+            layout: None,
+            params,
             show_caret: false,
-            caret_width,
-            text_metrics,
-            caret_blink_duration: 1.0,
             gained_focus_at: None,
             size: ElementSize::ZERO,
             last_max_width: None,
-            layout_time,
-            last_font_size: Some(params.font_size),
-            last_font: Some(params.font.clone()),
-            last_color: Some(params.color),
         }
     }
 
-    pub fn update_state(&mut self, max_width: Option<f32>) -> bool {
-        let mut changed = false;
-
-        let params = self.animation_controller.value(self.layout_time);
-        if Some(params.font_size) != self.last_font_size {
-            self.last_font_size = Some(params.font_size);
-            changed = true;
-        }
-        if Some(params.font.clone()) != self.last_font {
-            self.last_font = Some(params.font.clone());
-            changed = true;
-        }
-        if Some(params.color) != self.last_color {
-            self.last_color = Some(params.color);
-            changed = true;
-        }
-
-        let new_text = self.controller.borrow().text();
-        if new_text != self.text {
-            self.text = new_text;
-            changed = true;
-        }
-
-        let new_caret_position = self.controller.borrow().caret_position();
-        if self.caret_position != new_caret_position {
-            self.caret_position = new_caret_position;
-            changed = true;
-        }
+    pub fn update_state(&mut self, state: &State, now: &Instant, max_width: Option<f32>) -> bool {
+        let params = (self.params)(state, now);
+        let mut changed = self.visuals.as_ref() != Some(&params.visuals);
 
         if max_width != self.last_max_width {
             self.last_max_width = max_width;
@@ -320,57 +277,57 @@ impl TextField {
         }
 
         if changed {
-            self.line_height = self
-                .text_metrics
-                .line_height(&params.font, params.font_size);
-            let caret_space = self.caret_width;
-            self.controller
+            self.line_height = params.metrics.line_height(&params.visuals.font, params.visuals.font_size);
+            let caret_space = params.visuals.caret_width.unwrap_or(2.0);
+            let layout = TextLayout::layout(
+                &params.visuals.text,
+                &params.visuals.font,
+                params.visuals.font_size,
+                max_width.map(|w| w - caret_space),
+                params.metrics.as_ref(),
+            );
+            params
+                .controller
                 .borrow_mut()
-                .set_current_layout(TextLayout::layout(
-                    &self.text,
-                    &params.font,
-                    params.font_size,
-                    max_width.map(|w| w - caret_space),
-                    self.text_metrics.as_ref(),
-                ));
+                .text_layout_changed(&layout);
+            
+            self.size = ElementSize {
+                width: layout.total_width + caret_space,
+                height: layout.total_height.max(self.line_height),
+            };
+            self.layout = Some(layout);
+            self.visuals = Some(params.visuals.clone());
 
             // Reset caret blink timer when changing
             if self.gained_focus_at.is_some() {
                 self.gained_focus_at = Some(Instant::now());
             }
-
-            self.size = self
-                .controller
-                .borrow()
-                .current_layout()
-                .map(|l| ElementSize {
-                    width: l.total_width + caret_space,
-                    height: l.total_height.max(self.line_height),
-                })
-                .unwrap_or(ElementSize::ZERO);
         }
         changed
     }
 
     pub fn caret_width(&self) -> f32 {
-        if self.caret_position.is_some() {
-            self.caret_width
-        } else {
-            0.0
+        if let Some(visuals) = &self.visuals {
+            if visuals.caret_position.is_some() {
+                return visuals.caret_width.unwrap_or(2.0);
+            }
         }
+        0.0
     }
 }
 
-impl ElementImpl for TextField {
+impl<State> ElementImpl for TextField<State> {
+    type State = State;
+
     fn id_impl(&self) -> ElementId {
         self.id
     }
 
-    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
-        self.layout_time = Instant::now();
-        self.update_state(constraints.max_size.width);
+    fn layout_impl(&mut self, ctx: &mut UiContext, state: &Self::State, constraints: SizeConstraints) -> ElementSize {
+        self.update_state(state, &ctx.now, constraints.max_size.width);
 
         let is_focused = ctx.event_manager.is_focused(self.id);
+        let caret_blink_duration = self.visuals.as_ref().and_then(|v| v.caret_blink_duration).unwrap_or(1.0);
         match (is_focused, self.gained_focus_at) {
             (false, _) => {
                 self.gained_focus_at = None;
@@ -381,8 +338,8 @@ impl ElementImpl for TextField {
                 self.show_caret = true;
             }
             (true, Some(start_at)) => {
-                self.show_caret = start_at.elapsed().as_secs_f32() % self.caret_blink_duration
-                    < self.caret_blink_duration / 2.0;
+                self.show_caret = start_at.elapsed().as_secs_f32() % caret_blink_duration
+                    < caret_blink_duration / 2.0;
             }
         }
 
@@ -392,16 +349,19 @@ impl ElementImpl for TextField {
     fn draw_impl(
         &mut self,
         ctx: &mut UiContext,
+        state: &Self::State,
         origin: (f32, f32),
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = self.animation_controller.value(self.layout_time);
+        let params = (self.params)(state, &ctx.now);
+        let visuals = &params.visuals;
 
         let caret_height = self.line_height * 0.8;
         let caret_y_extra_offset = self.line_height / 2.0 - caret_height / 2.0;
-        let caret_space = if self.caret_position.is_some() {
-            self.caret_width
+        let caret_width = self.caret_width();
+        let caret_space = if visuals.caret_position.is_some() {
+            caret_width
         } else {
             0.0
         };
@@ -414,7 +374,7 @@ impl ElementImpl for TextField {
                 size: size.to_array(),
             },
             |_ctx| {
-                if let Some(layout) = self.controller.borrow().current_layout() {
+                if let Some(layout) = &self.layout {
                     for (i, line) in layout.lines.iter().enumerate() {
                         let line_y_offset = i as f32 * self.line_height;
 
@@ -438,7 +398,7 @@ impl ElementImpl for TextField {
                                 ],
                                 ..Transform::DEFAULT
                             },
-                            tint: params.color,
+                            tint: visuals.color,
                             glyphs,
                             clip_rect: Rect {
                                 position: [-caret_space / 2.0, -line_y_offset],
@@ -448,12 +408,12 @@ impl ElementImpl for TextField {
                     }
 
                     if self.show_caret {
-                        if let Some(caret_position) = self.caret_position {
+                        if let Some(caret_position) = visuals.caret_position {
                             canvas.with_next_layer(&mut |canvas| {
                                 let (caret_x_offset, caret_y_offset) =
                                     layout.get_caret_pos(caret_position);
 
-                                let caret_x = origin.0 + caret_x_offset + self.caret_width / 2.0;
+                                let caret_x = origin.0 + caret_x_offset + caret_width / 2.0;
                                 let caret_y = origin.1 + caret_y_offset + caret_y_extra_offset;
 
                                 canvas.add_box(BoxPrimitiveData {
@@ -461,14 +421,14 @@ impl ElementImpl for TextField {
                                         translation: [caret_x, caret_y],
                                         ..Transform::DEFAULT
                                     },
-                                    size: [self.caret_width, caret_height],
-                                    color: params.color,
+                                    size: [caret_width, caret_height],
+                                    color: visuals.color,
                                     border_color: Color::TRANSPARENT,
                                     border_thickness: 0.0,
                                     border_radius: 0.0,
                                     clip_rect: Rect {
                                         position: [
-                                            -caret_x_offset - self.caret_width / 2.0,
+                                            -caret_x_offset - caret_width / 2.0,
                                             -(caret_y_offset + caret_y_extra_offset),
                                         ],
                                         size: size.to_array(),
@@ -482,3 +442,4 @@ impl ElementImpl for TextField {
         );
     }
 }
+

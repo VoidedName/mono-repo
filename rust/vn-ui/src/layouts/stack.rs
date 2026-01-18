@@ -3,14 +3,14 @@ use crate::{
 };
 use vn_scene::Scene;
 
-pub struct Stack {
+pub struct Stack<State> {
     id: ElementId,
-    children: Vec<Box<dyn Element>>,
+    children: Vec<Box<dyn Element<State = State>>>,
     children_size: Vec<ElementSize>,
 }
 
-impl Stack {
-    pub fn new(children: Vec<Box<dyn Element>>, ctx: &mut UiContext) -> Self {
+impl<State> Stack<State> {
+    pub fn new(children: Vec<Box<dyn Element<State = State>>>, ctx: &mut UiContext) -> Self {
         Stack {
             id: ctx.event_manager.next_id(),
             children_size: vec![ElementSize::ZERO; children.len()],
@@ -19,17 +19,19 @@ impl Stack {
     }
 }
 
-impl ElementImpl for Stack {
+impl<State> ElementImpl for Stack<State> {
+    type State = State;
+
     fn id_impl(&self) -> ElementId {
         self.id
     }
 
-    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
+    fn layout_impl(&mut self, ctx: &mut UiContext, state: &Self::State, constraints: SizeConstraints) -> ElementSize {
         let mut max_width: f32 = 0.0;
         let mut max_height: f32 = 0.0;
 
         for (idx, child) in &mut self.children.iter_mut().enumerate() {
-            let child_size = child.layout(ctx, constraints);
+            let child_size = child.layout(ctx, state, constraints);
 
             max_width = max_width.max(child_size.width);
             max_height = max_height.max(child_size.height);
@@ -47,6 +49,7 @@ impl ElementImpl for Stack {
     fn draw_impl(
         &mut self,
         ctx: &mut UiContext,
+        state: &Self::State,
         origin: (f32, f32),
         size: ElementSize,
         canvas: &mut dyn Scene,
@@ -54,9 +57,10 @@ impl ElementImpl for Stack {
         let mut first_drawn = false;
 
         let mut draw_child =
-            |child: &mut Box<dyn Element>, child_size: ElementSize, canvas: &mut dyn Scene| {
+            |child: &mut Box<dyn Element<State = State>>, child_size: ElementSize, canvas: &mut dyn Scene| {
                 child.draw(
                     ctx,
+                    state,
                     (origin.0, origin.1),
                     child_size.clamp_to_constraints(SizeConstraints {
                         min_size: ElementSize::ZERO,
@@ -83,3 +87,4 @@ impl ElementImpl for Stack {
         }
     }
 }
+

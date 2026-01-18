@@ -1,4 +1,6 @@
-use crate::{Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
+use crate::{
+    Element, ElementId, ElementImpl, ElementSize, SizeConstraints, StateToParams, UiContext,
+};
 use vn_scene::Scene;
 
 #[derive(Clone, Copy)]
@@ -12,15 +14,19 @@ pub struct FlexParams {
     pub direction: FlexDirection,
 }
 
-pub struct Flex {
+pub struct Flex<State> {
     id: ElementId,
-    children: Vec<Box<dyn Element>>,
+    children: Vec<Box<dyn Element<State = State>>>,
     layout: Vec<ElementSize>,
-    params: FlexParams,
+    params: StateToParams<State, FlexParams>,
 }
 
-impl Flex {
-    pub fn new(children: Vec<Box<dyn Element>>, params: FlexParams, ctx: &mut UiContext) -> Self {
+impl<State> Flex<State> {
+    pub fn new(
+        children: Vec<Box<dyn Element<State = State>>>,
+        params: StateToParams<State, FlexParams>,
+        ctx: &mut UiContext,
+    ) -> Self {
         Self {
             id: ctx.event_manager.next_id(),
             layout: std::iter::repeat(ElementSize::ZERO)
@@ -31,45 +37,53 @@ impl Flex {
         }
     }
 
-    pub fn new_row(children: Vec<Box<dyn Element>>, ctx: &mut UiContext) -> Self {
+    pub fn new_row(children: Vec<Box<dyn Element<State = State>>>, ctx: &mut UiContext) -> Self {
         Self::new(
             children,
-            FlexParams {
+            Box::new(|_, _| FlexParams {
                 direction: FlexDirection::Row,
-            },
+            }),
             ctx,
         )
     }
 
-    pub fn new_column(children: Vec<Box<dyn Element>>, ctx: &mut UiContext) -> Self {
+    pub fn new_column(children: Vec<Box<dyn Element<State = State>>>, ctx: &mut UiContext) -> Self {
         Self::new(
             children,
-            FlexParams {
+            Box::new(|_, _| FlexParams {
                 direction: FlexDirection::Column,
-            },
+            }),
             ctx,
         )
     }
 }
 
 // todo: allow for weight / spacing between children?
-impl ElementImpl for Flex {
+impl<State> ElementImpl for Flex<State> {
+    type State = State;
+
     fn id_impl(&self) -> ElementId {
         self.id
     }
 
-    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
+    fn layout_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        constraints: SizeConstraints,
+    ) -> ElementSize {
         // what do we do with containers that grow? like anchor?
         // do we extend constraints to denote that they should not grow along some axis?
         let mut total_in_direction: f32 = 0.0;
         let mut max_orthogonal: f32 = 0.0;
+        let params = (self.params)(state, &ctx.now);
 
         let mut child_constraints = constraints.clone();
 
         for (_, child) in self.children.iter_mut().enumerate() {
-            let child_size = child.layout_impl(ctx, child_constraints);
+            let child_size = child.layout_impl(ctx, state, child_constraints);
 
-            match self.params.direction {
+            match params.direction {
                 FlexDirection::Row => {
                     max_orthogonal = max_orthogonal.max(child_size.height);
                 }
@@ -79,7 +93,7 @@ impl ElementImpl for Flex {
             }
         }
 
-        match self.params.direction {
+        match params.direction {
             FlexDirection::Row => {
                 child_constraints.min_size.height = max_orthogonal;
                 child_constraints.max_size.height = Some(max_orthogonal);
@@ -91,9 +105,9 @@ impl ElementImpl for Flex {
         }
 
         for (idx, child) in self.children.iter_mut().enumerate() {
-            let child_size = child.layout_impl(ctx, child_constraints);
+            let child_size = child.layout_impl(ctx, state, child_constraints);
 
-            match self.params.direction {
+            match params.direction {
                 FlexDirection::Row => {
                     total_in_direction += child_size.width;
                 }
@@ -105,7 +119,7 @@ impl ElementImpl for Flex {
             self.layout[idx] = child_size;
         }
 
-        let size = match self.params.direction {
+        let size = match params.direction {
             FlexDirection::Row => ElementSize {
                 width: total_in_direction,
                 height: max_orthogonal,
@@ -123,24 +137,27 @@ impl ElementImpl for Flex {
     fn draw_impl(
         &mut self,
         ctx: &mut UiContext,
+        state: &Self::State,
         origin: (f32, f32),
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let mut offset = match self.params.direction {
+        let params = (self.params)(state, &ctx.now);
+
+        let mut offset = match params.direction {
             FlexDirection::Row => origin.0,
             FlexDirection::Column => origin.1,
         };
         for (idx, child) in self.children.iter_mut().enumerate() {
             let mut child_size = self.layout[idx];
 
-            match self.params.direction {
+            match params.direction {
                 FlexDirection::Row => {
                     // making sure we are not drawing out of bounds for some reason
                     child_size.width = child_size.width.min(size.width - (offset - origin.0));
                     child_size.height = child_size.height.min(size.height);
 
-                    child.draw(ctx, (offset, origin.1), child_size, canvas);
+                    child.draw(ctx, state, (offset, origin.1), child_size, canvas);
                     offset += self.layout[idx].width;
                 }
                 FlexDirection::Column => {
@@ -148,10 +165,11 @@ impl ElementImpl for Flex {
                     child_size.width = child_size.width.min(size.width);
                     child_size.height = child_size.height.min(size.height - (offset - origin.1));
 
-                    child.draw(ctx, (origin.0, offset), child_size, canvas);
+                    child.draw(ctx, state, (origin.0, offset), child_size, canvas);
                     offset += self.layout[idx].height;
                 }
             }
         }
     }
 }
+

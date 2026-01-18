@@ -1,11 +1,10 @@
 use crate::{
-    Element, ElementId, ElementImpl, ElementSize, Padding, PaddingParams, SizeConstraints,
-    UiContext,
+    Element, ElementId, ElementImpl, ElementSize, SizeConstraints,
+    StateToParams, UiContext,
 };
-use std::rc::Rc;
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
-use vn_ui_animation::{AnimationController, Interpolatable};
 use vn_ui_animation_macros::Interpolatable;
+use vn_utils::option::UpdateOption;
 
 #[derive(Clone, Copy, Interpolatable)]
 pub struct CardParams {
@@ -15,62 +14,81 @@ pub struct CardParams {
     pub corner_radius: f32,
 }
 
-pub struct Card {
+pub struct Card<State> {
     id: ElementId,
-    child: Padding,
-    padding_controller: Rc<AnimationController<PaddingParams>>,
-    controller: Rc<AnimationController<CardParams>>,
-    layout_time: web_time::Instant,
+    child: Box<dyn Element<State = State>>,
+    params: StateToParams<State, CardParams>,
 }
 
-impl Card {
+impl<State> Card<State> {
     pub fn new(
-        child: Box<dyn Element>,
-        controller: Rc<AnimationController<CardParams>>,
+        child: Box<dyn Element<State = State>>,
+        params: StateToParams<State, CardParams>,
         ctx: &mut UiContext,
     ) -> Self {
-        let border_size = controller.value(web_time::Instant::now()).border_size;
-
-        let padding_controller = PaddingParams::uniform(border_size)
-            .into_controller()
-            .into_rc();
-
         Self {
             id: ctx.event_manager.next_id(),
-            child: Padding::new(child, padding_controller.clone(), ctx),
-            padding_controller,
-            controller,
-            layout_time: web_time::Instant::now(),
+            child,
+            params,
         }
     }
 }
 
-impl ElementImpl for Card {
+// Actually, the Card should probably manage its Padding internal params based on its own params.
+// But Padding now also uses StateToParams.
+
+impl<State> ElementImpl for Card<State> {
+    type State = State;
+
     fn id_impl(&self) -> ElementId {
         self.id
     }
 
-    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
-        self.layout_time = web_time::Instant::now();
-        let params = self.controller.value(self.layout_time);
+    fn layout_impl(&mut self, ctx: &mut UiContext, state: &Self::State, constraints: SizeConstraints) -> ElementSize {
+        let params = (self.params)(state, &ctx.now);
+        // We override the padding of the child with our border size
+        // This is a bit of a hack because Padding's internal params are now fixed at creation.
+        // But since we are calling its layout, we can't easily change its StateToParams.
+        // This is a sign that Card should maybe NOT use Padding but implement its own padding logic.
+        // For now, let's just implement the padding logic directly here for the layout.
 
-        self.padding_controller.update_state(|state| {
-            state.target_value = PaddingParams::uniform(params.border_size);
-        });
+        let mut child_constraints = constraints;
+        let padding = params.border_size;
+        let x_padding = padding * 2.0;
+        let y_padding = padding * 2.0;
 
-        self.child
-            .layout(ctx, constraints)
-            .clamp_to_constraints(constraints)
+        child_constraints
+            .max_size
+            .width
+            .update(|w| w.max(x_padding) - x_padding);
+        child_constraints
+            .max_size
+            .height
+            .update(|h| h.max(y_padding) - y_padding);
+
+        child_constraints.min_size.width =
+            child_constraints.min_size.width.max(x_padding) - x_padding;
+        child_constraints.min_size.height =
+            child_constraints.min_size.height.max(y_padding) - y_padding;
+
+        let child_size = self.child.layout(ctx, state, child_constraints);
+
+        ElementSize {
+            width: child_size.width + x_padding,
+            height: child_size.height + y_padding,
+        }
+        .clamp_to_constraints(constraints)
     }
 
     fn draw_impl(
         &mut self,
         ctx: &mut UiContext,
+        state: &Self::State,
         origin: (f32, f32),
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = self.controller.value(self.layout_time);
+        let params = (self.params)(state, &ctx.now);
 
         canvas.add_box(BoxPrimitiveData {
             transform: Transform {
@@ -85,6 +103,17 @@ impl ElementImpl for Card {
             clip_rect: Rect::NO_CLIP,
         });
 
-        self.child.draw(ctx, origin, size, canvas);
+        let padding = params.border_size;
+        self.child.draw(
+            ctx,
+            state,
+            (origin.0 + padding, origin.1 + padding),
+            ElementSize {
+                width: size.width.max(padding * 2.0) - padding * 2.0,
+                height: size.height.max(padding * 2.0) - padding * 2.0,
+            },
+            canvas,
+        );
     }
 }
+

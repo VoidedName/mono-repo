@@ -225,11 +225,28 @@ impl EventManager {
 pub struct UiContext<'a> {
     pub event_manager: &'a mut EventManager,
     pub parent_id: Option<ElementId>,
+    /// Since the layout cache is used to determine if one should reflow an element but is not
+    /// sensitive to parameter changes, we MUST supply a fresh cache for each render cycle
     pub layout_cache: Box<dyn LayoutCache>,
     pub interactive: bool,
+    pub now: web_time::Instant,
 }
 
-impl UiContext<'_> {
+impl<'a> UiContext<'a> {
+    pub fn new(
+        event_manager: &'a mut EventManager,
+        layout_cache: Box<dyn LayoutCache>,
+        now: web_time::Instant,
+    ) -> Self {
+        Self {
+            event_manager,
+            parent_id: None,
+            layout_cache,
+            interactive: true,
+            now,
+        }
+    }
+
     pub fn with_hitbox_hierarchy<F>(&mut self, id: ElementId, layer: u32, bounds: crate::Rect, f: F)
     where
         F: FnOnce(&mut Self),
@@ -259,3 +276,4 @@ impl UiContext<'_> {
         self.interactive = old_interactive;
     }
 }
+

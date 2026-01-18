@@ -1,13 +1,9 @@
-use std::collections::HashMap;
 use crate::world::World;
+use std::collections::HashMap;
 
 pub trait System: 'static {
-    fn name(&self) -> String {
-        format!(
-            "{:?}::{}",
-            std::any::TypeId::of::<Self>(),
-            std::any::type_name::<Self>()
-        )
+    fn type_id(&self) -> std::any::TypeId {
+        std::any::TypeId::of::<Self>()
     }
     fn run(&mut self, world: &mut World);
 }
@@ -35,12 +31,12 @@ impl SystemManager {
         });
     }
 
-    pub fn remove_system_by_name(&mut self, name: &str) {
-        self.systems.retain(|s| s.system.name() != name);
+    pub fn remove_system_by_type(&mut self, type_id: std::any::TypeId) {
+        self.systems.retain(|s| s.system.type_id() != type_id);
     }
 
-    pub fn set_enabled_by_name(&mut self, name: &str, enabled: bool) {
-        if let Some(sys) = self.systems.iter_mut().find(|s| s.system.name() == name) {
+    pub fn set_enabled_by_type(&mut self, type_id: std::any::TypeId, enabled: bool) {
+        if let Some(sys) = self.systems.iter_mut().find(|s| s.system.type_id() == type_id) {
             sys.enabled = enabled;
         }
     }

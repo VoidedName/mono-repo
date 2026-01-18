@@ -3,11 +3,11 @@ use std::pin::Pin;
 use std::rc::Rc;
 use thiserror::Error;
 use vn_ui::{
-    Anchor, AnchorLocation, Card, CardParams, DynamicSize, DynamicTextFieldController, Easing,
-    Element, ElementSize, EventManager, Fill, InputTextFieldController,
-    InputTextFieldControllerExt, Interactive, InteractiveParams, Interpolatable, Padding,
-    PaddingParams, Progress, SimpleLayoutCache, SizeConstraints, Stack, TextField, TextFieldParams,
-    TextMetrics, UiContext,
+    Anchor, AnchorLocation, AnchorParams, Card, CardParams, DynamicSize,
+    DynamicTextFieldController, Element, ElementSize, EventManager, Fill,
+    InputTextFieldController, InputTextFieldControllerExt, Interactive, InteractiveParams,
+    Padding, PaddingParams, SimpleLayoutCache, SizeConstraints, Stack, TextField,
+    TextFieldCallbacks, TextFieldParams, TextMetrics, TextVisuals, UiContext,
 };
 use vn_wgpu_window::graphics::GraphicsContext;
 use vn_wgpu_window::input::InputState;
@@ -126,7 +126,7 @@ pub struct MainLogic {
     fps_stats: Rc<RefCell<FpsStats>>,
     size: (u32, u32),
     mouse_position: (f32, f32),
-    ui: RefCell<Box<dyn Element>>,
+    ui: RefCell<Box<dyn Element<State = ()>>>,
     event_manager: Rc<RefCell<EventManager>>,
     input_controller: Rc<RefCell<InputTextFieldController>>,
     file_loader: Rc<Box<dyn PlatformHooks>>,
@@ -258,10 +258,12 @@ impl StateLogic<SceneRenderer> for MainLogic {
             parent_id: None,
             layout_cache: Box::new(SimpleLayoutCache::new()),
             interactive: true,
+            now: Instant::now(),
         };
 
         ui.layout(
             &mut ctx,
+            &(),
             SizeConstraints {
                 min_size: ElementSize {
                     width: 0.0,
@@ -271,12 +273,13 @@ impl StateLogic<SceneRenderer> for MainLogic {
                     width: Some(self.size.0 as f32),
                     height: Some(self.size.1 as f32),
                 },
-                scene_size: scene.scene_size(),
+                scene_size: (self.size.0 as f32, self.size.1 as f32),
             },
         );
 
         ui.draw(
             &mut ctx,
+            &(),
             (0.0, 0.0),
             ElementSize {
                 width: self.size.0 as f32,
@@ -298,7 +301,7 @@ impl MainLogic {
         event_manager: Rc<RefCell<EventManager>>,
         input_controller: Rc<RefCell<InputTextFieldController>>,
         fps_stats: Rc<RefCell<FpsStats>>,
-    ) -> impl Element {
+    ) -> impl Element<State = ()> {
         let text_metric = Rc::new(TextMetric {
             rm: resource_manager.clone(),
             gc: graphics_context.clone(),
@@ -310,33 +313,30 @@ impl MainLogic {
             parent_id: None,
             layout_cache: Box::new(SimpleLayoutCache::new()),
             interactive: true,
+            now: Instant::now(),
         };
 
-        use vn_ui::AnchorParams;
-
-        let text_input_animation = TextFieldParams {
-            font: "jetbrains-bold".to_string(),
-            font_size: 36.0,
-            color: Color::RED,
-        }
-        .into_controller()
-        .into_rc();
-
-        text_input_animation.update_state(|state| {
-            state.duration = web_time::Duration::from_millis(5000);
-            state.target_value = TextFieldParams {
-                font: "jetbrains-bold".to_string(),
-                font_size: 12.0,
-                color: Color::GREEN,
-            };
-            state.progress = Progress::PingPong;
-            state.easing = Easing::EaseInOutQuad;
-        });
-
         let text_input = TextField::new(
-            text_input_animation.clone(),
-            input_controller.clone(),
-            text_metric.clone(),
+            {
+                let input_controller = input_controller.clone();
+                let text_metric = text_metric.clone();
+                Box::new(move |_, _| {
+                    let input = input_controller.borrow();
+                    TextFieldParams {
+                        visuals: TextVisuals {
+                            text: input.text.clone(),
+                            caret_position: Some(input.caret),
+                            font: "jetbrains-bold".to_string(),
+                            font_size: 36.0,
+                            color: Color::RED,
+                            caret_width: None,
+                            caret_blink_duration: None,
+                        },
+                        controller: input_controller.clone(),
+                        metrics: text_metric.clone(),
+                    }
+                })
+            },
             &mut ui_ctx,
         );
 
@@ -344,76 +344,81 @@ impl MainLogic {
 
         let text_input = Fill::new(Box::new(text_input), &mut ui_ctx);
 
-        let padding_controller = PaddingParams::uniform(0.0).into_controller().into_rc();
-        // padding_controller.update_state(|state| {
-        //     state.duration = web_time::Duration::from_millis(5000);
-        //     state.target_value = PaddingParams::uniform(25.0);
-        // });
+        let test_input = Padding::new(
+            Box::new(text_input),
+            Box::new(|_, _| PaddingParams::uniform(0.0)),
+            &mut ui_ctx,
+        );
 
-        let test_input = Padding::new(Box::new(text_input), padding_controller, &mut ui_ctx);
+        let test_input = Card::new(
+            Box::new(test_input),
+            Box::new(|_, _| CardParams {
+                background_color: Color::TRANSPARENT,
+                border_size: 2.0,
+                border_color: Color::TRANSPARENT,
+                corner_radius: 5.0,
+            }),
+            &mut ui_ctx,
+        );
 
-        let card_controller = CardParams {
-            background_color: Color::TRANSPARENT,
-            border_size: 2.0,
-            border_color: Color::TRANSPARENT,
-            corner_radius: 5.0,
-        }
-        .into_controller()
-        .into_rc();
+        let fps_controller_typed = Rc::new(RefCell::new(DynamicTextFieldController::new(Box::new({
+            let fps_stats = fps_stats.clone();
+            move || {
+                format!(
+                    "FPS: {:>6.2}",
+                    fps_stats.borrow().current_fps().unwrap_or(0.0)
+                )
+            }
+        }))));
 
-        // card_controller.update_state(|state| {
-        //     state.duration = web_time::Duration::from_millis(5000);
-        //     state.target_value = CardParams {
-        //         background_color: Color::WHITE,
-        //         border_size: 25.0,
-        //         border_color: Color::RED,
-        //         corner_radius: 25.0,
-        //     }
-        // });
-
-        let test_input = Card::new(Box::new(test_input), card_controller, &mut ui_ctx);
+        let fps_controller: Rc<RefCell<dyn TextFieldCallbacks>> = fps_controller_typed.clone();
 
         let fps = TextField::new(
-            TextFieldParams {
-                font: "jetbrains-bold".to_string(),
-                font_size: 18.0,
-                color: Color::WHITE.with_alpha(0.5),
-            }
-            .into_controller()
-            .into_rc(),
-            Rc::new(RefCell::new(DynamicTextFieldController::new(Box::new(
-                move || {
-                    format!(
-                        "FPS: {:>6.2}",
-                        fps_stats.borrow().current_fps().unwrap_or(0.0)
-                    )
-                },
-            )))),
-            text_metric.clone(),
+            {
+                let fps_controller_typed = fps_controller_typed.clone();
+                let fps_controller = fps_controller.clone();
+                let text_metric = text_metric.clone();
+                Box::new(move |_, _| {
+                    let text = fps_controller_typed.borrow().text();
+                    TextFieldParams {
+                        visuals: TextVisuals {
+                            text,
+                            caret_position: None,
+                            font: "jetbrains-bold".to_string(),
+                            font_size: 18.0,
+                            color: Color::WHITE.with_alpha(0.5),
+                            caret_width: None,
+                            caret_blink_duration: None,
+                        },
+                        controller: fps_controller.clone(),
+                        metrics: text_metric.clone(),
+                    }
+                })
+            },
             &mut ui_ctx,
         );
 
         let fps = Anchor::new(
             Box::new(fps),
-            AnchorParams {
+            Box::new(|_, _| AnchorParams {
                 location: AnchorLocation::TopRight,
-            },
+            }),
             &mut ui_ctx,
         );
 
         let fps = Interactive::new(
             Box::new(fps),
-            InteractiveParams {
+            Box::new(|_, _| InteractiveParams {
                 is_interactive: true,
-            },
+            }),
             &mut ui_ctx,
         );
 
         let ui = Anchor::new(
             Box::new(test_input),
-            AnchorParams {
+            Box::new(|_, _| AnchorParams {
                 location: AnchorLocation::CENTER,
-            },
+            }),
             &mut ui_ctx,
         );
 
@@ -422,3 +427,4 @@ impl MainLogic {
         ui
     }
 }
+

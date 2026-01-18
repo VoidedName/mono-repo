@@ -29,6 +29,7 @@ mod sizes;
 pub mod text;
 mod utils;
 
+use web_time::Instant;
 pub use components::*;
 pub use element::*;
 pub use event_manager::*;
@@ -46,17 +47,8 @@ pub trait TextMetrics {
     fn get_glyphs(&self, text: &str, font: &str, font_size: f32) -> Vec<vn_scene::GlyphData>;
 }
 
-#[derive(Clone, Interpolatable)]
-pub struct TextFieldParams {
-    #[no_interpolation]
-    pub font: String,
-    pub font_size: f32,
-    pub color: Color,
+pub trait TextFieldCallbacks {
+    fn text_layout_changed(&mut self, layout: &text::layout::TextLayout);
 }
 
-pub struct DynamicString(pub Box<dyn Fn() -> String>);
-
-pub enum TextFieldText {
-    Static(String),
-    Dynamic(DynamicString),
-}
+pub type StateToParams<State, Params> = Box<dyn Fn(&State, &Instant) -> Params>;

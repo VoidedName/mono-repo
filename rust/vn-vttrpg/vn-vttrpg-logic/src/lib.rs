@@ -24,3 +24,4 @@ pub fn init(new_fn: Box<dyn PlatformHooks>) -> anyhow::Result<()> {
     log::info!("Application terminated!");
     Ok(())
 }
+

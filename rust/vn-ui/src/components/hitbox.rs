@@ -2,32 +2,38 @@ use crate::utils::ToArray;
 use crate::{Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
 use vn_scene::{Rect, Scene};
 
-pub struct ExtendedHitbox {
+pub struct ExtendedHitbox<State> {
     id: ElementId,
-    element: Box<dyn Element>,
+    element: Box<dyn Element<State = State>>,
 }
 
-impl ExtendedHitbox {
-    pub fn new(element: Box<dyn Element>, ctx: &mut UiContext) -> Self {
+impl<State> ExtendedHitbox<State> {
+    pub fn new(element: Box<dyn Element<State = State>>, ctx: &mut UiContext) -> Self {
         let ui_id = ctx.event_manager.next_id();
-        Self { id: ui_id, element }
+        Self {
+            id: ui_id,
+            element,
+        }
     }
 }
 
-impl ElementImpl for ExtendedHitbox {
+impl<State> ElementImpl for ExtendedHitbox<State> {
+    type State = State;
+
     fn id_impl(&self) -> ElementId {
         self.id
     }
 
-    fn layout_impl(&mut self, ctx: &mut UiContext, constraints: SizeConstraints) -> ElementSize {
+    fn layout_impl(&mut self, ctx: &mut UiContext, state: &Self::State, constraints: SizeConstraints) -> ElementSize {
         self.element
-            .layout(ctx, constraints)
+            .layout(ctx, state, constraints)
             .clamp_to_constraints(constraints)
     }
 
     fn draw_impl(
         &mut self,
         ctx: &mut UiContext,
+        state: &Self::State,
         origin: (f32, f32),
         size: ElementSize,
         canvas: &mut dyn Scene,
@@ -40,8 +46,9 @@ impl ElementImpl for ExtendedHitbox {
                 size: size.to_array(),
             },
             |ctx| {
-                self.element.draw(ctx, origin, size, canvas);
+                self.element.draw(ctx, state, origin, size, canvas);
             },
         );
     }
 }
+

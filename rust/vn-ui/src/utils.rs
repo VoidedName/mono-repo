@@ -19,3 +19,4 @@ impl ToArray for ElementSize {
         [self.width, self.height]
     }
 }
+

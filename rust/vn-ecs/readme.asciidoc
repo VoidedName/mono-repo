@@ -55,10 +55,11 @@ impl System for MovementSystem {
         ]);
 
         for entity in entities {
-            let vel = *world.get_component::<Velocity>(entity).unwrap();
-            let mut pos = world.get_component_mut::<Position>(entity).unwrap();
+            let vel = world.get_component::<Velocity>(entity).unwrap();
+            let mut pos = *world.get_component::<Position>(entity).unwrap();
             pos.x += vel.dx;
             pos.y += vel.dy;
+            word.add_component(entity, pos);
         }
     }
 }

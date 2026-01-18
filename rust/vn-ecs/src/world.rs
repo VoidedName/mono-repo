@@ -25,6 +25,7 @@ impl World {
         }
     }
 
+    // consider allowing overwriting of storage
     pub fn register_storage<T: Any>(&mut self, storage: Box<dyn ComponentStorage>) -> Result<(), String> {
         let type_id = TypeId::of::<T>();
         if self.components.contains_key(&type_id) {

@@ -44,18 +44,6 @@ impl Interpolatable for [f32; 2] {
     }
 }
 
-impl<T: Interpolatable> Interpolatable for Option<T> {
-    fn interpolate(&self, other: &Self, t: f32) -> Self {
-        match (self, other) {
-            (Some(a), Some(b)) => Some(a.interpolate(b, t)),
-            (None, None) => None,
-            (Some(a), None) if 0.0.interpolate(&1.0, t) < 0.5 => Some(a.clone()),
-            (None, Some(b)) if 0.0.interpolate(&1.0, t) > 0.5 => Some(b.clone()),
-            _ => None,
-        }
-    }
-}
-
 impl Interpolatable for Duration {
     fn interpolate(&self, other: &Self, t: f32) -> Self {
         Duration::from_millis(self.as_millis().interpolate(&other.as_millis(), t) as u64)
