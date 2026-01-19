@@ -1,9 +1,13 @@
 use proc_macro::TokenStream;
+use proc_macro2::{Span};
 use quote::quote;
 use syn::spanned::Spanned;
-use syn::{Attribute, DeriveInput, Field, Meta, parse_macro_input};
+use syn::{Attribute, DeriveInput, Expr, Field, Lit, Meta, parse_macro_input, Index};
 
 const IGNORE_INTERPOLATION: &str = "no_interpolation";
+const IGNORE_INTERPOLATION_AT_START: &str = "flip_start";
+const IGNORE_INTERPOLATION_AT_MIDDLE: &str = "flip_middle";
+const IGNORE_INTERPOLATION_AT_END: &str = "flip_at_end";
 const INTERPOLATE_NONE_AS_DEFAULT: &str = "interpolate_none_as_default";
 const INTERPOLATE_NONE_AS: &str = "interpolate_none_as_value";
 
@@ -25,12 +29,81 @@ pub fn interpolate(item: TokenStream) -> TokenStream {
         match data.fields {
             syn::Fields::Named(ref fields) => {
                 let interpolation = fields.named.iter().map(|field| {
-                    let ignore = helper_attr(field, IGNORE_INTERPOLATION).is_some();
+                    let ignore = helper_attr(field, IGNORE_INTERPOLATION);
                     let none_use_default = helper_attr(field, INTERPOLATE_NONE_AS_DEFAULT).is_some();
                     let none_use = helper_attr(field, INTERPOLATE_NONE_AS);
 
-                    if !ignore {
-                        let field = &field.ident;
+                    let field = &field.ident;
+                    if let Some(attr) = ignore {
+                        match &attr.meta {
+                            Meta::NameValue(nv) => {
+                                if let Expr::Lit(value) = &nv.value {
+                                    if let Lit::Str(value) = &value.lit {
+                                        match value.value().as_str() {
+                                            IGNORE_INTERPOLATION_AT_START => {
+                                                quote! {
+                                                    result.#field = if t > 0.0 {
+                                                        other.#field.clone()
+                                                    } else {
+                                                        self.#field.clone()
+                                                    };
+                                                }
+                                            }
+                                            IGNORE_INTERPOLATION_AT_MIDDLE => {
+                                                quote! {
+                                                    result.#field = if t >= 0.5 {
+                                                        other.#field.clone()
+                                                    } else {
+                                                        self.#field.clone()
+                                                    };
+                                                }
+                                            }
+                                            IGNORE_INTERPOLATION_AT_END => {
+                                                quote! {
+                                                    result.#field = if t >= 1.0 {
+                                                        other.#field.clone()
+                                                    } else {
+                                                        self.#field.clone()
+                                                    };
+                                                }
+                                            }
+                                            _ => {
+                                                return TokenStream::from(
+                                                    syn::Error::new(
+                                                        attr.path().span(),
+                                                        "'no_interpolation' must have a value like `no_interpolation = flip_start | flip_middle | flip_end`",
+                                                    ).to_compile_error(),
+                                                ).into();
+                                            },
+                                        }
+                                    }else {
+                                        return TokenStream::from(
+                                            syn::Error::new(
+                                                attr.path().span(),
+                                                "'no_interpolation' must have a value like `no_interpolation = flip_start | flip_middle | flip_end`",
+                                            ).to_compile_error(),
+                                        ).into();
+                                    }
+                                } else {
+                                    return TokenStream::from(
+                                        syn::Error::new(
+                                            attr.path().span(),
+                                            "'no_interpolation' must have a value like `no_interpolation = flip_start | flip_middle | flip_end`",
+                                        ).to_compile_error(),
+                                    ).into();
+                                }
+                            }
+                            _ => {
+                                return TokenStream::from(
+                                    syn::Error::new(
+                                        attr.path().span(),
+                                        "'no_interpolation' must have a value like `no_interpolation = flip_immediately | flip_middle | flip_end`",
+                                    ).to_compile_error(),
+                                ).into();
+                            }
+                        }
+                    }
+                    else {
                         if none_use_default {
                             quote! {
                                 result.#field = match (self.#field, other.#field) {
@@ -70,8 +143,6 @@ pub fn interpolate(item: TokenStream) -> TokenStream {
                                 result.#field = self.#field.interpolate(&other.#field, t);
                             }
                         }
-                    } else {
-                        quote! {}
                     }
                 });
 
@@ -83,11 +154,85 @@ pub fn interpolate(item: TokenStream) -> TokenStream {
             }
             syn::Fields::Unnamed(ref fields) => {
                 let interpolation = fields.unnamed.iter().enumerate().map(|(i, field)| {
-                    let ignore = helper_attr(field, IGNORE_INTERPOLATION).is_some();
+                    let ignore = helper_attr(field, IGNORE_INTERPOLATION);
                     let none_use_default = helper_attr(field, INTERPOLATE_NONE_AS_DEFAULT).is_some();
                     let none_use = helper_attr(field, INTERPOLATE_NONE_AS);
 
-                    if !ignore {
+                    let i = Index {
+                        index: i as u32,
+                        span: Span::call_site(),
+                    };
+
+                    if let Some(attr) = ignore {
+                        match &attr.meta {
+                            Meta::NameValue(nv) => {
+                                if let Expr::Lit(value) = &nv.value {
+                                    if let Lit::Str(value) = &value.lit {
+                                        match value.value().as_str() {
+                                            IGNORE_INTERPOLATION_AT_START => {
+                                                quote! {
+                                                    result.#i = if t > 0.0 {
+                                                        other.#i.clone()
+                                                    } else {
+                                                        self.#i.clone()
+                                                    };
+                                                }
+                                            }
+                                            IGNORE_INTERPOLATION_AT_MIDDLE => {
+                                                quote! {
+                                                    result.#i = if t >= 0.5 {
+                                                        other.#i.clone()
+                                                    } else {
+                                                        self.#i.clone()
+                                                    };
+                                                }
+                                            }
+                                            IGNORE_INTERPOLATION_AT_END => {
+                                                quote! {
+                                                    result.#i = if t >= 1.0 {
+                                                        other.#i.clone()
+                                                    } else {
+                                                        self.#i.clone()
+                                                    };
+                                                }
+                                            }
+                                            _ => {
+                                                return TokenStream::from(
+                                                    syn::Error::new(
+                                                        attr.path().span(),
+                                                        "'no_interpolation' must have a value like `no_interpolation = flip_start | flip_middle | flip_end`",
+                                                    ).to_compile_error(),
+                                                ).into();
+                                            },
+                                        }
+                                    }else {
+                                        return TokenStream::from(
+                                            syn::Error::new(
+                                                attr.path().span(),
+                                                "'no_interpolation' must have a value like `no_interpolation = flip_start | flip_middle | flip_end`",
+                                            ).to_compile_error(),
+                                        ).into();
+                                    }
+                                } else {
+                                    return TokenStream::from(
+                                        syn::Error::new(
+                                            attr.path().span(),
+                                            "'no_interpolation' must have a value like `no_interpolation = flip_start | flip_middle | flip_end`",
+                                        ).to_compile_error(),
+                                    ).into();
+                                }
+                            }
+                            _ => {
+                                return TokenStream::from(
+                                    syn::Error::new(
+                                        attr.path().span(),
+                                        "'no_interpolation' must have a value like `no_interpolation = flip_immediately | flip_middle | flip_end`",
+                                    ).to_compile_error(),
+                                ).into();
+                            }
+                        }
+                    }
+                    else {
                         if none_use_default {
                             quote! {
                                 result.#i = match (self.#i, other.#i) {
@@ -126,8 +271,6 @@ pub fn interpolate(item: TokenStream) -> TokenStream {
                                 result.#i = self.#i.interpolate(&other.#i, t);
                             }
                         }
-                    } else {
-                        quote! {}
                     }
                 });
 

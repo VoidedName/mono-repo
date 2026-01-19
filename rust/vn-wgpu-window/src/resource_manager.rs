@@ -225,7 +225,7 @@ impl ResourceManager {
 
                 // Keep if someone else holds a strong reference to the TextureId (e.g. a Glyph)
                 // We expect 2 references internally: one in the cache and one in the Texture struct itself.
-                if Rc::strong_count(&texture.id) > 2 {
+                if Rc::strong_count(&texture.id.0) > 2 {
                     return true;
                 }
 

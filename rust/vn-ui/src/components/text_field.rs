@@ -12,11 +12,11 @@ use web_time::Instant;
 
 #[derive(Clone, PartialEq, Interpolatable)]
 pub struct TextVisuals {
-    #[no_interpolation]
+    #[no_interpolation = "flip_middle"]
     pub text: String,
-    #[no_interpolation]
+    #[no_interpolation = "flip_middle"]
     pub caret_position: Option<usize>,
-    #[no_interpolation]
+    #[no_interpolation = "flip_middle"]
     pub font: String,
     pub font_size: f32,
     pub color: Color,
@@ -29,9 +29,9 @@ pub struct TextVisuals {
 #[derive(Clone, Interpolatable)]
 pub struct TextFieldParams {
     pub visuals: TextVisuals,
-    #[no_interpolation]
+    #[no_interpolation = "flip_middle"]
     pub controller: Rc<RefCell<dyn TextFieldCallbacks>>,
-    #[no_interpolation]
+    #[no_interpolation = "flip_middle"]
     pub metrics: Rc<dyn TextMetrics>,
 }
 

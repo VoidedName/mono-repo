@@ -1,8 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Mutex;
-
-pub type TextureId = Rc<u32>;
+pub use vn_scene::TextureId;
 
 /// Represents a loaded GPU texture with its view and sampler.
 pub struct Texture {
@@ -39,20 +38,20 @@ fn next_texture_id() -> TextureId {
     let mut manager = manager.borrow_mut();
 
     if let Some(id) = manager.free_ids.pop() {
-        return Rc::new(id);
+        return TextureId(Rc::new(id));
     }
 
     let id = manager.next_id;
     manager.next_id += 1;
 
-    Rc::new(id)
+    TextureId(Rc::new(id))
 }
 
 fn drop_textures(texture: &Texture) {
     let manager = TEXTURE_ID_MANAGER.lock().unwrap();
     let mut manager = manager.borrow_mut();
 
-    manager.free_ids.push(*texture.id);
+    manager.free_ids.push(*texture.id.0);
 }
 
 impl Drop for Texture {

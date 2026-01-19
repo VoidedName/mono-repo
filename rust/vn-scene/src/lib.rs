@@ -1,6 +1,15 @@
 use std::rc::Rc;
 use vn_ui_animation_macros::Interpolatable;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Interpolatable)]
+pub struct TextureId(#[no_interpolation = "flip_middle"] pub Rc<u32>);
+
+impl std::fmt::Display for TextureId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 /// Represents an RGBA color.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable, Interpolatable)]
@@ -250,11 +259,14 @@ pub struct BoxPrimitiveData {
 #[derive(Debug, Clone)]
 pub struct ImagePrimitiveData {
     pub transform: Transform,
+    /// Render Size
     pub size: [f32; 2],
     pub tint: Color,
-    pub texture_id: Rc<u32>,
-    pub uv_rect: Rect,
+    pub texture_id: TextureId,
+    /// This will clip the rendered image to the clip_rect (if clip rect does not cover the entire size)
     pub clip_rect: Rect,
+    /// Area of the texture to render in NDC
+    pub uv_rect: Rect,
 }
 
 #[derive(Debug, Clone)]
@@ -267,18 +279,20 @@ pub struct TextPrimitiveData {
 
 #[derive(Debug, Clone)]
 pub struct GlyphInstanceData {
-    pub texture_id: Rc<u32>,
+    pub texture_id: TextureId,
     pub position: [f32; 2],
     pub size: [f32; 2],
+    /// NDC coordinates.
     pub uv_rect: Rect,
 }
 
 #[derive(Debug, Clone)]
 pub struct GlyphData {
-    pub texture_id: Rc<u32>,
+    pub texture_id: TextureId,
     pub advance: f32,
     pub x_bearing: f32,
     pub y_offset: f32,
     pub size: [f32; 2],
+    /// NDC coordinates.
     pub uv_rect: Rect,
 }

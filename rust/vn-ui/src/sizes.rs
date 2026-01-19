@@ -3,8 +3,10 @@
 // usecase: while we can indicate to greedy growing components that the container is unsized
 //          we can not know if the child is greedy.
 
+use vn_ui_animation_macros::Interpolatable;
+
 /// A concrete size with a fixed width and height.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Interpolatable)]
 pub struct ElementSize {
     pub width: f32,
     pub height: f32,

@@ -329,6 +329,7 @@ impl SceneRenderer {
 
                         _TexturePrimitive {
                             common,
+                            uv_rect: glyph.uv_rect,
                             size: glyph.size,
                             tint: text.tint,
                         }

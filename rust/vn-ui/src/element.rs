@@ -118,6 +118,7 @@ pub trait Element: ElementImpl {
             use rand::{Rng, SeedableRng};
             use vn_scene::{BoxPrimitiveData, Color, Rect};
             let mut rng = SmallRng::seed_from_u64(self.id().0 as u64);
+            use vn_scene::Transform;
 
             let color = Color {
                 r: 1.0 - (rng.random_range(0.0..=1.0) as f32).powi(3),
@@ -126,7 +127,7 @@ pub trait Element: ElementImpl {
                 a: 1.0,
             };
 
-            const DEBUG_THICKNESS: f32 = 2.0;
+            const DEBUG_THICKNESS: f32 = 4.0;
 
             canvas.with_next_layer(&mut |canvas| {
                 canvas.add_box(BoxPrimitiveData {

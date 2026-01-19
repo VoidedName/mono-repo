@@ -5,7 +5,7 @@ use web_time::{Duration, Instant};
 
 pub trait Interpolatable: Sized + Clone {
     fn interpolate(&self, other: &Self, t: f32) -> Self;
-    fn into_controller(self) -> AnimationController<Self> {
+    fn into_animation_controller(self) -> AnimationController<Self> {
         AnimationController::new(self)
     }
 }
@@ -243,6 +243,6 @@ impl<T: Interpolatable + Clone> AnimationController<T> {
 
 impl<T: Interpolatable> From<T> for AnimationController<T> {
     fn from(value: T) -> Self {
-        value.into_controller()
+        value.into_animation_controller()
     }
 }

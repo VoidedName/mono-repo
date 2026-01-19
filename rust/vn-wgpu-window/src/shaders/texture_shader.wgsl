@@ -20,8 +20,9 @@ struct InstanceInput {
     @location(3) i_scale: vec2<f32>,
     @location(4) i_origin: vec2<f32>,
     @location(5) i_clip_area: vec4<f32>,
-    @location(6) i_size: vec2<f32>,
-    @location(7) i_tint: vec4<f32>,
+    @location(6) i_uv_rect: vec4<f32>,
+    @location(7) i_size: vec2<f32>,
+    @location(8) i_tint: vec4<f32>,
 }
 
 struct VertexOutput {
@@ -66,7 +67,7 @@ fn vs_main(
     out.size = instance.i_size;
     out.tint = instance.i_tint;
     out.clip_area = instance.i_clip_area;
-    out.uv = vertex.v_position;
+    out.uv = instance.i_uv_rect.xy + vertex.v_position * instance.i_uv_rect.zw;
 
     return out;
 }

@@ -1,22 +1,24 @@
 use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
+use std::time::Duration;
 use thiserror::Error;
 use vn_ui::{
     Anchor, AnchorLocation, AnchorParams, Card, CardParams, DynamicSize,
-    DynamicTextFieldController, Element, ElementSize, EventManager, Fill,
+    DynamicTextFieldController, Easing, Element, ElementSize, EventManager, Fill, FitStrategy,
     InputTextFieldController, InputTextFieldControllerExt, Interactive, InteractiveParams,
-    Padding, PaddingParams, SimpleLayoutCache, SizeConstraints, Stack, TextField,
-    TextFieldCallbacks, TextFieldParams, TextMetrics, TextVisuals, UiContext,
+    Interpolatable, Padding, PaddingParams, Progress, SimpleLayoutCache, SizeConstraints,
+    Stack, TextField, TextFieldCallbacks, TextFieldParams, TextMetrics, TextVisuals, Texture as UiTexture, TextureParams, UiContext,
 };
 use vn_wgpu_window::graphics::GraphicsContext;
 use vn_wgpu_window::input::InputState;
 use vn_wgpu_window::resource_manager::ResourceManager;
 use vn_wgpu_window::scene_renderer::SceneRenderer;
-use vn_wgpu_window::{Color, StateLogic};
+use vn_wgpu_window::{Color, StateLogic, Texture};
 use web_time::Instant;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
+use vn_scene::Rect;
 
 struct TextMetric {
     rm: Rc<ResourceManager>,
@@ -129,19 +131,21 @@ pub struct MainLogic {
     ui: RefCell<Box<dyn Element<State = ()>>>,
     event_manager: Rc<RefCell<EventManager>>,
     input_controller: Rc<RefCell<InputTextFieldController>>,
-    file_loader: Rc<Box<dyn PlatformHooks>>,
+    platform: Rc<Box<dyn PlatformHooks>>,
 }
 
 impl MainLogic {
     pub(crate) async fn new(
-        file_loader: Rc<Box<dyn PlatformHooks>>,
+        platform: Rc<Box<dyn PlatformHooks>>,
         graphics_context: Rc<GraphicsContext>,
         resource_manager: Rc<ResourceManager>,
     ) -> anyhow::Result<Self> {
-        let font_bytes = file_loader
-            .load_file("fonts/JetBrainsMono-Bold.ttf".to_string())
-            .await?;
+        let font_bytes = platform.load_file("fonts/JetBrainsMono-Bold.ttf".to_string()).await?;
+
         resource_manager.load_font_from_bytes("jetbrains-bold", &font_bytes)?;
+
+        let test_texture = platform.load_file("test_texture.png".to_string()).await?;
+        let test_texture = resource_manager.load_texture_from_bytes(&test_texture)?;
 
         resource_manager.set_glyph_size_increment(12.0);
 
@@ -150,6 +154,8 @@ impl MainLogic {
             event_manager.borrow_mut().next_id(),
         )));
 
+        input_controller.borrow_mut().text = "Hello World!\nI am a text field!".to_string();
+
         let fps_stats = Rc::new(RefCell::new(FpsStats::new()));
 
         Ok(Self {
@@ -157,6 +163,7 @@ impl MainLogic {
                 graphics_context.clone(),
                 resource_manager.clone(),
                 event_manager.clone(),
+                test_texture,
                 input_controller.clone(),
                 fps_stats.clone(),
             ))),
@@ -168,7 +175,7 @@ impl MainLogic {
             fps_stats,
             event_manager,
             input_controller,
-            file_loader,
+            platform,
         })
     }
 }
@@ -299,6 +306,7 @@ impl MainLogic {
         graphics_context: Rc<GraphicsContext>,
         resource_manager: Rc<ResourceManager>,
         event_manager: Rc<RefCell<EventManager>>,
+        test_texture: Rc<Texture>,
         input_controller: Rc<RefCell<InputTextFieldController>>,
         fps_stats: Rc<RefCell<FpsStats>>,
     ) -> impl Element<State = ()> {
@@ -344,9 +352,24 @@ impl MainLogic {
 
         let text_input = Fill::new(Box::new(text_input), &mut ui_ctx);
 
+        let animation_controller = PaddingParams::uniform(5.0)
+            .into_animation_controller()
+            .into_rc();
+        animation_controller.update_state(|state| {
+            state.target_value = PaddingParams {
+                pad_left: 100.0,
+                pad_right: 100.0,
+                pad_top: 25.0,
+                pad_bottom: 0.0,
+            };
+            state.easing = Easing::EaseInOutQuad;
+            state.progress = Progress::PingPong;
+            state.duration = Duration::from_millis(5000);
+        });
+
         let test_input = Padding::new(
             Box::new(text_input),
-            Box::new(|_, _| PaddingParams::uniform(0.0)),
+            Box::new(move |_, now| animation_controller.value(*now)),
             &mut ui_ctx,
         );
 
@@ -361,15 +384,16 @@ impl MainLogic {
             &mut ui_ctx,
         );
 
-        let fps_controller_typed = Rc::new(RefCell::new(DynamicTextFieldController::new(Box::new({
-            let fps_stats = fps_stats.clone();
-            move || {
-                format!(
-                    "FPS: {:>6.2}",
-                    fps_stats.borrow().current_fps().unwrap_or(0.0)
-                )
-            }
-        }))));
+        let fps_controller_typed =
+            Rc::new(RefCell::new(DynamicTextFieldController::new(Box::new({
+                let fps_stats = fps_stats.clone();
+                move || {
+                    format!(
+                        "FPS: {:>6.2}",
+                        fps_stats.borrow().current_fps().unwrap_or(0.0)
+                    )
+                }
+            }))));
 
         let fps_controller: Rc<RefCell<dyn TextFieldCallbacks>> = fps_controller_typed.clone();
 
@@ -414,7 +438,7 @@ impl MainLogic {
             &mut ui_ctx,
         );
 
-        let ui = Anchor::new(
+        let test_input = Anchor::new(
             Box::new(test_input),
             Box::new(|_, _| AnchorParams {
                 location: AnchorLocation::CENTER,
@@ -422,9 +446,24 @@ impl MainLogic {
             &mut ui_ctx,
         );
 
-        let ui = Stack::new(vec![Box::new(ui), Box::new(fps)], &mut ui_ctx);
+        let test_sprite = UiTexture::new(Box::new(move |_, _| TextureParams {
+            texture_id: test_texture.id.clone(),
+            preferred_size: ElementSize { width: 500.0, height: 500.0 },
+            uv_rect: Rect { position: [0.25, 0.25], size: [0.5, 0.5] },
+            tint: Color::WHITE,
+            fit_strategy: FitStrategy::PreserveAspectRatio,
+        }), &mut ui_ctx);
+
+        let test_sprite = Anchor::new(
+            Box::new(test_sprite),
+            Box::new(|_, _| AnchorParams {
+                location: AnchorLocation::CENTER,
+            }),
+            &mut ui_ctx,
+        );
+
+        let ui = Stack::new(vec![Box::new(test_input), Box::new(fps), Box::new(test_sprite)], &mut ui_ctx);
 
         ui
     }
 }
-

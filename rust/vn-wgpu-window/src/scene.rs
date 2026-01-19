@@ -142,6 +142,7 @@ impl Scene for WgpuScene {
                 transform: i.transform,
                 clip_area: i.clip_rect,
             },
+            uv_rect: i.uv_rect,
             size: i.size,
             texture: i.texture_id.clone(),
             tint: i.tint,
@@ -161,6 +162,7 @@ impl Scene for WgpuScene {
                     texture: g.texture_id.clone(),
                     position: g.position,
                     size: g.size,
+                    uv_rect: g.uv_rect,
                 })
                 .collect(),
             tint: t.tint,
