@@ -37,7 +37,7 @@ impl<State> Padding<State> {
         ctx: &mut UiContext,
     ) -> Self {
         Self {
-            id: ctx.event_manager.next_id(),
+            id: ctx.event_manager.borrow_mut().next_id(),
             child,
             params,
         }
@@ -51,8 +51,13 @@ impl<State> ElementImpl for Padding<State> {
         self.id
     }
 
-    fn layout_impl(&mut self, ctx: &mut UiContext, state: &Self::State, constraints: SizeConstraints) -> ElementSize {
-        let params = (self.params)(state, &ctx.now);
+    fn layout_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        constraints: SizeConstraints,
+    ) -> ElementSize {
+        let params = (self.params)(state, &ctx.now, self.id);
 
         let mut child_constraints = constraints;
         let x_padding = params.pad_left + params.pad_right;
@@ -89,7 +94,7 @@ impl<State> ElementImpl for Padding<State> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = (self.params)(state, &ctx.now);
+        let params = (self.params)(state, &ctx.now, self.id);
 
         let x_padding = params.pad_left + params.pad_right;
         let y_padding = params.pad_top + params.pad_bottom;
@@ -106,4 +111,3 @@ impl<State> ElementImpl for Padding<State> {
         );
     }
 }
-

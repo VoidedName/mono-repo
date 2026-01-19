@@ -2,7 +2,7 @@ use std::rc::Rc;
 use vn_ui_animation_macros::Interpolatable;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Interpolatable)]
-pub struct TextureId(#[no_interpolation = "flip_middle"] pub Rc<u32>);
+pub struct TextureId(#[interpolate_snappy = "snap_middle"] pub Rc<u32>);
 
 impl std::fmt::Display for TextureId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

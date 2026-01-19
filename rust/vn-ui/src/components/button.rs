@@ -1,12 +1,18 @@
 use crate::utils::ToArray;
-use crate::{Element, ElementId, ElementImpl, ElementSize, SizeConstraints, StateToParams, UiContext};
+use crate::{
+    Element, ElementId, ElementImpl, ElementSize, InteractionState, SizeConstraints, StateToParams,
+    UiContext,
+};
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
+use vn_ui_animation_macros::Interpolatable;
 
+#[derive(Clone, Copy, Interpolatable)]
 pub struct ButtonParams {
     pub background: Color,
     pub border_color: Color,
     pub border_width: f32,
     pub corner_radius: f32,
+    pub interaction: InteractionState,
 }
 
 pub struct Button<State> {
@@ -22,7 +28,7 @@ impl<State> Button<State> {
         ctx: &mut UiContext,
     ) -> Self {
         Self {
-            id: ctx.event_manager.next_id(),
+            id: ctx.event_manager.borrow_mut().next_id(),
             child,
             params,
         }
@@ -36,7 +42,12 @@ impl<State> ElementImpl for Button<State> {
         self.id
     }
 
-    fn layout_impl(&mut self, ctx: &mut UiContext, state: &Self::State, constraints: SizeConstraints) -> ElementSize {
+    fn layout_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        constraints: SizeConstraints,
+    ) -> ElementSize {
         self.child
             .layout(ctx, state, constraints)
             .clamp_to_constraints(constraints)
@@ -50,19 +61,16 @@ impl<State> ElementImpl for Button<State> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let is_hovered = ctx.event_manager.is_hovered(self.id);
-        let is_focused = ctx.event_manager.is_focused(self.id);
-
-        let params = (self.params)(state, &ctx.now);
+        let params = (self.params)(state, &ctx.now, self.id);
 
         let mut background = params.background;
         let mut border_color = params.border_color;
 
-        if is_hovered {
+        if params.interaction.is_hovered {
             background = background.lighten(0.1);
         }
 
-        if is_focused {
+        if params.interaction.is_focused {
             background = background.darken(0.1);
             border_color = Color::WHITE;
         }
@@ -106,4 +114,3 @@ impl<State> ElementImpl for Button<State> {
         );
     }
 }
-

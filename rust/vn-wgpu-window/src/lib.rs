@@ -1,7 +1,6 @@
 pub mod app;
 pub mod errors;
 pub mod graphics;
-pub mod input;
 pub mod logic;
 pub mod pipeline_builder;
 pub mod primitives;

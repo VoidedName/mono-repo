@@ -92,7 +92,10 @@ impl<K: Ord + Clone, V: Clone, const ORDER: usize> BTreeNode<K, V, ORDER> {
     }
 
     fn range(&self, range: &RangeInclusive<K>, results: &mut Vec<(K, V)>) {
-        let start_idx = self.keys.binary_search(range.start()).unwrap_or_else(|idx| idx);
+        let start_idx = self
+            .keys
+            .binary_search(range.start())
+            .unwrap_or_else(|idx| idx);
 
         for i in start_idx..self.keys.len() {
             if !self.is_leaf {

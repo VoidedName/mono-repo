@@ -1,8 +1,8 @@
 use crate::text::layout::TextLayout;
 use crate::utils::ToArray;
 use crate::{
-    ElementId, ElementImpl, ElementSize, SizeConstraints, StateToParams, TextFieldCallbacks,
-    TextMetrics, UiContext,
+    ElementId, ElementImpl, ElementSize, InteractionState, SizeConstraints, StateToParams,
+    TextFieldCallbacks, TextMetrics, UiContext,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -12,11 +12,11 @@ use web_time::Instant;
 
 #[derive(Clone, PartialEq, Interpolatable)]
 pub struct TextVisuals {
-    #[no_interpolation = "flip_middle"]
+    #[interpolate_snappy = "snap_middle"]
     pub text: String,
-    #[no_interpolation = "flip_middle"]
+    #[interpolate_snappy = "snap_middle"]
     pub caret_position: Option<usize>,
-    #[no_interpolation = "flip_middle"]
+    #[interpolate_snappy = "snap_middle"]
     pub font: String,
     pub font_size: f32,
     pub color: Color,
@@ -29,10 +29,11 @@ pub struct TextVisuals {
 #[derive(Clone, Interpolatable)]
 pub struct TextFieldParams {
     pub visuals: TextVisuals,
-    #[no_interpolation = "flip_middle"]
+    #[interpolate_snappy = "snap_middle"]
     pub controller: Rc<RefCell<dyn TextFieldCallbacks>>,
-    #[no_interpolation = "flip_middle"]
+    #[interpolate_snappy = "snap_middle"]
     pub metrics: Rc<dyn TextMetrics>,
+    pub interaction: InteractionState,
 }
 
 pub struct DynamicString(pub Box<dyn Fn() -> String>);
@@ -250,12 +251,9 @@ pub struct TextField<State> {
 }
 
 impl<State> TextField<State> {
-    pub fn new(
-        params: StateToParams<State, TextFieldParams>,
-        ctx: &mut UiContext,
-    ) -> Self {
+    pub fn new(params: StateToParams<State, TextFieldParams>, ctx: &mut UiContext) -> Self {
         Self {
-            id: ctx.event_manager.next_id(),
+            id: ctx.event_manager.borrow_mut().next_id(),
             line_height: 0.0,
             visuals: None,
             layout: None,
@@ -268,7 +266,7 @@ impl<State> TextField<State> {
     }
 
     pub fn update_state(&mut self, state: &State, now: &Instant, max_width: Option<f32>) -> bool {
-        let params = (self.params)(state, now);
+        let params = (self.params)(state, now, self.id);
         let mut changed = self.visuals.as_ref() != Some(&params.visuals);
 
         if max_width != self.last_max_width {
@@ -277,7 +275,9 @@ impl<State> TextField<State> {
         }
 
         if changed {
-            self.line_height = params.metrics.line_height(&params.visuals.font, params.visuals.font_size);
+            self.line_height = params
+                .metrics
+                .line_height(&params.visuals.font, params.visuals.font_size);
             let caret_space = params.visuals.caret_width.unwrap_or(2.0);
             let layout = TextLayout::layout(
                 &params.visuals.text,
@@ -286,11 +286,8 @@ impl<State> TextField<State> {
                 max_width.map(|w| w - caret_space),
                 params.metrics.as_ref(),
             );
-            params
-                .controller
-                .borrow_mut()
-                .text_layout_changed(&layout);
-            
+            params.controller.borrow_mut().text_layout_changed(&layout);
+
             self.size = ElementSize {
                 width: layout.total_width + caret_space,
                 height: layout.total_height.max(self.line_height),
@@ -323,11 +320,21 @@ impl<State> ElementImpl for TextField<State> {
         self.id
     }
 
-    fn layout_impl(&mut self, ctx: &mut UiContext, state: &Self::State, constraints: SizeConstraints) -> ElementSize {
+    fn layout_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        constraints: SizeConstraints,
+    ) -> ElementSize {
         self.update_state(state, &ctx.now, constraints.max_size.width);
 
-        let is_focused = ctx.event_manager.is_focused(self.id);
-        let caret_blink_duration = self.visuals.as_ref().and_then(|v| v.caret_blink_duration).unwrap_or(1.0);
+        let params = (self.params)(state, &ctx.now, self.id);
+        let is_focused = params.interaction.is_focused;
+        let caret_blink_duration = self
+            .visuals
+            .as_ref()
+            .and_then(|v| v.caret_blink_duration)
+            .unwrap_or(1.0);
         match (is_focused, self.gained_focus_at) {
             (false, _) => {
                 self.gained_focus_at = None;
@@ -354,7 +361,7 @@ impl<State> ElementImpl for TextField<State> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = (self.params)(state, &ctx.now);
+        let params = (self.params)(state, &ctx.now, self.id);
         let visuals = &params.visuals;
 
         let caret_height = self.line_height * 0.8;
@@ -442,4 +449,3 @@ impl<State> ElementImpl for TextField<State> {
         );
     }
 }
-

@@ -28,7 +28,7 @@ impl<State> Flex<State> {
         ctx: &mut UiContext,
     ) -> Self {
         Self {
-            id: ctx.event_manager.next_id(),
+            id: ctx.event_manager.borrow_mut().next_id(),
             layout: std::iter::repeat(ElementSize::ZERO)
                 .take(children.len())
                 .collect(),
@@ -40,7 +40,7 @@ impl<State> Flex<State> {
     pub fn new_row(children: Vec<Box<dyn Element<State = State>>>, ctx: &mut UiContext) -> Self {
         Self::new(
             children,
-            Box::new(|_, _| FlexParams {
+            Box::new(|_, _, _| FlexParams {
                 direction: FlexDirection::Row,
             }),
             ctx,
@@ -50,7 +50,7 @@ impl<State> Flex<State> {
     pub fn new_column(children: Vec<Box<dyn Element<State = State>>>, ctx: &mut UiContext) -> Self {
         Self::new(
             children,
-            Box::new(|_, _| FlexParams {
+            Box::new(|_, _, _| FlexParams {
                 direction: FlexDirection::Column,
             }),
             ctx,
@@ -76,7 +76,7 @@ impl<State> ElementImpl for Flex<State> {
         // do we extend constraints to denote that they should not grow along some axis?
         let mut total_in_direction: f32 = 0.0;
         let mut max_orthogonal: f32 = 0.0;
-        let params = (self.params)(state, &ctx.now);
+        let params = (self.params)(state, &ctx.now, self.id);
 
         let mut child_constraints = constraints.clone();
 
@@ -142,7 +142,7 @@ impl<State> ElementImpl for Flex<State> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = (self.params)(state, &ctx.now);
+        let params = (self.params)(state, &ctx.now, self.id);
 
         let mut offset = match params.direction {
             FlexDirection::Row => origin.0,
@@ -172,4 +172,3 @@ impl<State> ElementImpl for Flex<State> {
         }
     }
 }
-

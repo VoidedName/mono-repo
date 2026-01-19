@@ -37,7 +37,7 @@ impl<State> Anchor<State> {
         ctx: &mut UiContext,
     ) -> Self {
         Self {
-            id: ctx.event_manager.next_id(),
+            id: ctx.event_manager.borrow_mut().next_id(),
             child,
             child_size: ElementSize::ZERO,
             params,
@@ -52,7 +52,12 @@ impl<State> ElementImpl for Anchor<State> {
         self.id
     }
 
-    fn layout_impl(&mut self, ctx: &mut UiContext, state: &Self::State, constraints: SizeConstraints) -> ElementSize {
+    fn layout_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        constraints: SizeConstraints,
+    ) -> ElementSize {
         let mut child_constraints = constraints;
         child_constraints.min_size = ElementSize::ZERO;
 
@@ -76,7 +81,7 @@ impl<State> ElementImpl for Anchor<State> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = (self.params)(state, &ctx.now);
+        let params = (self.params)(state, &ctx.now, self.id);
         match params.location {
             AnchorLocation::TOP => self.child.draw(
                 ctx,
@@ -156,4 +161,3 @@ impl<State> ElementImpl for Anchor<State> {
         }
     }
 }
-

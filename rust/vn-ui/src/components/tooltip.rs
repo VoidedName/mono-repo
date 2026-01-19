@@ -1,8 +1,8 @@
 use crate::components::ExtendedHitbox;
 use crate::utils::ToArray;
 use crate::{
-    DynamicSize, Element, ElementId, ElementImpl, ElementSize, SizeConstraints, StateToParams,
-    UiContext,
+    DynamicSize, Element, ElementId, ElementImpl, ElementSize, InteractionState, SizeConstraints,
+    StateToParams, UiContext,
 };
 use vn_scene::{Rect, Scene};
 use vn_ui_animation_macros::Interpolatable;
@@ -14,6 +14,7 @@ pub struct TooltipParams {
     pub hover_delay: Option<Duration>,
     #[interpolate_none_as_default]
     pub hover_retain: Option<Duration>,
+    pub interaction: InteractionState,
 }
 
 pub struct ToolTip<State: 'static> {
@@ -35,9 +36,9 @@ impl<State: 'static> ToolTip<State> {
         ctx: &mut UiContext,
     ) -> Self {
         Self {
-            id: ctx.event_manager.next_id(),
-            element,
             tooltip: Box::new(ExtendedHitbox::new(tooltip, ctx)),
+            id: ctx.event_manager.borrow_mut().next_id(),
+            element,
             params,
             show_tooltip: false,
             tool_tip_size: ElementSize::ZERO,
@@ -60,8 +61,8 @@ impl<State: 'static> ElementImpl for ToolTip<State> {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        let is_hovered = ctx.event_manager.is_hovered(self.id);
-        let params = (self.params)(state, &ctx.now);
+        let params = (self.params)(state, &ctx.now, self.id);
+        let is_hovered = params.interaction.is_hovered;
         let hover_delay = params.hover_delay.unwrap_or(Duration::from_secs_f32(0.1));
         let hover_retain = params.hover_retain.unwrap_or(Duration::from_secs_f32(0.1));
 
@@ -139,4 +140,3 @@ impl<State: 'static> ElementImpl for ToolTip<State> {
         );
     }
 }
-

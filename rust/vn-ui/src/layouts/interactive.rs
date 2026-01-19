@@ -1,4 +1,6 @@
-use crate::{Element, ElementId, ElementImpl, ElementSize, SizeConstraints, StateToParams, UiContext};
+use crate::{
+    Element, ElementId, ElementImpl, ElementSize, SizeConstraints, StateToParams, UiContext,
+};
 use vn_scene::Scene;
 
 pub struct Interactive<State> {
@@ -18,7 +20,7 @@ impl<State> Interactive<State> {
         ctx: &mut UiContext,
     ) -> Self {
         Self {
-            id: ctx.event_manager.next_id(),
+            id: ctx.event_manager.borrow_mut().next_id(),
             child,
             params,
         }
@@ -32,7 +34,12 @@ impl<State> ElementImpl for Interactive<State> {
         self.id
     }
 
-    fn layout_impl(&mut self, ctx: &mut UiContext, state: &Self::State, constraints: SizeConstraints) -> ElementSize {
+    fn layout_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        constraints: SizeConstraints,
+    ) -> ElementSize {
         self.child.layout(ctx, state, constraints)
     }
 
@@ -44,10 +51,9 @@ impl<State> ElementImpl for Interactive<State> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = (self.params)(state, &ctx.now);
+        let params = (self.params)(state, &ctx.now, self.id);
         ctx.with_interactivity(params.is_interactive, |ctx| {
             self.child.draw(ctx, state, origin, size, canvas);
         });
     }
 }
-

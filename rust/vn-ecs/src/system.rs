@@ -36,7 +36,11 @@ impl SystemManager {
     }
 
     pub fn set_enabled_by_type(&mut self, type_id: std::any::TypeId, enabled: bool) {
-        if let Some(sys) = self.systems.iter_mut().find(|s| s.system.type_id() == type_id) {
+        if let Some(sys) = self
+            .systems
+            .iter_mut()
+            .find(|s| s.system.type_id() == type_id)
+        {
             sys.enabled = enabled;
         }
     }

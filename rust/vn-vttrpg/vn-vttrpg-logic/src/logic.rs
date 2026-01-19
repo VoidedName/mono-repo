@@ -6,12 +6,11 @@ use thiserror::Error;
 use vn_ui::{
     Anchor, AnchorLocation, AnchorParams, Card, CardParams, DynamicSize,
     DynamicTextFieldController, Easing, Element, ElementSize, EventManager, Fill, FitStrategy,
-    InputTextFieldController, InputTextFieldControllerExt, Interactive, InteractiveParams,
+    InputTextFieldController, InputTextFieldControllerExt, InteractionState, Interactive, InteractiveParams,
     Interpolatable, Padding, PaddingParams, Progress, SimpleLayoutCache, SizeConstraints,
     Stack, TextField, TextFieldCallbacks, TextFieldParams, TextMetrics, TextVisuals, Texture as UiTexture, TextureParams, UiContext,
 };
 use vn_wgpu_window::graphics::GraphicsContext;
-use vn_wgpu_window::input::InputState;
 use vn_wgpu_window::resource_manager::ResourceManager;
 use vn_wgpu_window::scene_renderer::SceneRenderer;
 use vn_wgpu_window::{Color, StateLogic, Texture};
@@ -124,7 +123,6 @@ pub trait PlatformHooks {
 pub struct MainLogic {
     pub resource_manager: Rc<ResourceManager>,
     pub graphics_context: Rc<GraphicsContext>,
-    pub input: InputState,
     fps_stats: Rc<RefCell<FpsStats>>,
     size: (u32, u32),
     mouse_position: (f32, f32),
@@ -132,6 +130,7 @@ pub struct MainLogic {
     event_manager: Rc<RefCell<EventManager>>,
     input_controller: Rc<RefCell<InputTextFieldController>>,
     platform: Rc<Box<dyn PlatformHooks>>,
+    focused_id: Option<vn_ui::ElementId>,
 }
 
 impl MainLogic {
@@ -171,29 +170,38 @@ impl MainLogic {
             mouse_position: (0.0, 0.0),
             size: graphics_context.size(),
             graphics_context,
-            input: InputState::new(),
             fps_stats,
             event_manager,
             input_controller,
             platform,
+            focused_id: None,
         })
     }
 }
 
 impl StateLogic<SceneRenderer> for MainLogic {
-    fn handle_key(&mut self, event_loop: &ActiveEventLoop, event: &KeyEvent) {
-        self.input.handle_key(event);
-
-        let mut event_manager = self.event_manager.borrow_mut();
-        let events = event_manager.handle_key(event);
-
-        for (id, interaction_event) in events {
-            if id == self.input_controller.borrow().id {
-                if let vn_ui::InteractionEvent::Keyboard(key_event) = interaction_event {
-                    self.input_controller.borrow_mut().handle_key(&key_event);
+    fn process_events(&mut self) {
+        let events = self.event_manager.borrow_mut().process_events();
+        for (id, event) in events {
+            match event {
+                vn_ui::InteractionEvent::Click { x, y, .. } => {
+                    self.focused_id = Some(id);
+                    if id == self.input_controller.borrow().id {
+                        self.input_controller.borrow_mut().handle_click(x, y);
+                    }
                 }
+                vn_ui::InteractionEvent::Keyboard(key_event) => {
+                    if Some(id) == self.focused_id && id == self.input_controller.borrow().id {
+                        self.input_controller.borrow_mut().handle_key(&key_event);
+                    }
+                }
+                _ => {}
             }
         }
+    }
+
+    fn handle_key(&mut self, event_loop: &ActiveEventLoop, event: &KeyEvent) {
+        self.event_manager.borrow_mut().queue_event(vn_ui::InteractionEvent::Keyboard(event.clone()));
 
         use winit::keyboard::{KeyCode, PhysicalKey};
         match (event.physical_key, event.state.is_pressed()) {
@@ -204,6 +212,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
 
     fn handle_mouse_position(&mut self, x: f32, y: f32) {
         self.mouse_position = (x, y);
+        self.event_manager.borrow_mut().queue_event(vn_ui::InteractionEvent::MouseMove { x, y });
     }
 
     fn handle_mouse_button(
@@ -219,28 +228,19 @@ impl StateLogic<SceneRenderer> for MainLogic {
             _ => return,
         };
 
-        let mut event_manager = self.event_manager.borrow_mut();
-        let events = match state {
-            winit::event::ElementState::Pressed => event_manager.handle_mouse_down(
-                self.mouse_position.0,
-                self.mouse_position.1,
+        let event = match state {
+            winit::event::ElementState::Pressed => vn_ui::InteractionEvent::MouseDown {
                 button,
-            ),
-            winit::event::ElementState::Released => {
-                event_manager.handle_mouse_up(self.mouse_position.0, self.mouse_position.1, button)
-            }
+                x: self.mouse_position.0,
+                y: self.mouse_position.1,
+            },
+            winit::event::ElementState::Released => vn_ui::InteractionEvent::MouseUp {
+                button,
+                x: self.mouse_position.0,
+                y: self.mouse_position.1,
+            },
         };
-
-        for (id, event) in events {
-            match event {
-                vn_ui::InteractionEvent::Click { x, y, .. } => {
-                    if id == self.input_controller.borrow().id {
-                        self.input_controller.borrow_mut().handle_click(x, y);
-                    }
-                }
-                _ => {}
-            }
-        }
+        self.event_manager.borrow_mut().queue_event(event);
     }
 
     fn resized(&mut self, width: u32, height: u32) {
@@ -256,12 +256,12 @@ impl StateLogic<SceneRenderer> for MainLogic {
 
         let mut ui = self.ui.borrow_mut();
 
-        let mut event_manager = self.event_manager.borrow_mut();
-        event_manager.handle_mouse_move(self.mouse_position.0, self.mouse_position.1);
-        event_manager.clear_hitboxes();
+        let event_manager = self.event_manager.clone();
+        // event_manager.handle_mouse_move(self.mouse_position.0, self.mouse_position.1);
+        event_manager.borrow_mut().clear_hitboxes();
 
         let mut ctx = UiContext {
-            event_manager: &mut event_manager,
+            event_manager,
             parent_id: None,
             layout_cache: Box::new(SimpleLayoutCache::new()),
             interactive: true,
@@ -315,9 +315,10 @@ impl MainLogic {
             gc: graphics_context.clone(),
         });
 
-        let mut event_manager = event_manager.borrow_mut();
+        let event_manager_rc = event_manager.clone();
+        let  event_manager = event_manager;
         let mut ui_ctx = UiContext {
-            event_manager: &mut event_manager,
+            event_manager: event_manager.clone(),
             parent_id: None,
             layout_cache: Box::new(SimpleLayoutCache::new()),
             interactive: true,
@@ -328,8 +329,10 @@ impl MainLogic {
             {
                 let input_controller = input_controller.clone();
                 let text_metric = text_metric.clone();
-                Box::new(move |_, _| {
+                let event_manager = event_manager_rc.clone();
+                Box::new(move |_, _, id| {
                     let input = input_controller.borrow();
+                    let event_manager = event_manager.borrow();
                     TextFieldParams {
                         visuals: TextVisuals {
                             text: input.text.clone(),
@@ -342,6 +345,10 @@ impl MainLogic {
                         },
                         controller: input_controller.clone(),
                         metrics: text_metric.clone(),
+                        interaction: InteractionState {
+                            is_focused: event_manager.is_focused(id),
+                            is_hovered: event_manager.is_hovered(id),
+                        },
                     }
                 })
             },
@@ -369,13 +376,13 @@ impl MainLogic {
 
         let test_input = Padding::new(
             Box::new(text_input),
-            Box::new(move |_, now| animation_controller.value(*now)),
+            Box::new(move |_, now, _| animation_controller.value(*now)),
             &mut ui_ctx,
         );
 
         let test_input = Card::new(
             Box::new(test_input),
-            Box::new(|_, _| CardParams {
+            Box::new(|_, _, _| CardParams {
                 background_color: Color::TRANSPARENT,
                 border_size: 2.0,
                 border_color: Color::TRANSPARENT,
@@ -402,7 +409,8 @@ impl MainLogic {
                 let fps_controller_typed = fps_controller_typed.clone();
                 let fps_controller = fps_controller.clone();
                 let text_metric = text_metric.clone();
-                Box::new(move |_, _| {
+                let event_manager = event_manager_rc.clone();
+                Box::new(move |_, _, id| {
                     let text = fps_controller_typed.borrow().text();
                     TextFieldParams {
                         visuals: TextVisuals {
@@ -416,6 +424,10 @@ impl MainLogic {
                         },
                         controller: fps_controller.clone(),
                         metrics: text_metric.clone(),
+                        interaction: InteractionState {
+                            is_focused: event_manager.borrow().is_focused(id),
+                            is_hovered: event_manager.borrow().is_hovered(id),
+                        },
                     }
                 })
             },
@@ -424,7 +436,7 @@ impl MainLogic {
 
         let fps = Anchor::new(
             Box::new(fps),
-            Box::new(|_, _| AnchorParams {
+            Box::new(|_, _, _| AnchorParams {
                 location: AnchorLocation::TopRight,
             }),
             &mut ui_ctx,
@@ -432,7 +444,7 @@ impl MainLogic {
 
         let fps = Interactive::new(
             Box::new(fps),
-            Box::new(|_, _| InteractiveParams {
+            Box::new(|_, _, _| InteractiveParams {
                 is_interactive: true,
             }),
             &mut ui_ctx,
@@ -440,23 +452,23 @@ impl MainLogic {
 
         let test_input = Anchor::new(
             Box::new(test_input),
-            Box::new(|_, _| AnchorParams {
+            Box::new(|_, _, _| AnchorParams {
                 location: AnchorLocation::CENTER,
             }),
             &mut ui_ctx,
         );
 
-        let test_sprite = UiTexture::new(Box::new(move |_, _| TextureParams {
+        let test_sprite = UiTexture::new(Box::new(move |_, _, _| TextureParams {
             texture_id: test_texture.id.clone(),
-            preferred_size: ElementSize { width: 500.0, height: 500.0 },
+            preferred_size: ElementSize { width: 100.0, height: 100.0 },
             uv_rect: Rect { position: [0.25, 0.25], size: [0.5, 0.5] },
             tint: Color::WHITE,
-            fit_strategy: FitStrategy::PreserveAspectRatio,
+            fit_strategy: FitStrategy::Clip,
         }), &mut ui_ctx);
 
         let test_sprite = Anchor::new(
             Box::new(test_sprite),
-            Box::new(|_, _| AnchorParams {
+            Box::new(|_, _, _| AnchorParams {
                 location: AnchorLocation::CENTER,
             }),
             &mut ui_ctx,

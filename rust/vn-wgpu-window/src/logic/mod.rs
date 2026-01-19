@@ -3,6 +3,8 @@ use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
 
 pub trait StateLogic<R: Renderer>: Sized + 'static {
+    fn process_events(&mut self) {}
+
     #[allow(unused_variables)]
     fn handle_key(&mut self, event_loop: &ActiveEventLoop, event: &KeyEvent) {}
 

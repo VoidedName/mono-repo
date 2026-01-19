@@ -17,31 +17,63 @@ pub trait RTreeNum:
 }
 
 impl RTreeNum for f32 {
-    fn zero() -> Self { 0.0 }
-    fn one() -> Self { 1.0 }
-    fn max_value() -> Self { f32::MAX }
-    fn abs_diff(self, other: Self) -> Self { (self - other).abs() }
+    fn zero() -> Self {
+        0.0
+    }
+    fn one() -> Self {
+        1.0
+    }
+    fn max_value() -> Self {
+        f32::MAX
+    }
+    fn abs_diff(self, other: Self) -> Self {
+        (self - other).abs()
+    }
 }
 
 impl RTreeNum for f64 {
-    fn zero() -> Self { 0.0 }
-    fn one() -> Self { 1.0 }
-    fn max_value() -> Self { f64::MAX }
-    fn abs_diff(self, other: Self) -> Self { (self - other).abs() }
+    fn zero() -> Self {
+        0.0
+    }
+    fn one() -> Self {
+        1.0
+    }
+    fn max_value() -> Self {
+        f64::MAX
+    }
+    fn abs_diff(self, other: Self) -> Self {
+        (self - other).abs()
+    }
 }
 
 impl RTreeNum for i32 {
-    fn zero() -> Self { 0 }
-    fn one() -> Self { 1 }
-    fn max_value() -> Self { i32::MAX }
-    fn abs_diff(self, other: Self) -> Self { (self - other).abs() }
+    fn zero() -> Self {
+        0
+    }
+    fn one() -> Self {
+        1
+    }
+    fn max_value() -> Self {
+        i32::MAX
+    }
+    fn abs_diff(self, other: Self) -> Self {
+        (self - other).abs()
+    }
 }
 
 impl RTreeNum for i64 {
-    fn zero() -> Self { 0 }
-    fn one() -> Self { 1 }
-    fn max_value() -> Self { i64::MAX }
-    fn abs_diff(self, other: Self) -> Self { (self - other).abs() }
+    fn zero() -> Self {
+        0
+    }
+    fn one() -> Self {
+        1
+    }
+    fn max_value() -> Self {
+        i64::MAX
+    }
+    fn abs_diff(self, other: Self) -> Self {
+        (self - other).abs()
+    }
 }
 
 impl<K: RTreeNum, const N: usize> Rect<K, N> {
@@ -61,8 +93,16 @@ impl<K: RTreeNum, const N: usize> Rect<K, N> {
         let mut min = [K::zero(); N];
         let mut max = [K::zero(); N];
         for i in 0..N {
-            min[i] = if self.min[i] < other.min[i] { self.min[i] } else { other.min[i] };
-            max[i] = if self.max[i] > other.max[i] { self.max[i] } else { other.max[i] };
+            min[i] = if self.min[i] < other.min[i] {
+                self.min[i]
+            } else {
+                other.min[i]
+            };
+            max[i] = if self.max[i] > other.max[i] {
+                self.max[i]
+            } else {
+                other.max[i]
+            };
         }
         Self { min, max }
     }

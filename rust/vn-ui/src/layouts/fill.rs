@@ -10,7 +10,7 @@ pub struct Fill<State> {
 impl<State> Fill<State> {
     pub fn new(element: Box<dyn Element<State = State>>, ctx: &mut UiContext) -> Self {
         Self {
-            id: ctx.event_manager.next_id(),
+            id: ctx.event_manager.borrow_mut().next_id(),
             element,
         }
     }
@@ -23,7 +23,12 @@ impl<State> ElementImpl for Fill<State> {
         self.id
     }
 
-    fn layout_impl(&mut self, ctx: &mut UiContext, state: &Self::State, constraints: SizeConstraints) -> ElementSize {
+    fn layout_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        constraints: SizeConstraints,
+    ) -> ElementSize {
         let child_size = self.element.layout(ctx, state, constraints);
 
         let height = match constraints.max_size.height {
@@ -59,4 +64,3 @@ impl<State> ElementImpl for Fill<State> {
         self.element.draw(ctx, state, origin, size, canvas);
     }
 }
-

@@ -60,4 +60,3 @@ pub struct SizeConstraints {
     pub max_size: DynamicSize,
     pub scene_size: SceneSize,
 }
-

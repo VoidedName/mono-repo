@@ -1,6 +1,5 @@
 use crate::{
-    Element, ElementId, ElementImpl, ElementSize, SizeConstraints,
-    StateToParams, UiContext,
+    Element, ElementId, ElementImpl, ElementSize, SizeConstraints, StateToParams, UiContext,
 };
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
 use vn_ui_animation_macros::Interpolatable;
@@ -27,7 +26,7 @@ impl<State> Card<State> {
         ctx: &mut UiContext,
     ) -> Self {
         Self {
-            id: ctx.event_manager.next_id(),
+            id: ctx.event_manager.borrow_mut().next_id(),
             child,
             params,
         }
@@ -44,8 +43,13 @@ impl<State> ElementImpl for Card<State> {
         self.id
     }
 
-    fn layout_impl(&mut self, ctx: &mut UiContext, state: &Self::State, constraints: SizeConstraints) -> ElementSize {
-        let params = (self.params)(state, &ctx.now);
+    fn layout_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        constraints: SizeConstraints,
+    ) -> ElementSize {
+        let params = (self.params)(state, &ctx.now, self.id);
         // We override the padding of the child with our border size
         // This is a bit of a hack because Padding's internal params are now fixed at creation.
         // But since we are calling its layout, we can't easily change its StateToParams.
@@ -88,7 +92,7 @@ impl<State> ElementImpl for Card<State> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = (self.params)(state, &ctx.now);
+        let params = (self.params)(state, &ctx.now, self.id);
 
         canvas.add_box(BoxPrimitiveData {
             transform: Transform {
@@ -116,4 +120,3 @@ impl<State> ElementImpl for Card<State> {
         );
     }
 }
-

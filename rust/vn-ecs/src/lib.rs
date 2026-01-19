@@ -91,9 +91,9 @@ mod tests {
         struct SpatialPos {
             p: [f32; 2],
         }
-        world.add_index::<SpatialPos, RTreeIndex<SpatialPos, f32, 2>, _>(
-            RTreeIndexBuilder::new(|s: &SpatialPos| s.p),
-        );
+        world.add_index::<SpatialPos, RTreeIndex<SpatialPos, f32, 2>, _>(RTreeIndexBuilder::new(
+            |s: &SpatialPos| s.p,
+        ));
 
         let e1 = world.spawn();
         world.add_component(e1, SpatialPos { p: [1.0, 1.0] });
@@ -143,16 +143,18 @@ mod tests {
         struct GridPos {
             p: [i32; 2],
         }
-        world.add_index::<GridPos, RTreeIndex<GridPos, i32, 2>, _>(
-            RTreeIndexBuilder::new(|s: &GridPos| s.p),
-        );
+        world.add_index::<GridPos, RTreeIndex<GridPos, i32, 2>, _>(RTreeIndexBuilder::new(
+            |s: &GridPos| s.p,
+        ));
 
         let e1 = world.spawn();
         world.add_component(e1, GridPos { p: [1, 1] });
         let e2 = world.spawn();
         world.add_component(e2, GridPos { p: [10, 10] });
 
-        let index = world.get_index::<GridPos, RTreeIndex<GridPos, i32, 2>>().unwrap();
+        let index = world
+            .get_index::<GridPos, RTreeIndex<GridPos, i32, 2>>()
+            .unwrap();
         let results = index.query_bounds([0, 0], [5, 5]);
         assert_eq!(results, vec![e1]);
     }
@@ -164,14 +166,17 @@ mod tests {
             p: [f32; 2],
         }
         // Max children is 8 by default in RTreeIndex
-        world.add_index::<Pos, RTreeIndex<Pos, f32, 2>, _>(
-            RTreeIndexBuilder::new(|s: &Pos| s.p),
-        );
+        world.add_index::<Pos, RTreeIndex<Pos, f32, 2>, _>(RTreeIndexBuilder::new(|s: &Pos| s.p));
 
         let mut entities = Vec::new();
         for i in 0..10 {
             let e = world.spawn();
-            world.add_component(e, Pos { p: [i as f32, i as f32] });
+            world.add_component(
+                e,
+                Pos {
+                    p: [i as f32, i as f32],
+                },
+            );
             entities.push(e);
         }
 
@@ -210,17 +215,23 @@ mod tests {
         let mut world = World::new();
         let e = world.spawn();
         world.add_component(e, 42i32);
-        
+
         struct Important;
         struct Temp;
-        
+
         world.tag_component::<i32, Important>(e);
         world.tag_component::<i32, Temp>(e);
 
-        assert_eq!(world.get_component_tags::<i32>(e), vec![TypeId::of::<Important>(), TypeId::of::<Temp>()]);
+        assert_eq!(
+            world.get_component_tags::<i32>(e),
+            vec![TypeId::of::<Important>(), TypeId::of::<Temp>()]
+        );
 
         world.untag_component::<i32, Temp>(e);
-        assert_eq!(world.get_component_tags::<i32>(e), vec![TypeId::of::<Important>()]);
+        assert_eq!(
+            world.get_component_tags::<i32>(e),
+            vec![TypeId::of::<Important>()]
+        );
 
         world.untag_component::<i32, Important>(e);
         assert!(world.get_component_tags::<i32>(e).is_empty());
@@ -231,19 +242,27 @@ mod tests {
         let mut world = World::new();
         let e = world.spawn();
         world.add_component(e, 42i32);
-        
+
         struct Important;
         world.tag_component::<i32, Important>(e);
-        
+
         #[derive(Debug, Clone, Copy)]
-        struct Pos { x: i32 }
+        struct Pos {
+            x: i32,
+        }
         world.add_index::<Pos, BTreeIndex<Pos, i32>, _>(BTreeIndexBuilder::new(|p: &Pos| p.x));
         world.add_component(e, Pos { x: 1 });
 
         // Verify it's there
         assert!(world.get_component::<i32>(e).is_some());
         assert!(!world.get_component_tags::<i32>(e).is_empty());
-        assert!(!world.get_index::<Pos, BTreeIndex<Pos, i32>>().unwrap().query_range(0..=2).is_empty());
+        assert!(
+            !world
+                .get_index::<Pos, BTreeIndex<Pos, i32>>()
+                .unwrap()
+                .query_range(0..=2)
+                .is_empty()
+        );
 
         world.despawn(e);
 
@@ -252,7 +271,13 @@ mod tests {
         // Verify tags are gone
         assert!(world.get_component_tags::<i32>(e).is_empty());
         // Verify index is updated
-        assert!(world.get_index::<Pos, BTreeIndex<Pos, i32>>().unwrap().query_range(0..=2).is_empty());
+        assert!(
+            world
+                .get_index::<Pos, BTreeIndex<Pos, i32>>()
+                .unwrap()
+                .query_range(0..=2)
+                .is_empty()
+        );
     }
 
     #[test]
@@ -276,9 +301,11 @@ mod tests {
         world.add_component(e, 42i32);
         struct MyTag;
         world.tag_component::<i32, MyTag>(e);
-        
+
         #[derive(Debug, Clone, Copy, PartialEq)]
-        struct Pos { x: i32 }
+        struct Pos {
+            x: i32,
+        }
         world.add_index::<Pos, BTreeIndex<Pos, i32>, _>(BTreeIndexBuilder::new(|p: &Pos| p.x));
         world.add_component(e, Pos { x: 10 });
 
@@ -313,11 +340,17 @@ mod tests {
     #[test]
     fn test_register_storage() {
         let mut world = World::new();
-        world.register_storage::<i32>(Box::new(SparseSet::<i32>::new())).unwrap();
-        
+        world
+            .register_storage::<i32>(Box::new(SparseSet::<i32>::new()))
+            .unwrap();
+
         // Already registered
-        assert!(world.register_storage::<i32>(Box::new(SparseSet::<i32>::new())).is_err());
-        
+        assert!(
+            world
+                .register_storage::<i32>(Box::new(SparseSet::<i32>::new()))
+                .is_err()
+        );
+
         let e = world.spawn();
         world.add_component(e, 42i32);
         assert_eq!(world.get_component::<i32>(e), Some(&42));
@@ -381,7 +414,7 @@ mod tests {
         let index = world.get_index::<Pos, BTreeIndex<Pos, i32>>().unwrap();
         let results = index.query_range(5..=15);
         assert_eq!(results, vec![e1]);
-        
+
         let results_all = index.query_range(0..=100);
         assert_eq!(results_all.len(), 2);
         assert!(results_all.contains(&e1));
@@ -401,10 +434,8 @@ mod tests {
         struct MovementSystem;
         impl System for MovementSystem {
             fn run(&mut self, world: &mut World) {
-                let entities = world.query_entities_with_all(&[
-                    TypeId::of::<Position>(),
-                    TypeId::of::<Velocity>(),
-                ]);
+                let entities = world
+                    .query_entities_with_all(&[TypeId::of::<Position>(), TypeId::of::<Velocity>()]);
 
                 for entity in entities {
                     let vel = *world.get_component::<Velocity>(entity).unwrap();

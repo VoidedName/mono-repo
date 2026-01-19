@@ -73,7 +73,6 @@ pub trait ElementImpl {
 /// Represents a UI element that can be laid out and drawn.
 /// This trait is automatically implemented for all types that implement [ElementImpl].
 pub trait Element: ElementImpl {
-
     /// Returns the unique ID of this element.
     fn id(&self) -> ElementId {
         self.id_impl()
@@ -151,4 +150,3 @@ pub trait Element: ElementImpl {
 }
 
 impl<State, T: ElementImpl<State = State>> Element for T {}
-

@@ -91,6 +91,8 @@ impl<T: StateLogic<R>, R: Renderer> RenderingContext<T, R> {
             return Ok(());
         }
 
+        self.logic.process_events();
+
         let render_target = self.logic.render_target();
 
         self.renderer.render(&self.context, &render_target)?;

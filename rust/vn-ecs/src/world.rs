@@ -26,7 +26,10 @@ impl World {
     }
 
     // consider allowing overwriting of storage
-    pub fn register_storage<T: Any>(&mut self, storage: Box<dyn ComponentStorage>) -> Result<(), String> {
+    pub fn register_storage<T: Any>(
+        &mut self,
+        storage: Box<dyn ComponentStorage>,
+    ) -> Result<(), String> {
         let type_id = TypeId::of::<T>();
         if self.components.contains_key(&type_id) {
             return Err(format!("Storage for type {:?} already registered", type_id));
@@ -47,7 +50,8 @@ impl World {
             for index in self.indices.values_mut() {
                 index.remove(entity);
             }
-            self.component_tags.retain(|(e_id, _), _| *e_id != entity.id);
+            self.component_tags
+                .retain(|(e_id, _), _| *e_id != entity.id);
         }
     }
 
@@ -116,7 +120,7 @@ impl World {
         }
 
         let type_id = TypeId::of::<T>();
-        
+
         // Remove from indices
         for ((c_type, _), index) in self.indices.iter_mut() {
             if *c_type == type_id {
@@ -129,7 +133,11 @@ impl World {
 
         // Remove from storage
         let storage = self.components.get_mut(&type_id)?;
-        storage.remove_any(entity.id)?.downcast::<T>().ok().map(|b| *b)
+        storage
+            .remove_any(entity.id)?
+            .downcast::<T>()
+            .ok()
+            .map(|b| *b)
     }
 
     pub fn insert_resource<T: Any>(&mut self, resource: T) {
@@ -230,9 +238,7 @@ impl World {
         }
         let type_id = TypeId::of::<T>();
         let tag_id = TypeId::of::<TAG>();
-        let tags = self.component_tags
-            .entry((entity.id, type_id))
-            .or_default();
+        let tags = self.component_tags.entry((entity.id, type_id)).or_default();
         if !tags.contains(&tag_id) {
             tags.push(tag_id);
         }

@@ -9,11 +9,8 @@ pub struct ExtendedHitbox<State> {
 
 impl<State> ExtendedHitbox<State> {
     pub fn new(element: Box<dyn Element<State = State>>, ctx: &mut UiContext) -> Self {
-        let ui_id = ctx.event_manager.next_id();
-        Self {
-            id: ui_id,
-            element,
-        }
+        let ui_id = ctx.event_manager.borrow_mut().next_id();
+        Self { id: ui_id, element }
     }
 }
 
@@ -24,7 +21,12 @@ impl<State> ElementImpl for ExtendedHitbox<State> {
         self.id
     }
 
-    fn layout_impl(&mut self, ctx: &mut UiContext, state: &Self::State, constraints: SizeConstraints) -> ElementSize {
+    fn layout_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        constraints: SizeConstraints,
+    ) -> ElementSize {
         self.element
             .layout(ctx, state, constraints)
             .clamp_to_constraints(constraints)
@@ -51,4 +53,3 @@ impl<State> ElementImpl for ExtendedHitbox<State> {
         );
     }
 }
-

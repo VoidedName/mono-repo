@@ -1,9 +1,8 @@
-use crate::collections::rtree::{RTreeNode, Rect, RTreeNum};
+use crate::collections::rtree::{RTreeNode, RTreeNum, Rect};
 use crate::entity::Entity;
 use crate::index::{Index, IndexBuilder};
 use std::any::Any;
 use std::collections::HashMap;
-
 
 // Remark (generalization): We could further generalize this, but not really worth it atm.
 pub struct RTreeIndex<T, K, const DIMENSIONS: usize> {
@@ -118,7 +117,8 @@ impl<T: Any, K: RTreeNum + Any, const DIMENSIONS: usize> RTreeIndex<T, K, DIMENS
 
     fn split_leaf(node: &mut RTreeNode<K, DIMENSIONS>) -> RTreeNode<K, DIMENSIONS> {
         if let RTreeNode::Leaf { entries, .. } = node {
-            let rects: Vec<Rect<K, DIMENSIONS>> = entries.iter().map(|e| Rect::from_point(e.0)).collect();
+            let rects: Vec<Rect<K, DIMENSIONS>> =
+                entries.iter().map(|e| Rect::from_point(e.0)).collect();
             let (idx1, idx2) = Self::pick_seeds(&rects);
             let entry1 = entries.remove(idx1.max(idx2));
             let entry2 = entries.remove(idx1.min(idx2));
@@ -269,7 +269,7 @@ impl<T: Any, K: RTreeNum + Any, const DIMENSIONS: usize> Index for RTreeIndex<T,
         if let Some(pos) = self.entity_positions.remove(&entity) {
             if let Some(ref mut root) = self.root {
                 root.remove(entity, pos);
-                
+
                 // Handle root underflow
                 let mut should_collapse = false;
                 let mut new_root = None;

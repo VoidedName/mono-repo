@@ -12,7 +12,7 @@ pub struct Stack<State> {
 impl<State> Stack<State> {
     pub fn new(children: Vec<Box<dyn Element<State = State>>>, ctx: &mut UiContext) -> Self {
         Stack {
-            id: ctx.event_manager.next_id(),
+            id: ctx.event_manager.borrow_mut().next_id(),
             children_size: vec![ElementSize::ZERO; children.len()],
             children,
         }
@@ -26,7 +26,12 @@ impl<State> ElementImpl for Stack<State> {
         self.id
     }
 
-    fn layout_impl(&mut self, ctx: &mut UiContext, state: &Self::State, constraints: SizeConstraints) -> ElementSize {
+    fn layout_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        constraints: SizeConstraints,
+    ) -> ElementSize {
         let mut max_width: f32 = 0.0;
         let mut max_height: f32 = 0.0;
 
@@ -56,23 +61,24 @@ impl<State> ElementImpl for Stack<State> {
     ) {
         let mut first_drawn = false;
 
-        let mut draw_child =
-            |child: &mut Box<dyn Element<State = State>>, child_size: ElementSize, canvas: &mut dyn Scene| {
-                child.draw(
-                    ctx,
-                    state,
-                    (origin.0, origin.1),
-                    child_size.clamp_to_constraints(SizeConstraints {
-                        min_size: ElementSize::ZERO,
-                        max_size: DynamicSize {
-                            width: Some(size.width),
-                            height: Some(size.height),
-                        },
-                        scene_size: (size.width, size.height), // Approximation
-                    }),
-                    canvas,
-                );
-            };
+        let mut draw_child = |child: &mut Box<dyn Element<State = State>>,
+                              child_size: ElementSize,
+                              canvas: &mut dyn Scene| {
+            child.draw(
+                ctx,
+                state,
+                (origin.0, origin.1),
+                child_size.clamp_to_constraints(SizeConstraints {
+                    min_size: ElementSize::ZERO,
+                    max_size: DynamicSize {
+                        width: Some(size.width),
+                        height: Some(size.height),
+                    },
+                    scene_size: (size.width, size.height), // Approximation
+                }),
+                canvas,
+            );
+        };
 
         for (idx, child) in self.children.iter_mut().enumerate() {
             match first_drawn {
@@ -87,4 +93,3 @@ impl<State> ElementImpl for Stack<State> {
         }
     }
 }
-

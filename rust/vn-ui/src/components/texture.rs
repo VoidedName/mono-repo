@@ -19,7 +19,7 @@ pub struct TextureParams {
     /// NDC coordinates.
     pub uv_rect: Rect,
     pub tint: Color,
-    #[no_interpolation = "flip_middle"]
+    #[interpolate_snappy = "snap_middle"]
     pub fit_strategy: FitStrategy,
 }
 
@@ -31,7 +31,7 @@ pub struct Texture<State> {
 impl<State> Texture<State> {
     pub fn new(params: StateToParams<State, TextureParams>, ctx: &mut UiContext) -> Self {
         Self {
-            id: ctx.event_manager.next_id(),
+            id: ctx.event_manager.borrow_mut().next_id(),
             params,
         }
     }
@@ -50,7 +50,7 @@ impl<State> ElementImpl for Texture<State> {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        let params = (self.params)(state, &ctx.now);
+        let params = (self.params)(state, &ctx.now, self.id);
 
         let size = match params.fit_strategy {
             FitStrategy::Clip => params.preferred_size,
@@ -111,7 +111,7 @@ impl<State> ElementImpl for Texture<State> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = (self.params)(state, &ctx.now);
+        let params = (self.params)(state, &ctx.now, self.id);
 
         let (w, h) = match params.fit_strategy {
             FitStrategy::Clip => (params.preferred_size.width, params.preferred_size.height),
