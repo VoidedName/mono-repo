@@ -1,16 +1,52 @@
 use crate::{ElementId, ElementImpl, ElementSize, SizeConstraints, StateToParams, UiContext};
-use std::f32::consts::PI;
 use vn_scene::{Color, ImagePrimitiveData, Rect, Scene, TextureId, Transform};
+use vn_ui_animation::Interpolatable;
 use vn_ui_animation_macros::Interpolatable;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FitStrategy {
     /// Clip the texture if it's larger than the available space.
-    Clip,
+    Clip { rotation: f32 },
     /// Stretch or shrink the texture to fit the available space exactly.
     Stretch,
     /// Shrink or grow the texture to fit within the available space while preserving aspect ratio.
-    PreserveAspectRatio,
+    PreserveAspectRatio { rotation: f32 },
+}
+
+// eh... do i even want to?
+impl Interpolatable for FitStrategy {
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
+        match (self, other) {
+            (
+                FitStrategy::Clip {
+                    rotation: rotation1,
+                },
+                FitStrategy::Clip {
+                    rotation: rotation2,
+                },
+            ) => FitStrategy::Clip {
+                rotation: rotation1.interpolate(rotation2, t),
+            },
+            (
+                FitStrategy::PreserveAspectRatio {
+                    rotation: rotation1,
+                },
+                FitStrategy::PreserveAspectRatio {
+                    rotation: rotation2,
+                },
+            ) => FitStrategy::PreserveAspectRatio {
+                rotation: rotation1.interpolate(rotation2, t),
+            },
+            (FitStrategy::Stretch, FitStrategy::Stretch) => FitStrategy::Stretch,
+            _ => {
+                if (t > 0.5) {
+                    other.clone()
+                } else {
+                    self.clone()
+                }
+            }
+        }
+    }
 }
 
 #[derive(Clone, Interpolatable)]
@@ -22,7 +58,6 @@ pub struct TextureParams {
     pub tint: Color,
     #[interpolate_snappy = "snap_middle"]
     pub fit_strategy: FitStrategy,
-    pub rotation: f32,
 }
 
 pub struct Texture<State> {
@@ -46,7 +81,6 @@ impl<State> ElementImpl for Texture<State> {
         self.id
     }
 
-    // todo: fix aspect ratio and stretch under rotation
     fn layout_impl(
         &mut self,
         ctx: &mut UiContext,
@@ -55,10 +89,10 @@ impl<State> ElementImpl for Texture<State> {
     ) -> ElementSize {
         let params = (self.params)(state, &ctx.now, self.id);
 
-        let size = match params.fit_strategy {
-            FitStrategy::Clip => params.preferred_size,
+        let (size, rotation) = match params.fit_strategy {
+            FitStrategy::Clip { rotation } => (params.preferred_size, rotation),
             FitStrategy::Stretch => {
-                match (constraints.max_size.width, constraints.max_size.height) {
+                let size = match (constraints.max_size.width, constraints.max_size.height) {
                     (Some(max_width), Some(max_height)) => ElementSize {
                         width: max_width,
                         height: max_height,
@@ -72,39 +106,51 @@ impl<State> ElementImpl for Texture<State> {
                         height: max_height,
                     },
                     (None, None) => params.preferred_size,
-                }
+                };
+                (size, 0.0)
             }
-            FitStrategy::PreserveAspectRatio => {
+            FitStrategy::PreserveAspectRatio { rotation } => {
+                let cos = rotation.cos().abs();
+                let sin = rotation.sin().abs();
                 let aspect_ratio = params.preferred_size.width / params.preferred_size.height;
-                match (constraints.max_size.width, constraints.max_size.height) {
+                let size = match (constraints.max_size.width, constraints.max_size.height) {
                     (Some(max_width), Some(max_height)) => {
-                        if max_width / max_height > aspect_ratio {
-                            ElementSize {
-                                width: max_height * aspect_ratio,
-                                height: max_height,
-                            }
-                        } else {
-                            ElementSize {
-                                width: max_width,
-                                height: max_width / aspect_ratio,
-                            }
+                        // W = w*cos + h*sin = h*R*cos + h*sin = h*(R*cos + sin)
+                        // H = w*sin + h*cos = h*R*sin + h*cos = h*(R*sin + cos)
+                        let h1 = max_width / (aspect_ratio * cos + sin);
+                        let h2 = max_height / (aspect_ratio * sin + cos);
+                        let h = h1.min(h2);
+                        ElementSize {
+                            width: h * aspect_ratio,
+                            height: h,
                         }
                     }
-                    (Some(max_width), None) => ElementSize {
-                        width: max_width,
-                        height: max_width / aspect_ratio,
-                    },
-                    (None, Some(max_height)) => ElementSize {
-                        width: max_height * aspect_ratio,
-                        height: max_height,
-                    },
+                    (Some(max_width), None) => {
+                        let h = max_width / (aspect_ratio * cos + sin);
+                        ElementSize {
+                            width: h * aspect_ratio,
+                            height: h,
+                        }
+                    }
+                    (None, Some(max_height)) => {
+                        let h = max_height / (aspect_ratio * sin + cos);
+                        ElementSize {
+                            width: h * aspect_ratio,
+                            height: h,
+                        }
+                    }
                     (None, None) => params.preferred_size,
-                }
+                };
+                (size, rotation)
             }
         };
 
-        size.rotate(params.rotation)
-            .clamp_to_constraints(constraints)
+        let size = size.rotate(rotation);
+
+        ElementSize {
+            width: size.width.max(constraints.min_size.width),
+            height: size.height.max(constraints.min_size.height),
+        }
     }
 
     fn draw_impl(
@@ -117,16 +163,29 @@ impl<State> ElementImpl for Texture<State> {
     ) {
         let params = (self.params)(state, &ctx.now, self.id);
 
-        let (w, h) = match params.fit_strategy {
-            FitStrategy::Clip => (params.preferred_size.width, params.preferred_size.height),
-            FitStrategy::Stretch | FitStrategy::PreserveAspectRatio => (size.width, size.height),
+        let (w, h, rotation) = match params.fit_strategy {
+            FitStrategy::Clip { rotation } => (
+                params.preferred_size.width,
+                params.preferred_size.height,
+                rotation,
+            ),
+            FitStrategy::Stretch => (size.width, size.height, 0.0),
+            FitStrategy::PreserveAspectRatio { rotation } => {
+                let cos = rotation.cos().abs();
+                let sin = rotation.sin().abs();
+                let aspect_ratio = params.preferred_size.width / params.preferred_size.height;
+                let h1 = size.width / (aspect_ratio * cos + sin);
+                let h2 = size.height / (aspect_ratio * sin + cos);
+                let h = h1.min(h2);
+                (h * aspect_ratio, h, rotation)
+            }
         };
 
         canvas.add_image(ImagePrimitiveData {
             transform: Transform {
                 translation: [origin.0 + size.width / 2.0, origin.1 + size.height / 2.0],
                 origin: [0.5, 0.5],
-                rotation: params.rotation,
+                rotation,
                 ..Transform::DEFAULT
             },
             size: [w, h],

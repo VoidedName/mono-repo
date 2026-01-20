@@ -4,12 +4,14 @@ use std::pin::Pin;
 use std::rc::Rc;
 use std::time::Duration;
 use thiserror::Error;
+use vn_scene::Rect;
 use vn_ui::{
     Anchor, AnchorLocation, AnchorParams, Card, CardParams, DynamicSize,
     DynamicTextFieldController, Easing, Element, ElementSize, EventManager, Fill, FitStrategy,
-    InputTextFieldController, InputTextFieldControllerExt, InteractionState, Interactive, InteractiveParams,
-    Interpolatable, Padding, PaddingParams, Progress, SimpleLayoutCache, SizeConstraints,
-    Stack, TextField, TextFieldCallbacks, TextFieldParams, TextMetrics, TextVisuals, Texture as UiTexture, TextureParams, UiContext,
+    InputTextFieldController, InputTextFieldControllerExt, InteractionState, Interactive,
+    InteractiveParams, Interpolatable, Padding, PaddingParams, Progress, SimpleLayoutCache,
+    SizeConstraints, Stack, TextField, TextFieldCallbacks, TextFieldParams, TextMetrics,
+    TextVisuals, Texture as UiTexture, TextureParams, UiContext,
 };
 use vn_wgpu_window::graphics::GraphicsContext;
 use vn_wgpu_window::resource_manager::ResourceManager;
@@ -18,7 +20,6 @@ use vn_wgpu_window::{Color, StateLogic, Texture};
 use web_time::Instant;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
-use vn_scene::Rect;
 
 struct TextMetric {
     rm: Rc<ResourceManager>,
@@ -140,7 +141,9 @@ impl MainLogic {
         graphics_context: Rc<GraphicsContext>,
         resource_manager: Rc<ResourceManager>,
     ) -> anyhow::Result<Self> {
-        let font_bytes = platform.load_file("fonts/JetBrainsMono-Bold.ttf".to_string()).await?;
+        let font_bytes = platform
+            .load_file("fonts/JetBrainsMono-Bold.ttf".to_string())
+            .await?;
 
         resource_manager.load_font_from_bytes("jetbrains-bold", &font_bytes)?;
 
@@ -202,7 +205,9 @@ impl StateLogic<SceneRenderer> for MainLogic {
     }
 
     fn handle_key(&mut self, event_loop: &ActiveEventLoop, event: &KeyEvent) {
-        self.event_manager.borrow_mut().queue_event(vn_ui::InteractionEvent::Keyboard(event.clone()));
+        self.event_manager
+            .borrow_mut()
+            .queue_event(vn_ui::InteractionEvent::Keyboard(event.clone()));
 
         use winit::keyboard::{KeyCode, PhysicalKey};
         match (event.physical_key, event.state.is_pressed()) {
@@ -213,7 +218,9 @@ impl StateLogic<SceneRenderer> for MainLogic {
 
     fn handle_mouse_position(&mut self, x: f32, y: f32) {
         self.mouse_position = (x, y);
-        self.event_manager.borrow_mut().queue_event(vn_ui::InteractionEvent::MouseMove { x, y });
+        self.event_manager
+            .borrow_mut()
+            .queue_event(vn_ui::InteractionEvent::MouseMove { x, y });
     }
 
     fn handle_mouse_button(
@@ -317,7 +324,7 @@ impl MainLogic {
         });
 
         let event_manager_rc = event_manager.clone();
-        let  event_manager = event_manager;
+        let event_manager = event_manager;
         let mut ui_ctx = UiContext {
             event_manager: event_manager.clone(),
             parent_id: None,
@@ -331,7 +338,7 @@ impl MainLogic {
                 let input_controller = input_controller.clone();
                 let text_metric = text_metric.clone();
                 let event_manager = event_manager_rc.clone();
-                Box::new(move |_, _, id| {
+                Box::new(move |_: &(), _, id| {
                     let input = input_controller.borrow();
                     let event_manager = event_manager.borrow();
                     TextFieldParams {
@@ -464,17 +471,27 @@ impl MainLogic {
             state.target_value = PI * 2.0;
             state.easing = Easing::Linear;
             state.progress = Progress::Loop;
-            state.duration = Duration::from_secs(12);
+            state.duration = Duration::from_secs(10);
         });
 
-        let test_sprite = UiTexture::new(Box::new(move |_, now, _| TextureParams {
-            texture_id: test_texture.id.clone(),
-            preferred_size: ElementSize { width: 200.0, height: 100.0 },
-            uv_rect: Rect { position: [0.0, 0.0], size: [1.0, 1.0] },
-            tint: Color::WHITE,
-            fit_strategy: FitStrategy::PreserveAspectRatio,
-            rotation: rotation_animation.value(*now),
-        }), &mut ui_ctx);
+        let test_sprite = UiTexture::new(
+            Box::new(move |_, now, _| TextureParams {
+                texture_id: test_texture.id.clone(),
+                preferred_size: ElementSize {
+                    width: 200.0,
+                    height: 100.0,
+                },
+                uv_rect: Rect {
+                    position: [0.0, 0.0],
+                    size: [1.0, 1.0],
+                },
+                tint: Color::WHITE,
+                fit_strategy: FitStrategy::PreserveAspectRatio {
+                    rotation: rotation_animation.value(*now),
+                },
+            }),
+            &mut ui_ctx,
+        );
 
         let test_sprite = Anchor::new(
             Box::new(test_sprite),
@@ -484,7 +501,14 @@ impl MainLogic {
             &mut ui_ctx,
         );
 
-        let ui = Stack::new(vec![Box::new(test_input), Box::new(fps), Box::new(test_sprite)], &mut ui_ctx);
+        let ui = Stack::new(
+            vec![
+                // Box::new(test_input),
+                Box::new(fps),
+                Box::new(test_sprite),
+            ],
+            &mut ui_ctx,
+        );
 
         ui
     }
