@@ -464,7 +464,7 @@ impl MainLogic {
             state.target_value = PI * 2.0;
             state.easing = Easing::Linear;
             state.progress = Progress::Loop;
-            state.duration = Duration::from_secs(4);
+            state.duration = Duration::from_secs(12);
         });
 
         let test_sprite = UiTexture::new(Box::new(move |_, now, _| TextureParams {
@@ -472,7 +472,7 @@ impl MainLogic {
             preferred_size: ElementSize { width: 200.0, height: 100.0 },
             uv_rect: Rect { position: [0.0, 0.0], size: [1.0, 1.0] },
             tint: Color::WHITE,
-            fit_strategy: FitStrategy::Clip,
+            fit_strategy: FitStrategy::PreserveAspectRatio,
             rotation: rotation_animation.value(*now),
         }), &mut ui_ctx);
 

@@ -1,5 +1,5 @@
-use std::f32::consts::PI;
 use crate::{ElementId, ElementImpl, ElementSize, SizeConstraints, StateToParams, UiContext};
+use std::f32::consts::PI;
 use vn_scene::{Color, ImagePrimitiveData, Rect, Scene, TextureId, Transform};
 use vn_ui_animation_macros::Interpolatable;
 
@@ -46,16 +46,13 @@ impl<State> ElementImpl for Texture<State> {
         self.id
     }
 
+    // todo: fix aspect ratio and stretch under rotation
     fn layout_impl(
         &mut self,
         ctx: &mut UiContext,
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        let mut constraints = constraints;
-        constraints.max_size.width = Some(150.0);
-        constraints.max_size.height = Some(150.0);
-
         let params = (self.params)(state, &ctx.now, self.id);
 
         let size = match params.fit_strategy {
@@ -106,8 +103,7 @@ impl<State> ElementImpl for Texture<State> {
             }
         };
 
-        size
-            .rotate(params.rotation)
+        size.rotate(params.rotation)
             .clamp_to_constraints(constraints)
     }
 
