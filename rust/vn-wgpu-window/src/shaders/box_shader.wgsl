@@ -91,8 +91,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Clip area check (relative to transform origin/local space)
     let clip_pos = in.clip_area.xy;
     let clip_size = in.clip_area.zw;
-    if (in.local_pos.x < clip_pos.x || in.local_pos.x > clip_pos.x + clip_size.x ||
-        in.local_pos.y < clip_pos.y || in.local_pos.y > clip_pos.y + clip_size.y) {
+    if (in.world_pos.x < clip_pos.x || in.world_pos.x > clip_pos.x + clip_size.x ||
+        in.world_pos.y < clip_pos.y || in.world_pos.y > clip_pos.y + clip_size.y) {
         discard;
     }
 

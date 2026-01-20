@@ -12,6 +12,18 @@ pub struct ElementSize {
     pub height: f32,
 }
 
+impl ElementSize {
+    /// Computes the bounding box size for the rotated bounding box of the element
+    pub fn rotate(&self, angle: f32) -> Self {
+        let cos = angle.cos();
+        let sin = angle.sin();
+        Self {
+            width: self.width * cos.abs() + self.height * sin.abs(),
+            height: self.width * sin.abs() + self.height * cos.abs(),
+        }
+    }
+}
+
 pub type SceneSize = (f32, f32);
 
 impl ElementSize {

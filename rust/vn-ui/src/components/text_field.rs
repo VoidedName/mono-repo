@@ -408,7 +408,7 @@ impl<State> ElementImpl for TextField<State> {
                             tint: visuals.color,
                             glyphs,
                             clip_rect: Rect {
-                                position: [-caret_space / 2.0, -line_y_offset],
+                                position: origin.to_array(),
                                 size: size.to_array(),
                             },
                         });
@@ -434,10 +434,7 @@ impl<State> ElementImpl for TextField<State> {
                                     border_thickness: 0.0,
                                     border_radius: 0.0,
                                     clip_rect: Rect {
-                                        position: [
-                                            -caret_x_offset - caret_width / 2.0,
-                                            -(caret_y_offset + caret_y_extra_offset),
-                                        ],
+                                        position: origin.to_array(),
                                         size: size.to_array(),
                                     },
                                 });

@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::f32::consts::PI;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::time::Duration;
@@ -143,7 +144,7 @@ impl MainLogic {
 
         resource_manager.load_font_from_bytes("jetbrains-bold", &font_bytes)?;
 
-        let test_texture = platform.load_file("test_texture.png".to_string()).await?;
+        let test_texture = platform.load_file("test_sprite.png".to_string()).await?;
         let test_texture = resource_manager.load_texture_from_bytes(&test_texture)?;
 
         resource_manager.set_glyph_size_increment(12.0);
@@ -458,12 +459,21 @@ impl MainLogic {
             &mut ui_ctx,
         );
 
-        let test_sprite = UiTexture::new(Box::new(move |_, _, _| TextureParams {
+        let rotation_animation = 0.0.into_animation_controller().into_rc();
+        rotation_animation.update_state(|state| {
+            state.target_value = PI * 2.0;
+            state.easing = Easing::Linear;
+            state.progress = Progress::Loop;
+            state.duration = Duration::from_secs(4);
+        });
+
+        let test_sprite = UiTexture::new(Box::new(move |_, now, _| TextureParams {
             texture_id: test_texture.id.clone(),
-            preferred_size: ElementSize { width: 100.0, height: 100.0 },
-            uv_rect: Rect { position: [0.25, 0.25], size: [0.5, 0.5] },
+            preferred_size: ElementSize { width: 200.0, height: 100.0 },
+            uv_rect: Rect { position: [0.0, 0.0], size: [1.0, 1.0] },
             tint: Color::WHITE,
             fit_strategy: FitStrategy::Clip,
+            rotation: rotation_animation.value(*now),
         }), &mut ui_ctx);
 
         let test_sprite = Anchor::new(

@@ -1,3 +1,4 @@
+use std::f32::consts::PI;
 use crate::{ElementId, ElementImpl, ElementSize, SizeConstraints, StateToParams, UiContext};
 use vn_scene::{Color, ImagePrimitiveData, Rect, Scene, TextureId, Transform};
 use vn_ui_animation_macros::Interpolatable;
@@ -21,6 +22,7 @@ pub struct TextureParams {
     pub tint: Color,
     #[interpolate_snappy = "snap_middle"]
     pub fit_strategy: FitStrategy,
+    pub rotation: f32,
 }
 
 pub struct Texture<State> {
@@ -50,6 +52,10 @@ impl<State> ElementImpl for Texture<State> {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
+        let mut constraints = constraints;
+        constraints.max_size.width = Some(150.0);
+        constraints.max_size.height = Some(150.0);
+
         let params = (self.params)(state, &ctx.now, self.id);
 
         let size = match params.fit_strategy {
@@ -100,7 +106,9 @@ impl<State> ElementImpl for Texture<State> {
             }
         };
 
-        size.clamp_to_constraints(constraints)
+        size
+            .rotate(params.rotation)
+            .clamp_to_constraints(constraints)
     }
 
     fn draw_impl(
@@ -120,7 +128,9 @@ impl<State> ElementImpl for Texture<State> {
 
         canvas.add_image(ImagePrimitiveData {
             transform: Transform {
-                translation: [origin.0, origin.1],
+                translation: [origin.0 + size.width / 2.0, origin.1 + size.height / 2.0],
+                origin: [0.5, 0.5],
+                rotation: params.rotation,
                 ..Transform::DEFAULT
             },
             size: [w, h],
@@ -128,7 +138,7 @@ impl<State> ElementImpl for Texture<State> {
             texture_id: params.texture_id,
             uv_rect: params.uv_rect,
             clip_rect: Rect {
-                position: [0.0, 0.0],
+                position: [origin.0, origin.1],
                 size: [size.width, size.height],
             },
         });

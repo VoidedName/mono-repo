@@ -32,6 +32,7 @@ struct VertexOutput {
     @location(2) tint: vec4<f32>,
     @location(3) clip_area: vec4<f32>,
     @location(4) uv: vec2<f32>,
+    @location(5) world_pos: vec2<f32>,
 }
 
 @vertex
@@ -68,6 +69,7 @@ fn vs_main(
     out.tint = instance.i_tint;
     out.clip_area = instance.i_clip_area;
     out.uv = instance.i_uv_rect.xy + vertex.v_position * instance.i_uv_rect.zw;
+    out.world_pos = final_pos;
 
     return out;
 }
@@ -77,8 +79,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Clip area check
     let clip_pos = in.clip_area.xy;
     let clip_size = in.clip_area.zw;
-    if (in.local_pos.x < clip_pos.x || in.local_pos.x > clip_pos.x + clip_size.x ||
-        in.local_pos.y < clip_pos.y || in.local_pos.y > clip_pos.y + clip_size.y) {
+    if (in.world_pos.x < clip_pos.x || in.world_pos.x > clip_pos.x + clip_size.x ||
+        in.world_pos.y < clip_pos.y || in.world_pos.y > clip_pos.y + clip_size.y) {
         discard;
     }
 
