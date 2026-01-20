@@ -1,9 +1,9 @@
 [workspace]
 resolver = "3"
 members = [
-    "vn-vttrpg-logic",
-    "vn-vttrpg-native",
-    "vn-vttrpg-web",
+    "vn-farming-logic",
+    "vn-farming-native",
+    "vn-farming-web",
 ]
 
 [workspace.dependencies]

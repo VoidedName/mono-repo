@@ -1963,6 +1963,44 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
+name = "vn-farming-logic"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "log",
+ "thiserror 2.0.17",
+ "vn-scene",
+ "vn-ui",
+ "vn-wgpu-window",
+ "web-time",
+ "winit",
+]
+
+[[package]]
+name = "vn-farming-native"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "env_logger",
+ "log",
+ "vn-farming-logic",
+]
+
+[[package]]
+name = "vn-farming-web"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "console_error_panic_hook",
+ "console_log",
+ "js-sys",
+ "log",
+ "vn-farming-logic",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "vn-scene"
 version = "0.1.0"
 dependencies = [
@@ -2010,44 +2048,6 @@ name = "vn-utils"
 version = "0.1.0"
 dependencies = [
  "log",
-]
-
-[[package]]
-name = "vn-vttrpg-logic"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "log",
- "thiserror 2.0.17",
- "vn-scene",
- "vn-ui",
- "vn-wgpu-window",
- "web-time",
- "winit",
-]
-
-[[package]]
-name = "vn-vttrpg-native"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "env_logger",
- "log",
- "vn-vttrpg-logic",
-]
-
-[[package]]
-name = "vn-vttrpg-web"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "console_error_panic_hook",
- "console_log",
- "js-sys",
- "log",
- "vn-vttrpg-logic",
- "wasm-bindgen",
- "wasm-bindgen-futures",
 ]
 
 [[package]]

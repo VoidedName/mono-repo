@@ -1,13 +1,13 @@
 [package]
-name = "vn-vttrpg-native"
+name = "vn-farming-native"
 version = "0.1.0"
 edition = "2024"
 
 [features]
-debug_outlines = ["vn-vttrpg-logic/debug_outlines"]
+debug_outlines = ["vn-farming-logic/debug_outlines"]
 
 [dependencies]
-vn-vttrpg-logic = { path = "../vn-vttrpg-logic" }
+vn-farming-logic = { path = "../vn-farming-logic" }
 anyhow = {workspace = true}
 env_logger = { workspace = true }
 log = { workspace = true }

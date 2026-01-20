@@ -1,4 +1,4 @@
-= VTTRPG
+= Farming
 Voided Name
 v1.0, 2025-12-15
 :source-highlighter: rouge
@@ -10,17 +10,17 @@ ifndef::env-github[]
 :MERMAID: mermaid
 endif::[]
 
-VTTRPG is a virtual table top rpg system built on top of the link:../readme.asciidoc[VN-Suit] framework.
+Farming is a stardew valley style system built on top of the link:../readme.asciidoc[VN-Suit] framework.
 
 == Project Structure
 
-.Application Interconnections (vn-vttrpg)
+.Application Interconnections (vn-farming)
 [{MERMAID}]
 ----
 graph TD
-    vn-vttrpg-native[vn-vttrpg-native]
-    vn-vttrpg-web[vn-vttrpg-web]
-    vn-vttrpg-logic[vn-vttrpg-logic]
+    vn-farming-native[vn-farming-native]
+    vn-farming-web[vn-farming-web]
+    vn-farming-logic[vn-farming-logic]
     
     subgraph Core [Core Framework]
         vn-wgpu-window
@@ -29,30 +29,30 @@ graph TD
         vn-utils
     end
 
-    vn-vttrpg-native --> vn-vttrpg-logic
-    vn-vttrpg-web --> vn-vttrpg-logic
+    vn-farming-native --> vn-farming-logic
+    vn-farming-web --> vn-farming-logic
 
-    vn-vttrpg-logic --> vn-wgpu-window
-    vn-vttrpg-logic --> vn-ui
-    vn-vttrpg-logic --> vn-scene
-    vn-vttrpg-logic --> vn-utils
+    vn-farming-logic --> vn-wgpu-window
+    vn-farming-logic --> vn-ui
+    vn-farming-logic --> vn-scene
+    vn-farming-logic --> vn-utils
 ----
 
 .Crate Responsibilities
-* *vn-vttrpg-logic*: Contains the application-specific logic as a library crate.
+* *vn-farming-logic*: Contains the application-specific logic as a library crate.
 Implements the `MainLogic` trait and exports an `init()` function that bridges to `vn-wgpu-window::init_with_logic()`.
 
-* *vn-vttrpg-native*: Native binary launcher that sets up logging, implements platform-specific file loading, and calls `vn-vttrpg-logic::init()`.
+* *vn-farming-native*: Native binary launcher that sets up logging, implements platform-specific file loading, and calls `vn-farming-logic::init()`.
 
-* *vn-vttrpg-web*: WebAssembly binary launcher that sets up web-specific logging, implements browser-based file loading via fetch API, and calls `vn-vttrpg-logic::init()`.
+* *vn-farming-web*: WebAssembly binary launcher that sets up web-specific logging, implements browser-based file loading via fetch API, and calls `vn-farming-logic::init()`.
 
 .Launch Flow
 [{MERMAID}]
 ----
 sequenceDiagram
-    participant Native as vn-vttrpg-native
-    participant Web as vn-vttrpg-web
-    participant Lib as vn-vttrpg-logic
+    participant Native as vn-farming-native
+    participant Web as vn-farming-web
+    participant Lib as vn-farming-logic
     participant Window as vn-wgpu-window
 
     Note over Native: Setup env_logger
@@ -71,7 +71,7 @@ sequenceDiagram
 ----
 
 This structure allows the application to share the common framework (vn-wgpu-window, vn-ui) while maintaining separate launcher binaries for different platforms.
-The application logic crate (vn-vttrpg-logic) remains platform-agnostic by using trait-based abstractions (like `FileLoader`) for platform-specific functionality.
+The application logic crate (vn-farming-logic) remains platform-agnostic by using trait-based abstractions (like `FileLoader`) for platform-specific functionality.
 
 == Architecture & Design Decisions
 
@@ -94,14 +94,14 @@ classDiagram
     PlatformHooks <|-- WebPlatformHooks
 ----
 
-VTTRPG follows a strict separation between application logic and platform-specific entry points.
+Farming follows a strict separation between application logic and platform-specific entry points.
 
-. **Logic-Crate Pattern**: All application code resides in `vn-vttrpg-logic`. This crate is a library and contains no platform-specific code.
-. **Trait-Based Platform Abstraction**: Functionalities like file loading are handled through the `PlatformHooks` trait. `vn-vttrpg-native` provides an implementation using `std::fs`, while `vn-vttrpg-web` provides one using the `fetch` API.
+. **Logic-Crate Pattern**: All application code resides in `vn-farming-logic`. This crate is a library and contains no platform-specific code.
+. **Trait-Based Platform Abstraction**: Functionalities like file loading are handled through the `PlatformHooks` trait. `vn-farming-native` provides an implementation using `std::fs`, while `vn-farming-web` provides one using the `fetch` API.
 . **Unified Initialization**: Both launchers call a common `init()` function in the logic crate, ensuring consistent behavior across platforms.
 . **Asset Management**: Assets are loaded asynchronously (especially important on Web) and managed by the framework's resource manager.
 
-== VTTRPG Features & TODO
+== Farming Features & TODO
 
 .Immediate TODOs
 - [ ] Character Sheet: Basic implementation of stats and skills.

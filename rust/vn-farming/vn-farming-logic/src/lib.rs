@@ -14,7 +14,7 @@ pub fn init(new_fn: Box<dyn PlatformHooks>) -> anyhow::Result<()> {
         // Note (Application title): This only sets it for native
         //  for web, adjust the title in the index.html file. Maybe at some point
         //  in time I will implement a platform independent hook
-        "Voided Names' VTTRPG".to_string(),
+        "Voided Names' Farming".to_string(),
         move |a, b| {
             let new_fn = new_fn.clone();
             async move { MainLogic::new(new_fn.clone(), a, b).await }

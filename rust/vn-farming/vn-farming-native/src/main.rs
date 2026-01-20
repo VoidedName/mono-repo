@@ -1,7 +1,7 @@
 use env_logger::Env;
 use std::io::Read;
 use std::pin::Pin;
-use vn_vttrpg_logic::logic::{PlatformHooks, FileLoadingError};
+use vn_farming_logic::logic::{PlatformHooks, FileLoadingError};
 
 pub async fn load_file(path: String) -> anyhow::Result<Vec<u8>, FileLoadingError> {
     let mut file = std::fs::File::open(path)
@@ -38,5 +38,5 @@ fn main() {
         log_style
     );
 
-    vn_vttrpg_logic::init(Box::new(NativePlatformHooks)).expect("Failed to initialize!");
+    vn_farming_logic::init(Box::new(NativePlatformHooks)).expect("Failed to initialize!");
 }

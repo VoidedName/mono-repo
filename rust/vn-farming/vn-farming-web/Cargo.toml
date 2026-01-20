@@ -1,12 +1,12 @@
 [package]
-name = "vn-vttrpg-web"
+name = "vn-farming-web"
 version = "0.1.0"
 authors = ["Voided Name"]
 categories = ["wasm"]
 edition = "2024"
 
 [features]
-debug_outlines = ["vn-vttrpg-logic/debug_outlines"]
+debug_outlines = ["vn-farming-logic/debug_outlines"]
 
 [lib]
 crate-type = ["cdylib"]
@@ -15,7 +15,7 @@ crate-type = ["cdylib"]
 #lto = true
 
 [dependencies]
-vn-vttrpg-logic = { path = "../vn-vttrpg-logic" }
+vn-farming-logic = { path = "../vn-farming-logic" }
 wasm-bindgen = { workspace = true }
 console_error_panic_hook = { workspace = true }
 console_log = { workspace = true }
