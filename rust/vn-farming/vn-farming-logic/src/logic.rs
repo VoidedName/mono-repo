@@ -1,24 +1,13 @@
 use crate::logic::game_state::{GameState, MenuEvent, StartMenu};
-use std::cell::{Ref, RefCell};
-use std::f32::consts::PI;
+use std::cell::{RefCell};
 use std::pin::Pin;
 use std::rc::Rc;
-use std::time::Duration;
 use thiserror::Error;
-use vn_scene::Rect;
-use vn_ui::{
-    Anchor, AnchorExt, AnchorLocation, AnchorParams, Card, CardExt, CardParams, DynamicSize,
-    DynamicTextFieldController, Easing, Element, ElementSize, ElementWorld, EventManager, Fill,
-    FillExt, FitStrategy, InputTextFieldController, InputTextFieldControllerExt, InteractionEvent,
-    InteractionState, Interactive, InteractiveExt, InteractiveParams, Interpolatable, Padding,
-    PaddingExt, PaddingParams, Progress, SimpleLayoutCache, SizeConstraints, Stack, TextField,
-    TextFieldCallbacks, TextFieldParams, TextMetrics, TextVisuals, Texture as UiTexture,
-    TextureParams, UiContext,
-};
+use vn_ui::*;
 use vn_wgpu_window::graphics::GraphicsContext;
 use vn_wgpu_window::resource_manager::ResourceManager;
 use vn_wgpu_window::scene_renderer::SceneRenderer;
-use vn_wgpu_window::{Color, StateLogic, Texture};
+use vn_wgpu_window::{StateLogic};
 use web_time::Instant;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
@@ -108,9 +97,9 @@ impl FpsStats {
         }
     }
 
-    fn current_fps(&self) -> Option<f32> {
-        self.current_fps.borrow().clone()
-    }
+    // fn current_fps(&self) -> Option<f32> {
+    //     self.current_fps.borrow().clone()
+    // }
 }
 
 #[derive(Debug, Error)]
@@ -151,8 +140,8 @@ impl MainLogic {
 
         resource_manager.load_font_from_bytes("jetbrains-bold", &font_bytes)?;
 
-        let test_texture = platform.load_file("test_sprite.png".to_string()).await?;
-        let test_texture = resource_manager.load_texture_from_bytes(&test_texture)?;
+        // let test_texture = platform.load_file("test_sprite.png".to_string()).await?;
+        // let test_texture = resource_manager.load_texture_from_bytes(&test_texture)?;
 
         resource_manager.set_glyph_size_increment(12.0);
 

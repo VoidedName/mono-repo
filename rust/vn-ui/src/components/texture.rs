@@ -41,7 +41,7 @@ impl Interpolatable for FitStrategy {
             },
             (FitStrategy::Stretch, FitStrategy::Stretch) => FitStrategy::Stretch,
             _ => {
-                if (t > 0.5) {
+                if t > 0.5 {
                     other.clone()
                 } else {
                     self.clone()

@@ -1,5 +1,5 @@
 use crate::{
-    DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld, Flex, SizeConstraints,
+    DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints,
     UiContext,
 };
 use vn_scene::Scene;

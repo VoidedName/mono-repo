@@ -1,7 +1,7 @@
 use crate::utils::ToArray;
 use crate::{
     Element, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionState, SizeConstraints,
-    StateToParams, ToolTip, TooltipParams, UiContext,
+    StateToParams, UiContext,
 };
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
 use vn_ui_animation_macros::Interpolatable;
