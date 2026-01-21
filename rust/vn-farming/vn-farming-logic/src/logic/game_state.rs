@@ -1,13 +1,9 @@
 use crate::logic::{PlatformHooks, TextMetric};
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::time::Instant;
 use vn_scene::{Color, KeyCode, PhysicalKey};
-use vn_ui::{
-    AnchorExt, AnchorLocation, AnchorParams, ButtonExt, ButtonParams, Element, ElementId,
-    ElementWorld, Flex, InteractionEvent, InteractionEventKind, InteractionState, InteractiveExt,
-    InteractiveParams, PaddingExt, PaddingParams, StaticTextFieldController, TextField,
-    TextFieldParams, TextVisuals,
-};
+use vn_ui::*;
 use vn_wgpu_window::GraphicsContext;
 use vn_wgpu_window::resource_manager::ResourceManager;
 
@@ -66,6 +62,7 @@ pub struct StartMenu {
     pub ui: RefCell<Box<dyn Element<State = StartMenu>>>,
     focused_button: Rc<RefCell<StartMenuButton>>,
     button_ids: Rc<RefCell<Vec<(StartMenuButton, ElementId)>>>,
+    event_manager: Rc<RefCell<EventManager>>,
 }
 
 const MENU_FONT: &str = "menu-font";
@@ -73,7 +70,7 @@ const MENU_FONT: &str = "menu-font";
 impl StartMenu {
     pub async fn new(
         platform: Rc<Box<dyn PlatformHooks>>,
-        gtx: Rc<GraphicsContext>,
+        gc: Rc<GraphicsContext>,
         rm: Rc<ResourceManager>,
     ) -> anyhow::Result<Self> {
         let menu_font = platform
@@ -96,7 +93,7 @@ impl StartMenu {
             let label = format!("{:?}", btn_type);
             let metrics = Rc::new(TextMetric {
                 rm: rm.clone(),
-                gc: gtx.clone(),
+                gc: gc.clone(),
             });
             let local_focused_button = focused_button.clone();
 
@@ -167,11 +164,12 @@ impl StartMenu {
             ui: RefCell::new(Box::new(ui)),
             focused_button,
             button_ids,
+            event_manager: Rc::new(RefCell::new(EventManager::new())),
         })
     }
 
-    pub fn handle_event(&self, id: ElementId, event: InteractionEvent) -> Option<MenuEvent> {
-        match event.kind {
+    pub fn handle_event(&self, id: ElementId, event: InteractionEventKind) -> Option<MenuEvent> {
+        match event {
             InteractionEventKind::Click { .. } => {
                 if let Some(btn) = self
                     .button_ids
@@ -203,14 +201,14 @@ impl StartMenu {
         }
     }
 
-    pub fn handle_event_no_target(&self, event: InteractionEvent) -> Option<MenuEvent> {
-        match event.kind {
+    pub fn handle_event_no_target(&self, event: InteractionEventKind) -> Option<MenuEvent> {
+        match event {
             InteractionEventKind::Keyboard(key_event) => self.handle_keyboard(key_event),
             _ => None,
         }
     }
 
-    fn handle_keyboard(&self, key_event: vn_scene::KeyEvent) -> Option<MenuEvent> {
+    fn handle_keyboard(&self, key_event: KeyEvent) -> Option<MenuEvent> {
         if !key_event.state.is_pressed() {
             return None;
         }
@@ -235,8 +233,144 @@ impl StartMenu {
             _ => None,
         }
     }
+
+    pub fn render_target(&self, size: (f32, f32)) -> vn_wgpu_window::scene::WgpuScene {
+        let mut scene = vn_wgpu_window::scene::WgpuScene::new((size.0, size.1));
+
+        let event_manager = self.event_manager.clone();
+        event_manager.borrow_mut().clear_hitboxes();
+
+        let mut ctx = UiContext {
+            event_manager,
+            parent_id: None,
+            layout_cache: Box::new(SimpleLayoutCache::new()),
+            interactive: true,
+            now: Instant::now(),
+        };
+
+        self.ui.borrow_mut().layout(
+            &mut ctx,
+            self,
+            SizeConstraints {
+                min_size: ElementSize {
+                    width: 0.0,
+                    height: 0.0,
+                },
+                max_size: DynamicSize {
+                    width: Some(size.0),
+                    height: Some(size.1),
+                },
+                scene_size: (size.0, size.1),
+            },
+        );
+
+        self.ui.borrow_mut().draw(
+            &mut ctx,
+            self,
+            (0.0, 0.0),
+            ElementSize {
+                width: size.0,
+                height: size.1,
+            },
+            &mut scene,
+        );
+
+        scene
+    }
+
+    fn handle_key(&mut self, event: &KeyEvent) {
+        self.event_manager
+            .borrow_mut()
+            .queue_event(InteractionEventKind::Keyboard(event.clone()));
+    }
+
+    fn handle_mouse_position(&mut self, x: f32, y: f32) {
+        self.event_manager
+            .borrow_mut()
+            .queue_event(InteractionEventKind::MouseMove { x, y });
+    }
+
+    fn handle_mouse_button(
+        &mut self,
+        mouse_position: (f32, f32),
+        button: winit::event::MouseButton,
+        state: winit::event::ElementState,
+    ) {
+        use vn_ui::MouseButton;
+        let button = match button {
+            winit::event::MouseButton::Left => MouseButton::Left,
+            winit::event::MouseButton::Right => MouseButton::Right,
+            winit::event::MouseButton::Middle => MouseButton::Middle,
+            _ => return,
+        };
+
+        let kind = match state {
+            winit::event::ElementState::Pressed => InteractionEventKind::MouseDown {
+                button,
+                x: mouse_position.0,
+                y: mouse_position.1,
+            },
+            winit::event::ElementState::Released => InteractionEventKind::MouseUp {
+                button,
+                x: mouse_position.0,
+                y: mouse_position.1,
+            },
+        };
+        self.event_manager.borrow_mut().queue_event(kind);
+    }
+
+    pub fn process_events(&mut self) -> Option<MenuEvent> {
+        let events = self.event_manager.borrow_mut().process_events();
+        for event in events {
+            let menu_event = match event.target {
+                Some(target) => self.handle_event(target, event.kind),
+                None => self.handle_event_no_target(event.kind),
+            };
+
+            if menu_event.is_some() {
+                return menu_event;
+            }
+        }
+
+        None
+    }
 }
 
 pub enum GameState {
     StartMenu(StartMenu),
+}
+
+impl GameState {}
+
+impl GameState {
+    pub fn render_target(&self, size: (f32, f32)) -> vn_wgpu_window::scene::WgpuScene {
+        match self {
+            GameState::StartMenu(start_menu) => start_menu.render_target(size),
+        }
+    }
+
+    pub fn handle_key(&mut self, event: &KeyEvent) {
+        match self {
+            GameState::StartMenu(start_menu) => start_menu.handle_key(event),
+        }
+    }
+
+    pub fn handle_mouse_position(&mut self, x: f32, y: f32) {
+        match self {
+            GameState::StartMenu(start_menu) => start_menu.handle_mouse_position(x, y),
+        }
+    }
+
+    pub fn handle_mouse_button(
+        &mut self,
+        mouse_position: (f32, f32),
+        button: winit::event::MouseButton,
+        state: winit::event::ElementState,
+    ) {
+        match self {
+            GameState::StartMenu(start_menu) => {
+                start_menu.handle_mouse_button(mouse_position, button, state)
+            }
+        }
+    }
 }

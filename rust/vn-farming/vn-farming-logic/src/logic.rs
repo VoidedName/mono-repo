@@ -1,13 +1,13 @@
 use crate::logic::game_state::{GameState, MenuEvent, StartMenu};
-use std::cell::{RefCell};
+use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
 use thiserror::Error;
 use vn_ui::*;
+use vn_wgpu_window::StateLogic;
 use vn_wgpu_window::graphics::GraphicsContext;
 use vn_wgpu_window::resource_manager::ResourceManager;
 use vn_wgpu_window::scene_renderer::SceneRenderer;
-use vn_wgpu_window::{StateLogic};
 use web_time::Instant;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
@@ -50,7 +50,7 @@ impl TextMetrics for TextMetric {
                 x_bearing: g.x_bearing,
                 y_offset: g.y_offset,
                 size: [g.size.0, g.size.1],
-                uv_rect: vn_scene::Rect {
+                uv_rect: Rect {
                     position: [0.0, 0.0],
                     size: [1.0, 1.0],
                 },
@@ -123,7 +123,6 @@ pub struct MainLogic {
     fps_stats: Rc<RefCell<FpsStats>>,
     size: (u32, u32),
     mouse_position: (f32, f32),
-    event_manager: Rc<RefCell<EventManager>>,
     platform: Rc<Box<dyn PlatformHooks>>,
     game_state: GameState,
 }
@@ -170,7 +169,6 @@ impl MainLogic {
             size: graphics_context.size(),
             graphics_context,
             fps_stats,
-            event_manager: Rc::new(RefCell::new(EventManager::new())),
             platform,
             game_state,
         })
@@ -179,53 +177,32 @@ impl MainLogic {
 
 impl StateLogic<SceneRenderer> for MainLogic {
     fn process_events(&mut self) {
-        let events = self.event_manager.borrow_mut().process_events();
-
-        match &self.game_state {
+        match &mut self.game_state {
             GameState::StartMenu(start_menu) => {
-                for event in events {
-                    let menu_event = if let Some(id) = event.target {
-                        start_menu.handle_event(id, event)
-                    } else {
-                        start_menu.handle_event_no_target(event)
-                    };
+                let menu_event = start_menu.process_events();
 
-                    match menu_event {
-                        None => {}
-                        Some(menu_event) => {
-                            match menu_event {
-                                MenuEvent::StartGame => {}
-                                MenuEvent::LoadGame => {}
-                                MenuEvent::Settings => {}
-                                MenuEvent::Exit => {
-                                    self.platform.exit();
-                                }
-                            }
-                            // discard remaining events as they now relate to a stale UI
-                            // I may want to consider reprocessing the remaining events
-                            // in regard to the new ui state, as this is technically now
-                            // dropping inputs
-                            // (example, you hit enter on load game and then enter again because
-                            //  you expect to load the first save)
-                            break;
+                match menu_event {
+                    None => {}
+                    Some(menu_event) => match menu_event {
+                        MenuEvent::StartGame => {}
+                        MenuEvent::LoadGame => {}
+                        MenuEvent::Settings => {}
+                        MenuEvent::Exit => {
+                            self.platform.exit();
                         }
-                    }
+                    },
                 }
             }
         }
     }
 
     fn handle_key(&mut self, _event_loop: &ActiveEventLoop, event: &KeyEvent) {
-        self.event_manager
-            .borrow_mut()
-            .queue_event(vn_ui::InteractionEventKind::Keyboard(event.clone()));
+        self.game_state.handle_key(event);
     }
 
     fn handle_mouse_position(&mut self, x: f32, y: f32) {
         self.mouse_position = (x, y);
-        self.event_manager
-            .borrow_mut()
-            .queue_event(vn_ui::InteractionEventKind::MouseMove { x, y });
+        self.game_state.handle_mouse_position(x, y);
     }
 
     fn handle_mouse_button(
@@ -233,27 +210,8 @@ impl StateLogic<SceneRenderer> for MainLogic {
         button: winit::event::MouseButton,
         state: winit::event::ElementState,
     ) {
-        use vn_ui::MouseButton;
-        let button = match button {
-            winit::event::MouseButton::Left => MouseButton::Left,
-            winit::event::MouseButton::Right => MouseButton::Right,
-            winit::event::MouseButton::Middle => MouseButton::Middle,
-            _ => return,
-        };
-
-        let kind = match state {
-            winit::event::ElementState::Pressed => vn_ui::InteractionEventKind::MouseDown {
-                button,
-                x: self.mouse_position.0,
-                y: self.mouse_position.1,
-            },
-            winit::event::ElementState::Released => vn_ui::InteractionEventKind::MouseUp {
-                button,
-                x: self.mouse_position.0,
-                y: self.mouse_position.1,
-            },
-        };
-        self.event_manager.borrow_mut().queue_event(kind);
+        self.game_state
+            .handle_mouse_button(self.mouse_position, button, state);
     }
 
     fn resized(&mut self, width: u32, height: u32) {
@@ -264,51 +222,10 @@ impl StateLogic<SceneRenderer> for MainLogic {
         self.resource_manager.update();
 
         self.fps_stats.borrow_mut().tick();
-        let mut scene =
-            vn_wgpu_window::scene::WgpuScene::new((self.size.0 as f32, self.size.1 as f32));
 
-        let event_manager = self.event_manager.clone();
-        // event_manager.handle_mouse_move(self.mouse_position.0, self.mouse_position.1);
-        event_manager.borrow_mut().clear_hitboxes();
-
-        let mut ctx = UiContext {
-            event_manager,
-            parent_id: None,
-            layout_cache: Box::new(SimpleLayoutCache::new()),
-            interactive: true,
-            now: Instant::now(),
-        };
-
-        match &self.game_state {
-            GameState::StartMenu(start_menu) => {
-                start_menu.ui.borrow_mut().layout(
-                    &mut ctx,
-                    start_menu,
-                    SizeConstraints {
-                        min_size: ElementSize {
-                            width: 0.0,
-                            height: 0.0,
-                        },
-                        max_size: DynamicSize {
-                            width: Some(self.size.0 as f32),
-                            height: Some(self.size.1 as f32),
-                        },
-                        scene_size: (self.size.0 as f32, self.size.1 as f32),
-                    },
-                );
-
-                start_menu.ui.borrow_mut().draw(
-                    &mut ctx,
-                    start_menu,
-                    (0.0, 0.0),
-                    ElementSize {
-                        width: self.size.0 as f32,
-                        height: self.size.1 as f32,
-                    },
-                    &mut scene,
-                );
-            }
-        };
+        let scene = self
+            .game_state
+            .render_target((self.size.0 as f32, self.size.1 as f32));
 
         self.resource_manager.cleanup(60, 10000);
 
