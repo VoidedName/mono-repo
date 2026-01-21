@@ -19,7 +19,7 @@ use vn_wgpu_window::resource_manager::ResourceManager;
 /// Exit
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum StartMenuButton {
+enum StartMenuButton {
     Start,
     Load,
     Settings,
@@ -33,10 +33,39 @@ pub enum MenuEvent {
     Exit,
 }
 
+impl StartMenuButton {
+    fn to_menu_event(&self) -> MenuEvent {
+        match self {
+            StartMenuButton::Start => MenuEvent::StartGame,
+            StartMenuButton::Load => MenuEvent::LoadGame,
+            StartMenuButton::Settings => MenuEvent::Settings,
+            StartMenuButton::Exit => MenuEvent::Exit,
+        }
+    }
+
+    fn next(&self) -> Self {
+        match self {
+            StartMenuButton::Start => StartMenuButton::Load,
+            StartMenuButton::Load => StartMenuButton::Settings,
+            StartMenuButton::Settings => StartMenuButton::Exit,
+            StartMenuButton::Exit => StartMenuButton::Exit,
+        }
+    }
+
+    fn previous(&self) -> Self {
+        match self {
+            StartMenuButton::Start => StartMenuButton::Start,
+            StartMenuButton::Load => StartMenuButton::Start,
+            StartMenuButton::Settings => StartMenuButton::Load,
+            StartMenuButton::Exit => StartMenuButton::Settings,
+        }
+    }
+}
+
 pub struct StartMenu {
     pub ui: RefCell<Box<dyn Element<State = StartMenu>>>,
-    pub focused_button: Rc<RefCell<Option<StartMenuButton>>>,
-    pub button_ids: Rc<RefCell<Vec<(StartMenuButton, ElementId)>>>,
+    focused_button: Rc<RefCell<StartMenuButton>>,
+    button_ids: Rc<RefCell<Vec<(StartMenuButton, ElementId)>>>,
 }
 
 const MENU_FONT: &str = "menu-font";
@@ -53,7 +82,7 @@ impl StartMenu {
         rm.load_font_from_bytes(MENU_FONT, &menu_font)?;
 
         let mut world = ElementWorld::new();
-        let focused_button = Rc::new(RefCell::new(Some(StartMenuButton::Start)));
+        let focused_button = Rc::new(RefCell::new(StartMenuButton::Start));
         let button_ids = Rc::new(RefCell::new(Vec::new()));
 
         let mut buttons: Vec<Box<dyn Element<State = StartMenu>>> = Vec::new();
@@ -102,7 +131,7 @@ impl StartMenu {
             )
             .button(
                 Box::new(move |args| {
-                    let is_focused = *local_focused_button.borrow() == Some(btn_type);
+                    let is_focused = *local_focused_button.borrow() == btn_type;
                     ButtonParams {
                         background: Color::BLACK.with_alpha(0.5),
                         border_color: if is_focused {
@@ -152,12 +181,7 @@ impl StartMenu {
                     .map(|(btn, _)| btn)
                 {
                     log::info!("Button clicked: {:?}", btn);
-                    Some(match btn {
-                        StartMenuButton::Start => MenuEvent::StartGame,
-                        StartMenuButton::Load => MenuEvent::LoadGame,
-                        StartMenuButton::Settings => MenuEvent::Settings,
-                        StartMenuButton::Exit => MenuEvent::Exit,
-                    })
+                    Some(btn.to_menu_event())
                 } else {
                     None
                 }
@@ -170,7 +194,7 @@ impl StartMenu {
                     .find(|(_, b_id)| *b_id == id)
                     .map(|(btn, _)| btn)
                 {
-                    *self.focused_button.borrow_mut() = Some(*btn);
+                    *self.focused_button.borrow_mut() = *btn;
                 }
                 None
             }
@@ -193,42 +217,20 @@ impl StartMenu {
 
         match key_event.physical_key {
             PhysicalKey::Code(KeyCode::ArrowUp) => {
-                let current = *self.focused_button.borrow();
-                let next = match current {
-                    Some(StartMenuButton::Start) => StartMenuButton::Start,
-                    Some(StartMenuButton::Load) => StartMenuButton::Start,
-                    Some(StartMenuButton::Settings) => StartMenuButton::Load,
-                    Some(StartMenuButton::Exit) => StartMenuButton::Settings,
-                    None => StartMenuButton::Start,
-                };
-                *self.focused_button.borrow_mut() = Some(next);
+                let mut current = self.focused_button.borrow_mut();
+                *current = current.previous();
                 None
             }
             PhysicalKey::Code(KeyCode::ArrowDown) => {
-                let current = *self.focused_button.borrow();
-                let next = match current {
-                    Some(StartMenuButton::Start) => StartMenuButton::Load,
-                    Some(StartMenuButton::Load) => StartMenuButton::Settings,
-                    Some(StartMenuButton::Settings) => StartMenuButton::Exit,
-                    Some(StartMenuButton::Exit) => StartMenuButton::Exit,
-                    None => StartMenuButton::Start,
-                };
-                *self.focused_button.borrow_mut() = Some(next);
+                let mut current = self.focused_button.borrow_mut();
+                *current = current.next();
                 None
             }
             PhysicalKey::Code(KeyCode::Enter) => {
-                if let Some(btn) = *self.focused_button.borrow() {
-                    log::info!("Button clicked via Enter: {:?}", btn);
+                let btn = self.focused_button.borrow();
+                log::info!("Button clicked via Enter: {:?}", btn);
 
-                    Some(match btn {
-                        StartMenuButton::Start => MenuEvent::StartGame,
-                        StartMenuButton::Load => MenuEvent::LoadGame,
-                        StartMenuButton::Settings => MenuEvent::Settings,
-                        StartMenuButton::Exit => MenuEvent::Exit,
-                    })
-                } else {
-                    None
-                }
+                Some(btn.to_menu_event())
             }
             _ => None,
         }
