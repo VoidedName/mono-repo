@@ -1,5 +1,6 @@
 use crate::{
-    Element, ElementId, ElementImpl, ElementSize, SizeConstraints, StateToParams, UiContext,
+    Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams,
+    UiContext,
 };
 use vn_scene::Scene;
 
@@ -34,10 +35,10 @@ impl<State> Anchor<State> {
     pub fn new(
         child: Box<dyn Element<State = State>>,
         params: StateToParams<State, AnchorParams>,
-        ctx: &mut UiContext,
+        world: &mut ElementWorld,
     ) -> Self {
         Self {
-            id: ctx.event_manager.borrow_mut().next_id(),
+            id: world.next_id(),
             child,
             child_size: ElementSize::ZERO,
             params,
@@ -58,6 +59,12 @@ impl<State> ElementImpl for Anchor<State> {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
+        let _params = (self.params)(crate::StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
+
         let mut child_constraints = constraints;
         child_constraints.min_size = ElementSize::ZERO;
 
@@ -81,7 +88,11 @@ impl<State> ElementImpl for Anchor<State> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = (self.params)(state, &ctx.now, self.id);
+        let params = (self.params)(crate::StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
         match params.location {
             AnchorLocation::TOP => self.child.draw(
                 ctx,
@@ -159,5 +170,23 @@ impl<State> ElementImpl for Anchor<State> {
                 canvas,
             ),
         }
+    }
+}
+
+pub trait AnchorExt: Element {
+    fn anchor(
+        self,
+        params: StateToParams<Self::State, AnchorParams>,
+        world: &mut ElementWorld,
+    ) -> Anchor<Self::State>;
+}
+
+impl<E: Element + 'static> AnchorExt for E {
+    fn anchor(
+        self,
+        params: StateToParams<Self::State, AnchorParams>,
+        world: &mut ElementWorld,
+    ) -> Anchor<Self::State> {
+        Anchor::new(Box::new(self), params, world)
     }
 }

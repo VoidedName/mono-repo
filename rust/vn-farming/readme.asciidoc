@@ -104,16 +104,15 @@ Farming follows a strict separation between application logic and platform-speci
 == Farming Features & TODO
 
 .Immediate TODOs
-- [ ] Character Sheet: Basic implementation of stats and skills.
-- [ ] Map: Loading and displaying a 2D grid-based map.
-- [ ] Player/NPC Token: Rendering and moving tokens on the map.
-- [ ] Multiplayer: Synchronizing state between multiple clients.
-
-.Future Ideas
-- [ ] Lightshed on a Map
-- [ ] Pathing on a Map
-- [ ] Automatic Triggers?
-- [ ] Pause / Continue
-- [ ] GM or Elevated vs Player / Capability System (like player can edit their own sheet)
-- [ ] Dice Rolls
-- [ ] Mechanics / Rule System?!
+- [ ] Map: A place that entities walk around on
+- [ ] Character: A player controlled entity
+- [ ] Animations: Character and NPC / Entity animations
+- [ ] NPCs
+- [ ] Tileset
+- [ ] Farming Mechanics: Tilling, watering, planting, and harvesting
+- [ ] Inventory System: Item management and toolbar
+- [ ] Time & Weather: Day/night cycle and weather effects
+- [ ] Interaction System: Talk to NPCs, use tools, pick up items
+- [ ] Save/Load System: Persisting player progress
+- [ ] Building/Crafting: Placing structures and creating items
+- [ ] Sound & Music: Audio feedback and atmosphere

@@ -1,4 +1,6 @@
-use crate::{ElementId, ElementImpl, ElementSize, SizeConstraints, StateToParams, UiContext};
+use crate::{
+    ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams, UiContext,
+};
 use vn_scene::{Color, ImagePrimitiveData, Rect, Scene, TextureId, Transform};
 use vn_ui_animation::Interpolatable;
 use vn_ui_animation_macros::Interpolatable;
@@ -66,9 +68,9 @@ pub struct Texture<State> {
 }
 
 impl<State> Texture<State> {
-    pub fn new(params: StateToParams<State, TextureParams>, ctx: &mut UiContext) -> Self {
+    pub fn new(params: StateToParams<State, TextureParams>, world: &mut ElementWorld) -> Self {
         Self {
-            id: ctx.event_manager.borrow_mut().next_id(),
+            id: world.next_id(),
             params,
         }
     }
@@ -87,7 +89,11 @@ impl<State> ElementImpl for Texture<State> {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        let params = (self.params)(state, &ctx.now, self.id);
+        let params = (self.params)(crate::StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
 
         let (size, rotation) = match params.fit_strategy {
             FitStrategy::Clip { rotation } => (params.preferred_size, rotation),
@@ -161,7 +167,11 @@ impl<State> ElementImpl for Texture<State> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = (self.params)(state, &ctx.now, self.id);
+        let params = (self.params)(crate::StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
 
         let (w, h, rotation) = match params.fit_strategy {
             FitStrategy::Clip { rotation } => (

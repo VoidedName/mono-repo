@@ -1,4 +1,6 @@
-use crate::{Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
+use crate::{
+    Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, UiContext,
+};
 
 use vn_scene::Scene;
 
@@ -8,9 +10,9 @@ pub struct Fill<State> {
 }
 
 impl<State> Fill<State> {
-    pub fn new(element: Box<dyn Element<State = State>>, ctx: &mut UiContext) -> Self {
+    pub fn new(element: Box<dyn Element<State = State>>, world: &mut ElementWorld) -> Self {
         Self {
-            id: ctx.event_manager.borrow_mut().next_id(),
+            id: world.next_id(),
             element,
         }
     }
@@ -62,5 +64,15 @@ impl<State> ElementImpl for Fill<State> {
         canvas: &mut dyn Scene,
     ) {
         self.element.draw(ctx, state, origin, size, canvas);
+    }
+}
+
+pub trait FillExt: Element {
+    fn fill(self, world: &mut ElementWorld) -> Fill<Self::State>;
+}
+
+impl<E: Element + 'static> FillExt for E {
+    fn fill(self, world: &mut ElementWorld) -> Fill<Self::State> {
+        Fill::new(Box::new(self), world)
     }
 }

@@ -23,6 +23,7 @@
 
 mod components;
 mod element;
+mod element_world;
 mod event_manager;
 mod interaction;
 mod layouts;
@@ -32,13 +33,13 @@ mod utils;
 
 pub use components::*;
 pub use element::*;
+pub use element_world::*;
 pub use event_manager::*;
 pub use interaction::*;
 pub use layouts::*;
 pub use sizes::*;
 pub use vn_ui_animation::*;
 pub use vn_ui_animation_macros::*;
-use web_time::Instant;
 
 pub use vn_scene::{Color, KeyCode, KeyEvent, Rect, Scene};
 
@@ -53,4 +54,10 @@ pub trait TextFieldCallbacks {
     fn text_layout_changed(&mut self, layout: &text::layout::TextLayout);
 }
 
-pub type StateToParams<State, Params> = Box<dyn Fn(&State, &Instant, ElementId) -> Params>;
+pub struct StateToParamsArgs<'a, State> {
+    pub state: &'a State,
+    pub id: ElementId,
+    pub ctx: &'a UiContext,
+}
+
+pub type StateToParams<State, Params> = Box<dyn Fn(StateToParamsArgs<State>) -> Params>;

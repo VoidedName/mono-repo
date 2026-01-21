@@ -16,3 +16,8 @@ export function load_file_js(src) {
         request.send();
     })
 }
+
+export function exit() {
+    alert("Application terminated.");
+    window.close();
+}

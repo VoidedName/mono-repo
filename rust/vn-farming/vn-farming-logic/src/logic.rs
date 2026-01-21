@@ -1,4 +1,5 @@
-use std::cell::RefCell;
+use crate::logic::game_state::{GameState, MenuEvent, StartMenu};
+use std::cell::{Ref, RefCell};
 use std::f32::consts::PI;
 use std::pin::Pin;
 use std::rc::Rc;
@@ -6,12 +7,13 @@ use std::time::Duration;
 use thiserror::Error;
 use vn_scene::Rect;
 use vn_ui::{
-    Anchor, AnchorLocation, AnchorParams, Card, CardParams, DynamicSize,
-    DynamicTextFieldController, Easing, Element, ElementSize, EventManager, Fill, FitStrategy,
-    InputTextFieldController, InputTextFieldControllerExt, InteractionState, Interactive,
-    InteractiveParams, Interpolatable, Padding, PaddingParams, Progress, SimpleLayoutCache,
-    SizeConstraints, Stack, TextField, TextFieldCallbacks, TextFieldParams, TextMetrics,
-    TextVisuals, Texture as UiTexture, TextureParams, UiContext,
+    Anchor, AnchorExt, AnchorLocation, AnchorParams, Card, CardExt, CardParams, DynamicSize,
+    DynamicTextFieldController, Easing, Element, ElementSize, ElementWorld, EventManager, Fill,
+    FillExt, FitStrategy, InputTextFieldController, InputTextFieldControllerExt, InteractionEvent,
+    InteractionState, Interactive, InteractiveExt, InteractiveParams, Interpolatable, Padding,
+    PaddingExt, PaddingParams, Progress, SimpleLayoutCache, SizeConstraints, Stack, TextField,
+    TextFieldCallbacks, TextFieldParams, TextMetrics, TextVisuals, Texture as UiTexture,
+    TextureParams, UiContext,
 };
 use vn_wgpu_window::graphics::GraphicsContext;
 use vn_wgpu_window::resource_manager::ResourceManager;
@@ -20,6 +22,8 @@ use vn_wgpu_window::{Color, StateLogic, Texture};
 use web_time::Instant;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
+
+mod game_state;
 
 struct TextMetric {
     rm: Rc<ResourceManager>,
@@ -120,6 +124,8 @@ pub trait PlatformHooks {
         &self,
         path: String,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<Vec<u8>, FileLoadingError>>>>;
+
+    fn exit(&self);
 }
 
 pub struct MainLogic {
@@ -128,11 +134,9 @@ pub struct MainLogic {
     fps_stats: Rc<RefCell<FpsStats>>,
     size: (u32, u32),
     mouse_position: (f32, f32),
-    ui: RefCell<Box<dyn Element<State = ()>>>,
     event_manager: Rc<RefCell<EventManager>>,
-    input_controller: Rc<RefCell<InputTextFieldController>>,
     platform: Rc<Box<dyn PlatformHooks>>,
-    focused_id: Option<vn_ui::ElementId>,
+    game_state: GameState,
 }
 
 impl MainLogic {
@@ -152,33 +156,34 @@ impl MainLogic {
 
         resource_manager.set_glyph_size_increment(12.0);
 
-        let event_manager = Rc::new(RefCell::new(EventManager::new()));
+        let mut element_world = ElementWorld::new();
+        let input_controller_id = element_world.next_id();
         let input_controller = Rc::new(RefCell::new(InputTextFieldController::new(
-            event_manager.borrow_mut().next_id(),
+            input_controller_id,
         )));
 
         input_controller.borrow_mut().text = "Hello World!\nI am a text field!".to_string();
 
         let fps_stats = Rc::new(RefCell::new(FpsStats::new()));
 
-        Ok(Self {
-            ui: RefCell::new(Box::new(Self::build_ui(
+        let game_state = GameState::StartMenu(
+            StartMenu::new(
+                platform.clone(),
                 graphics_context.clone(),
                 resource_manager.clone(),
-                event_manager.clone(),
-                test_texture,
-                input_controller.clone(),
-                fps_stats.clone(),
-            ))),
+            )
+            .await?,
+        );
+
+        Ok(Self {
             resource_manager,
             mouse_position: (0.0, 0.0),
             size: graphics_context.size(),
             graphics_context,
             fps_stats,
-            event_manager,
-            input_controller,
+            event_manager: Rc::new(RefCell::new(EventManager::new())),
             platform,
-            focused_id: None,
+            game_state,
         })
     }
 }
@@ -186,41 +191,52 @@ impl MainLogic {
 impl StateLogic<SceneRenderer> for MainLogic {
     fn process_events(&mut self) {
         let events = self.event_manager.borrow_mut().process_events();
-        for (id, event) in events {
-            match event {
-                vn_ui::InteractionEvent::Click { x, y, .. } => {
-                    self.focused_id = Some(id);
-                    if id == self.input_controller.borrow().id {
-                        self.input_controller.borrow_mut().handle_click(x, y);
+
+        match &self.game_state {
+            GameState::StartMenu(start_menu) => {
+                for event in events {
+                    let menu_event = if let Some(id) = event.target {
+                        start_menu.handle_event(id, event)
+                    } else {
+                        start_menu.handle_event_no_target(event)
+                    };
+
+                    match menu_event {
+                        None => {}
+                        Some(menu_event) => {
+                            match menu_event {
+                                MenuEvent::StartGame => {}
+                                MenuEvent::LoadGame => {}
+                                MenuEvent::Settings => {}
+                                MenuEvent::Exit => {
+                                    self.platform.exit();
+                                }
+                            }
+                            // discard remaining events as they now relate to a stale UI
+                            // I may want to consider reprocessing the remaining events
+                            // in regard to the new ui state, as this is technically now
+                            // dropping inputs
+                            // (example, you hit enter on load game and then enter again because
+                            //  you expect to load the first save)
+                            break;
+                        }
                     }
                 }
-                vn_ui::InteractionEvent::Keyboard(key_event) => {
-                    if Some(id) == self.focused_id && id == self.input_controller.borrow().id {
-                        self.input_controller.borrow_mut().handle_key(&key_event);
-                    }
-                }
-                _ => {}
             }
         }
     }
 
-    fn handle_key(&mut self, event_loop: &ActiveEventLoop, event: &KeyEvent) {
+    fn handle_key(&mut self, _event_loop: &ActiveEventLoop, event: &KeyEvent) {
         self.event_manager
             .borrow_mut()
-            .queue_event(vn_ui::InteractionEvent::Keyboard(event.clone()));
-
-        use winit::keyboard::{KeyCode, PhysicalKey};
-        match (event.physical_key, event.state.is_pressed()) {
-            (PhysicalKey::Code(KeyCode::Escape), true) => event_loop.exit(),
-            _ => {}
-        }
+            .queue_event(vn_ui::InteractionEventKind::Keyboard(event.clone()));
     }
 
     fn handle_mouse_position(&mut self, x: f32, y: f32) {
         self.mouse_position = (x, y);
         self.event_manager
             .borrow_mut()
-            .queue_event(vn_ui::InteractionEvent::MouseMove { x, y });
+            .queue_event(vn_ui::InteractionEventKind::MouseMove { x, y });
     }
 
     fn handle_mouse_button(
@@ -236,19 +252,19 @@ impl StateLogic<SceneRenderer> for MainLogic {
             _ => return,
         };
 
-        let event = match state {
-            winit::event::ElementState::Pressed => vn_ui::InteractionEvent::MouseDown {
+        let kind = match state {
+            winit::event::ElementState::Pressed => vn_ui::InteractionEventKind::MouseDown {
                 button,
                 x: self.mouse_position.0,
                 y: self.mouse_position.1,
             },
-            winit::event::ElementState::Released => vn_ui::InteractionEvent::MouseUp {
+            winit::event::ElementState::Released => vn_ui::InteractionEventKind::MouseUp {
                 button,
                 x: self.mouse_position.0,
                 y: self.mouse_position.1,
             },
         };
-        self.event_manager.borrow_mut().queue_event(event);
+        self.event_manager.borrow_mut().queue_event(kind);
     }
 
     fn resized(&mut self, width: u32, height: u32) {
@@ -262,8 +278,6 @@ impl StateLogic<SceneRenderer> for MainLogic {
         let mut scene =
             vn_wgpu_window::scene::WgpuScene::new((self.size.0 as f32, self.size.1 as f32));
 
-        let mut ui = self.ui.borrow_mut();
-
         let event_manager = self.event_manager.clone();
         // event_manager.handle_mouse_move(self.mouse_position.0, self.mouse_position.1);
         event_manager.borrow_mut().clear_hitboxes();
@@ -276,32 +290,36 @@ impl StateLogic<SceneRenderer> for MainLogic {
             now: Instant::now(),
         };
 
-        ui.layout(
-            &mut ctx,
-            &(),
-            SizeConstraints {
-                min_size: ElementSize {
-                    width: 0.0,
-                    height: 0.0,
-                },
-                max_size: DynamicSize {
-                    width: Some(self.size.0 as f32),
-                    height: Some(self.size.1 as f32),
-                },
-                scene_size: (self.size.0 as f32, self.size.1 as f32),
-            },
-        );
+        match &self.game_state {
+            GameState::StartMenu(start_menu) => {
+                start_menu.ui.borrow_mut().layout(
+                    &mut ctx,
+                    start_menu,
+                    SizeConstraints {
+                        min_size: ElementSize {
+                            width: 0.0,
+                            height: 0.0,
+                        },
+                        max_size: DynamicSize {
+                            width: Some(self.size.0 as f32),
+                            height: Some(self.size.1 as f32),
+                        },
+                        scene_size: (self.size.0 as f32, self.size.1 as f32),
+                    },
+                );
 
-        ui.draw(
-            &mut ctx,
-            &(),
-            (0.0, 0.0),
-            ElementSize {
-                width: self.size.0 as f32,
-                height: self.size.1 as f32,
-            },
-            &mut scene,
-        );
+                start_menu.ui.borrow_mut().draw(
+                    &mut ctx,
+                    start_menu,
+                    (0.0, 0.0),
+                    ElementSize {
+                        width: self.size.0 as f32,
+                        height: self.size.1 as f32,
+                    },
+                    &mut scene,
+                );
+            }
+        };
 
         self.resource_manager.cleanup(60, 10000);
 
@@ -309,207 +327,197 @@ impl StateLogic<SceneRenderer> for MainLogic {
     }
 }
 
-impl MainLogic {
-    fn build_ui(
-        graphics_context: Rc<GraphicsContext>,
-        resource_manager: Rc<ResourceManager>,
-        event_manager: Rc<RefCell<EventManager>>,
-        test_texture: Rc<Texture>,
-        input_controller: Rc<RefCell<InputTextFieldController>>,
-        fps_stats: Rc<RefCell<FpsStats>>,
-    ) -> impl Element<State = ()> {
-        let text_metric = Rc::new(TextMetric {
-            rm: resource_manager.clone(),
-            gc: graphics_context.clone(),
-        });
-
-        let event_manager_rc = event_manager.clone();
-        let event_manager = event_manager;
-        let mut ui_ctx = UiContext {
-            event_manager: event_manager.clone(),
-            parent_id: None,
-            layout_cache: Box::new(SimpleLayoutCache::new()),
-            interactive: true,
-            now: Instant::now(),
-        };
-
-        let text_input = TextField::new(
-            {
-                let input_controller = input_controller.clone();
-                let text_metric = text_metric.clone();
-                let event_manager = event_manager_rc.clone();
-                Box::new(move |_: &(), _, id| {
-                    let input = input_controller.borrow();
-                    let event_manager = event_manager.borrow();
-                    TextFieldParams {
-                        visuals: TextVisuals {
-                            text: input.text.clone(),
-                            caret_position: Some(input.caret),
-                            font: "jetbrains-bold".to_string(),
-                            font_size: 36.0,
-                            color: Color::RED,
-                            caret_width: None,
-                            caret_blink_duration: None,
-                        },
-                        controller: input_controller.clone(),
-                        metrics: text_metric.clone(),
-                        interaction: InteractionState {
-                            is_focused: event_manager.is_focused(id),
-                            is_hovered: event_manager.is_hovered(id),
-                        },
-                    }
-                })
-            },
-            &mut ui_ctx,
-        );
-
-        input_controller.borrow_mut().id = text_input.id();
-
-        let text_input = Fill::new(Box::new(text_input), &mut ui_ctx);
-
-        let animation_controller = PaddingParams::uniform(5.0)
-            .into_animation_controller()
-            .into_rc();
-        animation_controller.update_state(|state| {
-            state.target_value = PaddingParams {
-                pad_left: 100.0,
-                pad_right: 100.0,
-                pad_top: 25.0,
-                pad_bottom: 0.0,
-            };
-            state.easing = Easing::EaseInOutQuad;
-            state.progress = Progress::PingPong;
-            state.duration = Duration::from_millis(5000);
-        });
-
-        let test_input = Padding::new(
-            Box::new(text_input),
-            Box::new(move |_, now, _| animation_controller.value(*now)),
-            &mut ui_ctx,
-        );
-
-        let test_input = Card::new(
-            Box::new(test_input),
-            Box::new(|_, _, _| CardParams {
-                background_color: Color::TRANSPARENT,
-                border_size: 2.0,
-                border_color: Color::TRANSPARENT,
-                corner_radius: 5.0,
-            }),
-            &mut ui_ctx,
-        );
-
-        let fps_controller_typed =
-            Rc::new(RefCell::new(DynamicTextFieldController::new(Box::new({
-                let fps_stats = fps_stats.clone();
-                move || {
-                    format!(
-                        "FPS: {:>6.2}",
-                        fps_stats.borrow().current_fps().unwrap_or(0.0)
-                    )
-                }
-            }))));
-
-        let fps_controller: Rc<RefCell<dyn TextFieldCallbacks>> = fps_controller_typed.clone();
-
-        let fps = TextField::new(
-            {
-                let fps_controller_typed = fps_controller_typed.clone();
-                let fps_controller = fps_controller.clone();
-                let text_metric = text_metric.clone();
-                let event_manager = event_manager_rc.clone();
-                Box::new(move |_, _, id| {
-                    let text = fps_controller_typed.borrow().text();
-                    TextFieldParams {
-                        visuals: TextVisuals {
-                            text,
-                            caret_position: None,
-                            font: "jetbrains-bold".to_string(),
-                            font_size: 18.0,
-                            color: Color::WHITE.with_alpha(0.5),
-                            caret_width: None,
-                            caret_blink_duration: None,
-                        },
-                        controller: fps_controller.clone(),
-                        metrics: text_metric.clone(),
-                        interaction: InteractionState {
-                            is_focused: event_manager.borrow().is_focused(id),
-                            is_hovered: event_manager.borrow().is_hovered(id),
-                        },
-                    }
-                })
-            },
-            &mut ui_ctx,
-        );
-
-        let fps = Anchor::new(
-            Box::new(fps),
-            Box::new(|_, _, _| AnchorParams {
-                location: AnchorLocation::TopRight,
-            }),
-            &mut ui_ctx,
-        );
-
-        let fps = Interactive::new(
-            Box::new(fps),
-            Box::new(|_, _, _| InteractiveParams {
-                is_interactive: true,
-            }),
-            &mut ui_ctx,
-        );
-
-        let test_input = Anchor::new(
-            Box::new(test_input),
-            Box::new(|_, _, _| AnchorParams {
-                location: AnchorLocation::CENTER,
-            }),
-            &mut ui_ctx,
-        );
-
-        let rotation_animation = 0.0.into_animation_controller().into_rc();
-        rotation_animation.update_state(|state| {
-            state.target_value = PI * 2.0;
-            state.easing = Easing::Linear;
-            state.progress = Progress::Loop;
-            state.duration = Duration::from_secs(10);
-        });
-
-        let test_sprite = UiTexture::new(
-            Box::new(move |_, now, _| TextureParams {
-                texture_id: test_texture.id.clone(),
-                preferred_size: ElementSize {
-                    width: 200.0,
-                    height: 100.0,
-                },
-                uv_rect: Rect {
-                    position: [0.0, 0.0],
-                    size: [1.0, 1.0],
-                },
-                tint: Color::WHITE,
-                fit_strategy: FitStrategy::PreserveAspectRatio {
-                    rotation: rotation_animation.value(*now),
-                },
-            }),
-            &mut ui_ctx,
-        );
-
-        let test_sprite = Anchor::new(
-            Box::new(test_sprite),
-            Box::new(|_, _, _| AnchorParams {
-                location: AnchorLocation::CENTER,
-            }),
-            &mut ui_ctx,
-        );
-
-        let ui = Stack::new(
-            vec![
-                // Box::new(test_input),
-                Box::new(fps),
-                Box::new(test_sprite),
-            ],
-            &mut ui_ctx,
-        );
-
-        ui
-    }
-}
+// impl MainLogic {
+//     fn build_ui(
+//         graphics_context: Rc<GraphicsContext>,
+//         resource_manager: Rc<ResourceManager>,
+//         event_manager: Rc<RefCell<EventManager>>,
+//         test_texture: Rc<Texture>,
+//         input_controller: Rc<RefCell<InputTextFieldController>>,
+//         fps_stats: Rc<RefCell<FpsStats>>,
+//     ) -> impl Element<State = ()> {
+//         let text_metric = Rc::new(TextMetric {
+//             rm: resource_manager.clone(),
+//             gc: graphics_context.clone(),
+//         });
+//
+//         let mut element_world = ElementWorld::new();
+//         let event_manager_rc = event_manager.clone();
+//         let mut ui_ctx = UiContext {
+//             event_manager: event_manager.clone(),
+//             parent_id: None,
+//             layout_cache: Box::new(SimpleLayoutCache::new()),
+//             interactive: true,
+//             now: Instant::now(),
+//         };
+//
+//         let text_input = TextField::new(
+//             {
+//                 let input_controller = input_controller.clone();
+//                 let text_metric = text_metric.clone();
+//                 let event_manager = event_manager_rc.clone();
+//                 Box::new(move |_: &(), _, id| {
+//                     let input = input_controller.borrow();
+//                     let event_manager = event_manager.borrow();
+//                     TextFieldParams {
+//                         visuals: TextVisuals {
+//                             text: input.text.clone(),
+//                             caret_position: Some(input.caret),
+//                             font: "jetbrains-bold".to_string(),
+//                             font_size: 36.0,
+//                             color: Color::RED,
+//                             caret_width: None,
+//                             caret_blink_duration: None,
+//                         },
+//                         controller: input_controller.clone(),
+//                         metrics: text_metric.clone(),
+//                         interaction: InteractionState {
+//                             is_focused: event_manager_rc.borrow().is_focused(id),
+//                             is_hovered: event_manager_rc.borrow().is_hovered(id),
+//                         },
+//                     }
+//                 })
+//             },
+//             &mut element_world,
+//         )
+//         .fill(&mut element_world);
+//
+//         input_controller.borrow_mut().id = text_input.id();
+//
+//         let animation_controller = PaddingParams::uniform(5.0)
+//             .into_animation_controller()
+//             .into_rc();
+//         animation_controller.update_state(|state| {
+//             state.target_value = PaddingParams {
+//                 pad_left: 100.0,
+//                 pad_right: 100.0,
+//                 pad_top: 25.0,
+//                 pad_bottom: 0.0,
+//             };
+//             state.easing = Easing::EaseInOutQuad;
+//             state.progress = Progress::PingPong;
+//             state.duration = Duration::from_millis(5000);
+//         });
+//
+//         let test_input = text_input
+//             .padding(
+//                 Box::new(move |_, now, _| animation_controller.value(*now)),
+//                 &mut element_world,
+//             )
+//             .card(
+//                 Box::new(|_, _, _| CardParams {
+//                     background_color: Color::TRANSPARENT,
+//                     border_size: 2.0,
+//                     border_color: Color::TRANSPARENT,
+//                     corner_radius: 5.0,
+//                 }),
+//                 &mut element_world,
+//             );
+//
+//         let fps_controller_typed =
+//             Rc::new(RefCell::new(DynamicTextFieldController::new(Box::new({
+//                 let fps_stats = fps_stats.clone();
+//                 move || {
+//                     format!(
+//                         "FPS: {:>6.2}",
+//                         fps_stats.borrow().current_fps().unwrap_or(0.0)
+//                     )
+//                 }
+//             }))));
+//
+//         let fps_controller: Rc<RefCell<dyn TextFieldCallbacks>> = fps_controller_typed.clone();
+//
+//         let fps = TextField::new(
+//             {
+//                 let fps_controller_typed = fps_controller_typed.clone();
+//                 let fps_controller = fps_controller.clone();
+//                 let text_metric = text_metric.clone();
+//                 let event_manager = event_manager_rc.clone();
+//                 Box::new(move |_, _, id| {
+//                     let text = fps_controller_typed.borrow().text();
+//                     TextFieldParams {
+//                         visuals: TextVisuals {
+//                             text,
+//                             caret_position: None,
+//                             font: "jetbrains-bold".to_string(),
+//                             font_size: 18.0,
+//                             color: Color::WHITE.with_alpha(0.5),
+//                             caret_width: None,
+//                             caret_blink_duration: None,
+//                         },
+//                         controller: fps_controller.clone(),
+//                         metrics: text_metric.clone(),
+//                         interaction: InteractionState {
+//                             is_focused: event_manager.borrow().is_focused(id),
+//                             is_hovered: event_manager.borrow().is_hovered(id),
+//                         },
+//                     }
+//                 })
+//             },
+//             &mut element_world,
+//         )
+//         .anchor(
+//             Box::new(|_, _, _| AnchorParams {
+//                 location: AnchorLocation::TopRight,
+//             }),
+//             &mut element_world,
+//         )
+//         .interactive(
+//             Box::new(|_, _, _| InteractiveParams {
+//                 is_interactive: true,
+//             }),
+//             &mut element_world,
+//         );
+//
+//         let test_input = test_input.anchor(
+//             Box::new(|_, _, _| AnchorParams {
+//                 location: AnchorLocation::CENTER,
+//             }),
+//             &mut element_world,
+//         );
+//
+//         let rotation_animation = 0.0.into_animation_controller().into_rc();
+//         rotation_animation.update_state(|state| {
+//             state.target_value = PI * 2.0;
+//             state.easing = Easing::Linear;
+//             state.progress = Progress::Loop;
+//             state.duration = Duration::from_secs(10);
+//         });
+//
+//         let test_sprite = UiTexture::new(
+//             Box::new(move |_, now, _| TextureParams {
+//                 texture_id: test_texture.id.clone(),
+//                 preferred_size: ElementSize {
+//                     width: 200.0,
+//                     height: 100.0,
+//                 },
+//                 uv_rect: Rect {
+//                     position: [0.0, 0.0],
+//                     size: [1.0, 1.0],
+//                 },
+//                 tint: Color::WHITE,
+//                 fit_strategy: FitStrategy::PreserveAspectRatio {
+//                     rotation: rotation_animation.value(*now),
+//                 },
+//             }),
+//             &mut element_world,
+//         )
+//         .anchor(
+//             Box::new(|_, _, _| AnchorParams {
+//                 location: AnchorLocation::CENTER,
+//             }),
+//             &mut element_world,
+//         );
+//
+//         let ui = Stack::new(
+//             vec![
+//                 // Box::new(test_input),
+//                 Box::new(fps),
+//                 Box::new(test_sprite),
+//             ],
+//             &mut element_world,
+//         );
+//
+//         ui
+//     }
+// }

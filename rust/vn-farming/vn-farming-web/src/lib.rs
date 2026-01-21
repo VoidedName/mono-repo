@@ -8,6 +8,7 @@ use wasm_bindgen_futures::JsFuture;
 #[wasm_bindgen(module = "/src/helpers.js")]
 extern "C" {
     pub fn load_file_js(path: &str) -> Promise;
+    pub fn exit();
 }
 
 pub async fn load_file(path: String) -> Result<Vec<u8>, FileLoadingError> {
@@ -35,6 +36,11 @@ impl PlatformHooks for WebPlatformHooks {
         path: String,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<Vec<u8>, FileLoadingError>>>> {
         Box::pin(load_file(format!("assets/{}", path)))
+    }
+
+    fn exit(&self) {
+        exit();
+        std::process::exit(0);
     }
 }
 

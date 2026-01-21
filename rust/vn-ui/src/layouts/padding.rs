@@ -1,5 +1,6 @@
 use crate::{
-    Element, ElementId, ElementImpl, ElementSize, SizeConstraints, StateToParams, UiContext,
+    Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams,
+    UiContext,
 };
 use vn_scene::Scene;
 use vn_ui_animation_macros::Interpolatable;
@@ -34,10 +35,10 @@ impl<State> Padding<State> {
     pub fn new(
         child: Box<dyn Element<State = State>>,
         params: StateToParams<State, PaddingParams>,
-        ctx: &mut UiContext,
+        world: &mut ElementWorld,
     ) -> Self {
         Self {
-            id: ctx.event_manager.borrow_mut().next_id(),
+            id: world.next_id(),
             child,
             params,
         }
@@ -57,7 +58,11 @@ impl<State> ElementImpl for Padding<State> {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        let params = (self.params)(state, &ctx.now, self.id);
+        let params = (self.params)(crate::StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
 
         let mut child_constraints = constraints;
         let x_padding = params.pad_left + params.pad_right;
@@ -94,7 +99,11 @@ impl<State> ElementImpl for Padding<State> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = (self.params)(state, &ctx.now, self.id);
+        let params = (self.params)(crate::StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
 
         let x_padding = params.pad_left + params.pad_right;
         let y_padding = params.pad_top + params.pad_bottom;
@@ -109,5 +118,23 @@ impl<State> ElementImpl for Padding<State> {
             },
             canvas,
         );
+    }
+}
+
+pub trait PaddingExt: Element {
+    fn padding(
+        self,
+        params: StateToParams<Self::State, PaddingParams>,
+        world: &mut ElementWorld,
+    ) -> Padding<Self::State>;
+}
+
+impl<E: Element + 'static> PaddingExt for E {
+    fn padding(
+        self,
+        params: StateToParams<Self::State, PaddingParams>,
+        world: &mut ElementWorld,
+    ) -> Padding<Self::State> {
+        Padding::new(Box::new(self), params, world)
     }
 }

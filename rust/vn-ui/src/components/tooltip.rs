@@ -1,8 +1,8 @@
 use crate::components::ExtendedHitbox;
 use crate::utils::ToArray;
 use crate::{
-    DynamicSize, Element, ElementId, ElementImpl, ElementSize, InteractionState, SizeConstraints,
-    StateToParams, UiContext,
+    DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionState,
+    SizeConstraints, StateToParams, UiContext,
 };
 use vn_scene::{Rect, Scene};
 use vn_ui_animation_macros::Interpolatable;
@@ -33,11 +33,11 @@ impl<State: 'static> ToolTip<State> {
         element: Box<dyn Element<State = State>>,
         tooltip: Box<dyn Element<State = State>>,
         params: StateToParams<State, TooltipParams>,
-        ctx: &mut UiContext,
+        world: &mut ElementWorld,
     ) -> Self {
         Self {
-            tooltip: Box::new(ExtendedHitbox::new(tooltip, ctx)),
-            id: ctx.event_manager.borrow_mut().next_id(),
+            tooltip: Box::new(ExtendedHitbox::new(tooltip, world)),
+            id: world.next_id(),
             element,
             params,
             show_tooltip: false,
@@ -61,7 +61,11 @@ impl<State: 'static> ElementImpl for ToolTip<State> {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        let params = (self.params)(state, &ctx.now, self.id);
+        let params = (self.params)(crate::StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
         let is_hovered = params.interaction.is_hovered;
         let hover_delay = params.hover_delay.unwrap_or(Duration::from_secs_f32(0.1));
         let hover_retain = params.hover_retain.unwrap_or(Duration::from_secs_f32(0.1));
@@ -118,6 +122,11 @@ impl<State: 'static> ElementImpl for ToolTip<State> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
+        let _params = (self.params)(crate::StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
         ctx.with_hitbox_hierarchy(
             self.id,
             canvas.current_layer_id(),
@@ -138,5 +147,25 @@ impl<State: 'static> ElementImpl for ToolTip<State> {
                 }
             },
         );
+    }
+}
+
+pub trait ToolTipExt: Element {
+    fn tooltip(
+        self,
+        tooltip: Box<dyn Element<State = Self::State>>,
+        params: StateToParams<Self::State, TooltipParams>,
+        world: &mut ElementWorld,
+    ) -> ToolTip<Self::State>;
+}
+
+impl<E: Element + 'static> ToolTipExt for E {
+    fn tooltip(
+        self,
+        tooltip: Box<dyn Element<State = Self::State>>,
+        params: StateToParams<Self::State, TooltipParams>,
+        world: &mut ElementWorld,
+    ) -> ToolTip<Self::State> {
+        ToolTip::new(Box::new(self), tooltip, params, world)
     }
 }

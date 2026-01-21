@@ -1,5 +1,7 @@
 use crate::utils::ToArray;
-use crate::{Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
+use crate::{
+    Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, UiContext,
+};
 use vn_scene::{Rect, Scene};
 
 pub struct ExtendedHitbox<State> {
@@ -8,8 +10,8 @@ pub struct ExtendedHitbox<State> {
 }
 
 impl<State> ExtendedHitbox<State> {
-    pub fn new(element: Box<dyn Element<State = State>>, ctx: &mut UiContext) -> Self {
-        let ui_id = ctx.event_manager.borrow_mut().next_id();
+    pub fn new(element: Box<dyn Element<State = State>>, world: &mut ElementWorld) -> Self {
+        let ui_id = world.next_id();
         Self { id: ui_id, element }
     }
 }

@@ -1,5 +1,6 @@
 use crate::{
-    Element, ElementId, ElementImpl, ElementSize, SizeConstraints, StateToParams, UiContext,
+    Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams,
+    UiContext,
 };
 use vn_scene::Scene;
 
@@ -17,10 +18,10 @@ impl<State> Interactive<State> {
     pub fn new(
         child: Box<dyn Element<State = State>>,
         params: StateToParams<State, InteractiveParams>,
-        ctx: &mut UiContext,
+        world: &mut ElementWorld,
     ) -> Self {
         Self {
-            id: ctx.event_manager.borrow_mut().next_id(),
+            id: world.next_id(),
             child,
             params,
         }
@@ -40,6 +41,11 @@ impl<State> ElementImpl for Interactive<State> {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
+        let _params = (self.params)(crate::StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
         self.child.layout(ctx, state, constraints)
     }
 
@@ -51,9 +57,31 @@ impl<State> ElementImpl for Interactive<State> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = (self.params)(state, &ctx.now, self.id);
+        let params = (self.params)(crate::StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
         ctx.with_interactivity(params.is_interactive, |ctx| {
             self.child.draw(ctx, state, origin, size, canvas);
         });
+    }
+}
+
+pub trait InteractiveExt: Element {
+    fn interactive(
+        self,
+        params: StateToParams<Self::State, InteractiveParams>,
+        world: &mut ElementWorld,
+    ) -> Interactive<Self::State>;
+}
+
+impl<E: Element + 'static> InteractiveExt for E {
+    fn interactive(
+        self,
+        params: StateToParams<Self::State, InteractiveParams>,
+        world: &mut ElementWorld,
+    ) -> Interactive<Self::State> {
+        Interactive::new(Box::new(self), params, world)
     }
 }

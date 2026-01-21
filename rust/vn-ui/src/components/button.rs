@@ -1,7 +1,7 @@
 use crate::utils::ToArray;
 use crate::{
-    Element, ElementId, ElementImpl, ElementSize, InteractionState, SizeConstraints, StateToParams,
-    UiContext,
+    Element, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionState, SizeConstraints,
+    StateToParams, ToolTip, TooltipParams, UiContext,
 };
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
 use vn_ui_animation_macros::Interpolatable;
@@ -25,10 +25,10 @@ impl<State> Button<State> {
     pub fn new(
         child: Box<dyn Element<State = State>>,
         params: StateToParams<State, ButtonParams>,
-        ctx: &mut UiContext,
+        world: &mut ElementWorld,
     ) -> Self {
         Self {
-            id: ctx.event_manager.borrow_mut().next_id(),
+            id: world.next_id(),
             child,
             params,
         }
@@ -48,6 +48,12 @@ impl<State> ElementImpl for Button<State> {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
+        let _params = (self.params)(crate::StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
+
         self.child
             .layout(ctx, state, constraints)
             .clamp_to_constraints(constraints)
@@ -61,7 +67,11 @@ impl<State> ElementImpl for Button<State> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = (self.params)(state, &ctx.now, self.id);
+        let params = (self.params)(crate::StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
 
         let mut background = params.background;
         let mut border_color = params.border_color;
@@ -112,5 +122,23 @@ impl<State> ElementImpl for Button<State> {
                 );
             },
         );
+    }
+}
+
+pub trait ButtonExt: Element {
+    fn button(
+        self,
+        params: StateToParams<Self::State, ButtonParams>,
+        world: &mut ElementWorld,
+    ) -> Button<Self::State>;
+}
+
+impl<E: Element + 'static> ButtonExt for E {
+    fn button(
+        self,
+        params: StateToParams<Self::State, ButtonParams>,
+        world: &mut ElementWorld,
+    ) -> Button<Self::State> {
+        Button::new(Box::new(self), params, world)
     }
 }

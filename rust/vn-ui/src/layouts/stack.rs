@@ -1,5 +1,6 @@
 use crate::{
-    DynamicSize, Element, ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext,
+    DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld, Flex, SizeConstraints,
+    UiContext,
 };
 use vn_scene::Scene;
 
@@ -10,9 +11,9 @@ pub struct Stack<State> {
 }
 
 impl<State> Stack<State> {
-    pub fn new(children: Vec<Box<dyn Element<State = State>>>, ctx: &mut UiContext) -> Self {
+    pub fn new(children: Vec<Box<dyn Element<State = State>>>, world: &mut ElementWorld) -> Self {
         Stack {
-            id: ctx.event_manager.borrow_mut().next_id(),
+            id: world.next_id(),
             children_size: vec![ElementSize::ZERO; children.len()],
             children,
         }
@@ -91,5 +92,25 @@ impl<State> ElementImpl for Stack<State> {
                 }
             }
         }
+    }
+}
+
+pub trait StackExt: Element {
+    fn stack_with(
+        self,
+        others: Vec<Box<dyn Element<State = Self::State>>>,
+        world: &mut ElementWorld,
+    ) -> Stack<Self::State>;
+}
+
+impl<E: Element + 'static> StackExt for E {
+    fn stack_with(
+        self,
+        others: Vec<Box<dyn Element<State = Self::State>>>,
+        world: &mut ElementWorld,
+    ) -> Stack<Self::State> {
+        let mut elements = others;
+        elements.insert(0, Box::new(self));
+        Stack::new(elements, world)
     }
 }

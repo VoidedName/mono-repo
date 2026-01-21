@@ -1,8 +1,8 @@
 use crate::text::layout::TextLayout;
 use crate::utils::ToArray;
 use crate::{
-    ElementId, ElementImpl, ElementSize, InteractionState, SizeConstraints, StateToParams,
-    TextFieldCallbacks, TextMetrics, UiContext,
+    ElementId, ElementImpl, ElementSize, ElementWorld, InteractionState, SizeConstraints,
+    StateToParams, TextFieldCallbacks, TextMetrics, UiContext,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -43,28 +43,16 @@ pub enum TextFieldText {
     Dynamic(DynamicString),
 }
 
-pub struct StaticTextFieldController {
-    text_layout: Option<TextLayout>,
-    pub text: String,
-}
+pub struct StaticTextFieldController;
 
 impl StaticTextFieldController {
-    pub fn new(text: String) -> Self {
-        Self {
-            text,
-            text_layout: None,
-        }
-    }
-
-    pub fn current_layout(&self) -> Option<&TextLayout> {
-        self.text_layout.as_ref()
+    pub fn new() -> Self {
+        Self {}
     }
 }
 
 impl TextFieldCallbacks for StaticTextFieldController {
-    fn text_layout_changed(&mut self, layout: &TextLayout) {
-        self.text_layout = Some(layout.clone());
-    }
+    fn text_layout_changed(&mut self, _: &TextLayout) {}
 }
 
 pub struct DynamicTextFieldController {
@@ -251,9 +239,9 @@ pub struct TextField<State> {
 }
 
 impl<State> TextField<State> {
-    pub fn new(params: StateToParams<State, TextFieldParams>, ctx: &mut UiContext) -> Self {
+    pub fn new(params: StateToParams<State, TextFieldParams>, world: &mut ElementWorld) -> Self {
         Self {
-            id: ctx.event_manager.borrow_mut().next_id(),
+            id: world.next_id(),
             line_height: 0.0,
             visuals: None,
             layout: None,
@@ -265,8 +253,12 @@ impl<State> TextField<State> {
         }
     }
 
-    pub fn update_state(&mut self, state: &State, now: &Instant, max_width: Option<f32>) -> bool {
-        let params = (self.params)(state, now, self.id);
+    pub fn update_state(&mut self, state: &State, max_width: Option<f32>, ctx: &UiContext) -> bool {
+        let params = (self.params)(crate::StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
         let mut changed = self.visuals.as_ref() != Some(&params.visuals);
 
         if max_width != self.last_max_width {
@@ -326,9 +318,13 @@ impl<State> ElementImpl for TextField<State> {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        self.update_state(state, &ctx.now, constraints.max_size.width);
+        self.update_state(state, constraints.max_size.width, ctx);
 
-        let params = (self.params)(state, &ctx.now, self.id);
+        let params = (self.params)(crate::StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
         let is_focused = params.interaction.is_focused;
         let caret_blink_duration = self
             .visuals
@@ -361,7 +357,11 @@ impl<State> ElementImpl for TextField<State> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = (self.params)(state, &ctx.now, self.id);
+        let params = (self.params)(crate::StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
         let visuals = &params.visuals;
 
         let caret_height = self.line_height * 0.8;

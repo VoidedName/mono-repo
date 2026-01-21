@@ -1,5 +1,6 @@
 use crate::{
-    Element, ElementId, ElementImpl, ElementSize, SizeConstraints, StateToParams, UiContext,
+    Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams,
+    UiContext,
 };
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
 use vn_ui_animation_macros::Interpolatable;
@@ -23,10 +24,10 @@ impl<State> Card<State> {
     pub fn new(
         child: Box<dyn Element<State = State>>,
         params: StateToParams<State, CardParams>,
-        ctx: &mut UiContext,
+        world: &mut ElementWorld,
     ) -> Self {
         Self {
-            id: ctx.event_manager.borrow_mut().next_id(),
+            id: world.next_id(),
             child,
             params,
         }
@@ -49,7 +50,11 @@ impl<State> ElementImpl for Card<State> {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        let params = (self.params)(state, &ctx.now, self.id);
+        let params = (self.params)(crate::StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
         // We override the padding of the child with our border size
         // This is a bit of a hack because Padding's internal params are now fixed at creation.
         // But since we are calling its layout, we can't easily change its StateToParams.
@@ -92,7 +97,11 @@ impl<State> ElementImpl for Card<State> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = (self.params)(state, &ctx.now, self.id);
+        let params = (self.params)(crate::StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
 
         canvas.add_box(BoxPrimitiveData {
             transform: Transform {
@@ -118,5 +127,23 @@ impl<State> ElementImpl for Card<State> {
             },
             canvas,
         );
+    }
+}
+
+pub trait CardExt: Element {
+    fn card(
+        self,
+        params: StateToParams<Self::State, CardParams>,
+        world: &mut ElementWorld,
+    ) -> Card<Self::State>;
+}
+
+impl<E: Element + 'static> CardExt for E {
+    fn card(
+        self,
+        params: StateToParams<Self::State, CardParams>,
+        world: &mut ElementWorld,
+    ) -> Card<Self::State> {
+        Card::new(Box::new(self), params, world)
     }
 }

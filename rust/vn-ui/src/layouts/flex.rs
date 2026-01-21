@@ -1,5 +1,6 @@
 use crate::{
-    Element, ElementId, ElementImpl, ElementSize, SizeConstraints, StateToParams, UiContext,
+    Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams,
+    UiContext,
 };
 use vn_scene::Scene;
 
@@ -25,10 +26,10 @@ impl<State> Flex<State> {
     pub fn new(
         children: Vec<Box<dyn Element<State = State>>>,
         params: StateToParams<State, FlexParams>,
-        ctx: &mut UiContext,
+        world: &mut ElementWorld,
     ) -> Self {
         Self {
-            id: ctx.event_manager.borrow_mut().next_id(),
+            id: world.next_id(),
             layout: std::iter::repeat(ElementSize::ZERO)
                 .take(children.len())
                 .collect(),
@@ -37,23 +38,29 @@ impl<State> Flex<State> {
         }
     }
 
-    pub fn new_row(children: Vec<Box<dyn Element<State = State>>>, ctx: &mut UiContext) -> Self {
+    pub fn new_row(
+        children: Vec<Box<dyn Element<State = State>>>,
+        world: &mut ElementWorld,
+    ) -> Self {
         Self::new(
             children,
-            Box::new(|_, _, _| FlexParams {
+            Box::new(|_| FlexParams {
                 direction: FlexDirection::Row,
             }),
-            ctx,
+            world,
         )
     }
 
-    pub fn new_column(children: Vec<Box<dyn Element<State = State>>>, ctx: &mut UiContext) -> Self {
+    pub fn new_column(
+        children: Vec<Box<dyn Element<State = State>>>,
+        world: &mut ElementWorld,
+    ) -> Self {
         Self::new(
             children,
-            Box::new(|_, _, _| FlexParams {
+            Box::new(|_| FlexParams {
                 direction: FlexDirection::Column,
             }),
-            ctx,
+            world,
         )
     }
 }
@@ -76,9 +83,17 @@ impl<State> ElementImpl for Flex<State> {
         // do we extend constraints to denote that they should not grow along some axis?
         let mut total_in_direction: f32 = 0.0;
         let mut max_orthogonal: f32 = 0.0;
-        let params = (self.params)(state, &ctx.now, self.id);
+        let params = (self.params)(crate::StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
 
-        let mut child_constraints = constraints.clone();
+        let mut child_constraints = constraints;
+        child_constraints.min_size.width = 0.0;
+        child_constraints.min_size.height = 0.0;
+        child_constraints.max_size.width = None;
+        child_constraints.max_size.height = None;
 
         for (_, child) in self.children.iter_mut().enumerate() {
             let child_size = child.layout_impl(ctx, state, child_constraints);
@@ -142,7 +157,11 @@ impl<State> ElementImpl for Flex<State> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = (self.params)(state, &ctx.now, self.id);
+        let params = (self.params)(crate::StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
 
         let mut offset = match params.direction {
             FlexDirection::Row => origin.0,
@@ -170,5 +189,59 @@ impl<State> ElementImpl for Flex<State> {
                 }
             }
         }
+    }
+}
+
+pub trait FlexExt: Element {
+    fn flex(
+        self,
+        others: Vec<Box<dyn Element<State = Self::State>>>,
+        params: StateToParams<Self::State, FlexParams>,
+        world: &mut ElementWorld,
+    ) -> Flex<Self::State>;
+
+    fn flex_row(
+        self,
+        others: Vec<Box<dyn Element<State = Self::State>>>,
+        world: &mut ElementWorld,
+    ) -> Flex<Self::State>;
+
+    fn flex_column(
+        self,
+        others: Vec<Box<dyn Element<State = Self::State>>>,
+        world: &mut ElementWorld,
+    ) -> Flex<Self::State>;
+}
+
+impl<E: Element + 'static> FlexExt for E {
+    fn flex(
+        self,
+        others: Vec<Box<dyn Element<State = Self::State>>>,
+        params: StateToParams<Self::State, FlexParams>,
+        world: &mut ElementWorld,
+    ) -> Flex<Self::State> {
+        let mut elements = others;
+        elements.insert(0, Box::new(self));
+        Flex::new(elements, params, world)
+    }
+
+    fn flex_row(
+        self,
+        others: Vec<Box<dyn Element<State = Self::State>>>,
+        world: &mut ElementWorld,
+    ) -> Flex<Self::State> {
+        let mut elements = others;
+        elements.insert(0, Box::new(self));
+        Flex::new_row(elements, world)
+    }
+
+    fn flex_column(
+        self,
+        others: Vec<Box<dyn Element<State = Self::State>>>,
+        world: &mut ElementWorld,
+    ) -> Flex<Self::State> {
+        let mut elements = others;
+        elements.insert(0, Box::new(self));
+        Flex::new_column(elements, world)
     }
 }

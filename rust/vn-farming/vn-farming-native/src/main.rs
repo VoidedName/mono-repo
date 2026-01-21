@@ -20,6 +20,10 @@ impl PlatformHooks for NativePlatformHooks {
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<Vec<u8>, FileLoadingError>>>> {
         Box::pin(load_file(format!("assets/{}", path)))
     }
+
+    fn exit(&self) {
+        std::process::exit(0);
+    }
 }
 
 fn main() {
