@@ -194,8 +194,9 @@ impl TextLayout {
             .iter()
             .map(|l| l.width)
             .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap_or(0.0);
-        let total_height = lines.iter().map(|l| l.height).sum();
+            .unwrap_or(0.0)
+            .ceil();
+        let total_height = lines.iter().map(|l| l.height).sum::<f32>().ceil();
 
         Self {
             lines,

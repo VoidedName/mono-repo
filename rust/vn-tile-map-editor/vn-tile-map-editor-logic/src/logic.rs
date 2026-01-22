@@ -1,8 +1,8 @@
-use crate::logic::game_state::start_menu::StartMenuEvent;
-use crate::logic::game_state::{GameState, GameStateEx, StartMenu};
+use crate::logic::game_state::{GameState, GameStateEx, Editor};
 use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
+use std::future::Future;
 use thiserror::Error;
 use vn_ui::*;
 use vn_wgpu_window::StateLogic;
@@ -13,11 +13,11 @@ use web_time::Instant;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
 
-mod game_state;
+pub mod game_state;
 
-struct TextMetric {
-    rm: Rc<ResourceManager>,
-    gc: Rc<GraphicsContext>,
+pub struct TextMetric {
+    pub rm: Rc<ResourceManager>,
+    pub gc: Rc<GraphicsContext>,
 }
 
 impl TextMetrics for TextMetric {
@@ -60,7 +60,6 @@ impl TextMetrics for TextMetric {
     }
 }
 
-/// Tracks and calculates frames per second.
 struct FpsStats {
     key_frame_time: RefCell<Option<Instant>>,
     frame_count: RefCell<u32>,
@@ -76,7 +75,6 @@ impl FpsStats {
         }
     }
 
-    /// Ticks the tracker, updating the FPS value if enough time has passed.
     fn tick(&self) {
         let mut key_frame_time = self.key_frame_time.borrow_mut();
         if key_frame_time.is_none() {
@@ -90,17 +88,10 @@ impl FpsStats {
         if elapsed >= 0.1 {
             let fps = *self.frame_count.borrow() as f32 / elapsed;
             self.current_fps.borrow_mut().replace(fps);
-
-            // log::info!("FPS:{:>8.2}", fps);
-
             *key_frame_time = Some(Instant::now());
             *self.frame_count.borrow_mut() = 0;
         }
     }
-
-    // fn current_fps(&self) -> Option<f32> {
-    //     self.current_fps.borrow().clone()
-    // }
 }
 
 #[derive(Debug, Error)]
@@ -139,24 +130,12 @@ impl MainLogic {
             .await?;
 
         resource_manager.load_font_from_bytes("jetbrains-bold", &font_bytes)?;
-
-        // let test_texture = platform.load_file("test_sprite.png".to_string()).await?;
-        // let test_texture = resource_manager.load_texture_from_bytes(&test_texture)?;
-
         resource_manager.set_glyph_size_increment(12.0);
-
-        let mut element_world = ElementWorld::new();
-        let input_controller_id = element_world.next_id();
-        let input_controller = Rc::new(RefCell::new(InputTextFieldController::new(
-            input_controller_id,
-        )));
-
-        input_controller.borrow_mut().text = "Hello World!\nI am a text field!".to_string();
 
         let fps_stats = Rc::new(RefCell::new(FpsStats::new()));
 
-        let game_state = GameState::StartMenu(
-            StartMenu::new(
+        let game_state = GameState::Editor(
+            Editor::new(
                 platform.clone(),
                 graphics_context.clone(),
                 resource_manager.clone(),
@@ -174,37 +153,13 @@ impl MainLogic {
             game_state,
         })
     }
-
-    fn process_main_menu(&mut self, menu_event: Option<StartMenuEvent>) -> Option<GameState> {
-        match menu_event {
-            None => {}
-            Some(menu_event) => match menu_event {
-                StartMenuEvent::StartGame => {}
-                StartMenuEvent::LoadGame => {}
-                StartMenuEvent::Settings => {}
-                StartMenuEvent::Exit => {
-                    self.platform.exit();
-                }
-            },
-        }
-
-        None
-    }
 }
 
 impl StateLogic<SceneRenderer> for MainLogic {
     fn process_events(&mut self) {
-        let next_state = match &mut self.game_state {
-            GameState::StartMenu(start_menu) => {
-                let menu_event = start_menu.process_events();
-                self.process_main_menu(menu_event)
-            }
-            GameState::Playing(playing) => playing.process_events().map(|_| unreachable!()),
+        let _ = match &mut self.game_state {
+            GameState::Editor(editor) => editor.process_events(),
         };
-
-        if let Some(next_state) = next_state {
-            self.game_state = next_state;
-        }
     }
 
     fn handle_key(&mut self, _event_loop: &ActiveEventLoop, event: &KeyEvent) {
@@ -225,16 +180,17 @@ impl StateLogic<SceneRenderer> for MainLogic {
             .handle_mouse_button(self.mouse_position, button, state);
     }
 
+    fn handle_mouse_wheel(&mut self, delta_x: f32, delta_y: f32) {
+        self.game_state.handle_mouse_wheel(delta_x, delta_y);
+    }
+
     fn resized(&mut self, width: u32, height: u32) {
         self.size = (width, height);
     }
 
     fn render_target(&self) -> vn_wgpu_window::scene::WgpuScene {
         self.resource_manager.update();
-
         self.fps_stats.borrow_mut().tick();
-
-        // todo: combine two scenes (i.e. an overlay for things like fps stats etc)
 
         let scene = self
             .game_state

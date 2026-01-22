@@ -122,6 +122,21 @@ impl Rect {
             && point[1] <= self.position[1] + self.size[1]
     }
 
+    pub fn intersect(&self, other: &Self) -> Self {
+        let x1 = self.position[0].max(other.position[0]);
+        let y1 = self.position[1].max(other.position[1]);
+        let x2 = (self.position[0] + self.size[0]).min(other.position[0] + other.size[0]);
+        let y2 = (self.position[1] + self.size[1]).min(other.position[1] + other.size[1]);
+
+        let width = (x2 - x1).max(0.0);
+        let height = (y2 - y1).max(0.0);
+
+        Self {
+            position: [x1, y1],
+            size: [width, height],
+        }
+    }
+
     /// A rectangle that effectively disables clipping by covering a massive area.
     pub const NO_CLIP: Self = Self {
         position: [f32::MIN / 2.0, f32::MIN / 2.0],
@@ -265,7 +280,7 @@ pub struct ImagePrimitiveData {
     pub texture_id: TextureId,
     /// This will clip the rendered image to the clip_rect (if clip rect does not cover the entire size)
     pub clip_rect: Rect,
-    /// Area of the texture to render in NDC
+    /// Area of the texture to render in NDC.
     pub uv_rect: Rect,
 }
 

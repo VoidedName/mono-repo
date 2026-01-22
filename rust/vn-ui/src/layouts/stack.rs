@@ -46,8 +46,8 @@ impl<State> ElementImpl for Stack<State> {
         }
 
         ElementSize {
-            width: constraints.max_size.width.unwrap_or(max_width),
-            height: constraints.max_size.height.unwrap_or(max_height),
+            width: max_width,
+            height: max_height,
         }
         .clamp_to_constraints(constraints)
     }

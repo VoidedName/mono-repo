@@ -74,6 +74,12 @@ pub trait InteractiveExt: Element {
         params: StateToParams<Self::State, InteractiveParams>,
         world: &mut ElementWorld,
     ) -> Interactive<Self::State>;
+
+    fn interactive_set(
+        self,
+        interactive: bool,
+        world: &mut ElementWorld,
+    ) -> Interactive<Self::State>;
 }
 
 impl<E: Element + 'static> InteractiveExt for E {
@@ -83,5 +89,19 @@ impl<E: Element + 'static> InteractiveExt for E {
         world: &mut ElementWorld,
     ) -> Interactive<Self::State> {
         Interactive::new(Box::new(self), params, world)
+    }
+
+    fn interactive_set(
+        self,
+        interactive: bool,
+        world: &mut ElementWorld,
+    ) -> Interactive<Self::State> {
+        Interactive::new(
+            Box::new(self),
+            Box::new(move |_| InteractiveParams {
+                is_interactive: interactive,
+            }),
+            world,
+        )
     }
 }

@@ -40,6 +40,11 @@ impl fmt::Debug for ResourceManager {
     }
 }
 
+pub enum Sampling {
+    Nearest,
+    Linear,
+}
+
 impl ResourceManager {
     pub fn new(wgpu: Rc<WgpuContext>, fallback_font: &[u8]) -> Self {
         let fallback_font = Rc::new(Font::new(fallback_font.to_vec()));
@@ -59,8 +64,27 @@ impl ResourceManager {
         self.glyph_size_increment.set(increment);
     }
 
-    pub fn load_texture_from_bytes(&self, bytes: &[u8]) -> Result<Rc<Texture>, anyhow::Error> {
-        let texture = Texture::from_bytes(&self.wgpu.device, &self.wgpu.queue, bytes)?;
+    pub fn load_texture_from_bytes(
+        &self,
+        bytes: &[u8],
+        sampling: Sampling,
+    ) -> Result<Rc<Texture>, anyhow::Error> {
+        let sampling = match sampling {
+            Sampling::Nearest => wgpu::FilterMode::Nearest,
+            Sampling::Linear => wgpu::FilterMode::Linear,
+        };
+
+        let sampler = wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: sampling,
+            min_filter: sampling,
+            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+            ..Default::default()
+        };
+
+        let texture = Texture::from_bytes(&self.wgpu.device, &self.wgpu.queue, &sampler, bytes)?;
 
         let texture = Rc::new(texture);
         let mut textures = self.textures.borrow_mut();

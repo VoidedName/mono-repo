@@ -20,6 +20,9 @@ pub trait StateLogic<R: Renderer>: Sized + 'static {
     }
 
     #[allow(unused_variables)]
+    fn handle_mouse_wheel(&mut self, delta_x: f32, delta_y: f32) {}
+
+    #[allow(unused_variables)]
     fn resized(&mut self, width: u32, height: u32) {}
 
     #[allow(unused_variables)]

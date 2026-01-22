@@ -22,6 +22,20 @@ impl ElementSize {
             height: self.width * sin.abs() + self.height * cos.abs(),
         }
     }
+
+    pub fn shrink_by(&self, size: ElementSize) -> Self {
+        Self {
+            width: self.width - size.width.min(self.width),
+            height: self.height - size.height.min(self.height),
+        }
+    }
+
+    pub fn grow_by(&self, size: ElementSize) -> Self {
+        Self {
+            width: self.width + size.width,
+            height: self.height + size.height,
+        }
+    }
 }
 
 pub type SceneSize = (f32, f32);
@@ -63,6 +77,20 @@ impl DynamicSize {
             height: self.height.unwrap_or(f32::INFINITY),
         }
     }
+
+    pub fn shrink_by(&self, size: ElementSize) -> Self {
+        Self {
+            width: self.width.map(|width| width - size.width.min(width)),
+            height: self.height.map(|height| height - size.height.min(height)),
+        }
+    }
+
+    pub fn grow_by(&self, size: ElementSize) -> Self {
+        Self {
+            width: self.width.map(|width| width + size.width),
+            height: self.height.map(|height| height + size.height),
+        }
+    }
 }
 
 /// Defines the minimum and maximum size constraints for layout.
@@ -71,4 +99,22 @@ pub struct SizeConstraints {
     pub min_size: ElementSize,
     pub max_size: DynamicSize,
     pub scene_size: SceneSize,
+}
+
+impl SizeConstraints {
+    pub fn shrink_by(&self, size: ElementSize) -> Self {
+        Self {
+            min_size: self.min_size.shrink_by(size),
+            max_size: self.max_size.shrink_by(size),
+            scene_size: self.scene_size,
+        }
+    }
+
+    pub fn grow_by(&self, size: ElementSize) -> Self {
+        Self {
+            min_size: self.min_size.grow_by(size),
+            max_size: self.max_size.grow_by(size),
+            scene_size: self.scene_size,
+        }
+    }
 }

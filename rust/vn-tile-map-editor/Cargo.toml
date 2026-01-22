@@ -1,9 +1,8 @@
 [workspace]
 resolver = "3"
 members = [
-    "vn-farming-logic",
-    "vn-farming-native",
-    "vn-farming-web",
+    "vn-tile-map-editor-logic",
+    "vn-tile-map-editor-native",
 ]
 
 [workspace.dependencies]
@@ -18,5 +17,6 @@ js-sys = "0.3.83"
 thiserror = "2.0.17"
 web-time = "1.1.0"
 winit = "0.30.12"
+pollster = "0.4.0"
 serde = "1.0.228"
 serde_json = "1.0.149"

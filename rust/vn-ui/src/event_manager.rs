@@ -24,6 +24,7 @@ pub enum InteractionEventKind {
     MouseMove { x: f32, y: f32 },
     MouseDown { button: MouseButton, x: f32, y: f32 },
     MouseUp { button: MouseButton, x: f32, y: f32 },
+    MouseScroll { y: f32 },
     Click { button: MouseButton, x: f32, y: f32 },
     MouseEnter,
     MouseLeave,
@@ -76,6 +77,12 @@ impl EventManager {
                 }
                 InteractionEventKind::Keyboard(key_event) => {
                     all_events.extend(self.handle_key(&key_event));
+                }
+                InteractionEventKind::MouseScroll { y } => {
+                    all_events.push(InteractionEvent {
+                        target: self.focused_element,
+                        kind: InteractionEventKind::MouseScroll { y },
+                    });
                 }
                 _ => {}
             }
@@ -277,6 +284,7 @@ pub struct UiContext {
     /// sensitive to parameter changes, we MUST supply a fresh cache for each render cycle
     pub layout_cache: Box<dyn LayoutCache>,
     pub interactive: bool,
+    pub clip_rect: crate::Rect,
     /// Now should never change within a render cycle (i.e. between layout and render calls)
     pub now: web_time::Instant,
 }
@@ -292,6 +300,7 @@ impl UiContext {
             parent_id: None,
             layout_cache,
             interactive: true,
+            clip_rect: crate::Rect::NO_CLIP,
             now,
         }
     }
@@ -325,5 +334,15 @@ impl UiContext {
         self.interactive = interactive;
         f(self);
         self.interactive = old_interactive;
+    }
+
+    pub fn with_clipping<F>(&mut self, clip_rect: crate::Rect, f: F)
+    where
+        F: FnOnce(&mut Self),
+    {
+        let old_clip = self.clip_rect;
+        self.clip_rect = self.clip_rect.intersect(&clip_rect);
+        f(self);
+        self.clip_rect = old_clip;
     }
 }

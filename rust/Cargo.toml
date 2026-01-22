@@ -8,6 +8,7 @@ members = [
     "vn-ui-animation-macros",
     "vn-scene",
     "vn-ecs",
+    "vn-tilemap",
 ]
 
 [workspace.dependencies]

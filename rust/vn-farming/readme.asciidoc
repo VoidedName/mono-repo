@@ -116,3 +116,4 @@ Farming follows a strict separation between application logic and platform-speci
 - [ ] Save/Load System: Persisting player progress
 - [ ] Building/Crafting: Placing structures and creating items
 - [ ] Sound & Music: Audio feedback and atmosphere
+- [ ] Tilemap Editor

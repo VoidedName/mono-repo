@@ -2,7 +2,7 @@ use crate::{
     Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams,
     UiContext,
 };
-use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
+use vn_scene::{BoxPrimitiveData, Color, Scene, Transform};
 use vn_ui_animation_macros::Interpolatable;
 use vn_utils::option::UpdateOption;
 
@@ -55,11 +55,6 @@ impl<State> ElementImpl for Card<State> {
             id: self.id,
             ctx,
         });
-        // We override the padding of the child with our border size
-        // This is a bit of a hack because Padding's internal params are now fixed at creation.
-        // But since we are calling its layout, we can't easily change its StateToParams.
-        // This is a sign that Card should maybe NOT use Padding but implement its own padding logic.
-        // For now, let's just implement the padding logic directly here for the layout.
 
         let mut child_constraints = constraints;
         let padding = params.border_size;
@@ -113,7 +108,7 @@ impl<State> ElementImpl for Card<State> {
             border_color: params.border_color,
             border_thickness: params.border_size,
             border_radius: params.corner_radius,
-            clip_rect: Rect::NO_CLIP,
+            clip_rect: ctx.clip_rect,
         });
 
         let padding = params.border_size;

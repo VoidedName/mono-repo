@@ -6,7 +6,8 @@ use crate::scene_renderer::SceneRenderer;
 use std::rc::Rc;
 use std::sync::Arc;
 use winit::application::ApplicationHandler;
-use winit::event::WindowEvent;
+use winit::dpi::PhysicalSize;
+use winit::event::{MouseScrollDelta, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowId};
 
@@ -20,6 +21,7 @@ where
     state: Option<RenderingContext<T>>,
     new_fn: Rc<FNew>,
     title: String,
+    init_size: (f32, f32),
 }
 
 impl<FNew, FRet, T: StateLogic<SceneRenderer>> App<FNew, FRet, T>
@@ -32,6 +34,7 @@ where
             RenderingContext<T>,
         >,
         title: String,
+        size: (f32, f32),
         new_fn: FNew,
     ) -> Self
     where
@@ -45,6 +48,7 @@ where
             proxy,
             state: None,
             new_fn: Rc::new(new_fn),
+            init_size: size,
             title,
         }
     }
@@ -63,7 +67,9 @@ where
         }
 
         #[allow(unused_mut)]
-        let mut window_attributes = Window::default_attributes().with_title(&self.title);
+        let mut window_attributes = Window::default_attributes()
+            .with_inner_size(PhysicalSize::new(self.init_size.0, self.init_size.1))
+            .with_title(&self.title);
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -160,6 +166,13 @@ where
                 ..
             } => {
                 state.handle_mouse_button(button, button_state);
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                let (x, y) = match delta {
+                    MouseScrollDelta::LineDelta(x, y) => (x * 32.0, y * 32.0),
+                    MouseScrollDelta::PixelDelta(pos) => (pos.x as f32, pos.y as f32),
+                };
+                state.handle_mouse_wheel(x, y);
             }
             _ => {}
         }

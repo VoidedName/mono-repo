@@ -286,22 +286,8 @@ impl<State> TextField<State> {
             };
             self.layout = Some(layout);
             self.visuals = Some(params.visuals.clone());
-
-            // Reset caret blink timer when changing
-            if self.gained_focus_at.is_some() {
-                self.gained_focus_at = Some(Instant::now());
-            }
         }
         changed
-    }
-
-    pub fn caret_width(&self) -> f32 {
-        if let Some(visuals) = &self.visuals {
-            if visuals.caret_position.is_some() {
-                return visuals.caret_width.unwrap_or(2.0);
-            }
-        }
-        0.0
     }
 }
 
@@ -325,12 +311,14 @@ impl<State> ElementImpl for TextField<State> {
             id: self.id,
             ctx,
         });
+
         let is_focused = params.interaction.is_focused;
         let caret_blink_duration = self
             .visuals
             .as_ref()
             .and_then(|v| v.caret_blink_duration)
             .unwrap_or(1.0);
+
         match (is_focused, self.gained_focus_at) {
             (false, _) => {
                 self.gained_focus_at = None;
@@ -366,12 +354,14 @@ impl<State> ElementImpl for TextField<State> {
 
         let caret_height = self.line_height * 0.8;
         let caret_y_extra_offset = self.line_height / 2.0 - caret_height / 2.0;
-        let caret_width = self.caret_width();
-        let caret_space = if visuals.caret_position.is_some() {
-            caret_width
-        } else {
-            0.0
-        };
+        let caret_width = self
+            .visuals
+            .as_ref()
+            .map(|v| v.caret_width)
+            .flatten()
+            .unwrap_or(2.0);
+
+        let caret_space = caret_width;
 
         ctx.with_hitbox_hierarchy(
             self.id,
@@ -380,7 +370,8 @@ impl<State> ElementImpl for TextField<State> {
                 position: origin.to_array(),
                 size: size.to_array(),
             },
-            |_ctx| {
+            |ctx| {
+                let clip_rect = ctx.clip_rect;
                 if let Some(layout) = &self.layout {
                     for (i, line) in layout.lines.iter().enumerate() {
                         let line_y_offset = i as f32 * self.line_height;
@@ -407,10 +398,7 @@ impl<State> ElementImpl for TextField<State> {
                             },
                             tint: visuals.color,
                             glyphs,
-                            clip_rect: Rect {
-                                position: origin.to_array(),
-                                size: size.to_array(),
-                            },
+                            clip_rect,
                         });
                     }
 
@@ -433,10 +421,7 @@ impl<State> ElementImpl for TextField<State> {
                                     border_color: Color::TRANSPARENT,
                                     border_thickness: 0.0,
                                     border_radius: 0.0,
-                                    clip_rect: Rect {
-                                        position: origin.to_array(),
-                                        size: size.to_array(),
-                                    },
+                                    clip_rect,
                                 });
                             });
                         }

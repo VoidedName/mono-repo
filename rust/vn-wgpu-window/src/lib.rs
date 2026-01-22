@@ -30,6 +30,7 @@ use winit::event_loop::EventLoop;
 
 pub fn init_with_logic<FNew, FRet, T: StateLogic<SceneRenderer>>(
     title: String,
+    size: (f32, f32),
     new_fn: FNew,
 ) -> anyhow::Result<()>
 where
@@ -44,6 +45,7 @@ where
         #[cfg(target_arch = "wasm32")]
         &event_loop,
         title,
+        size,
         new_fn,
     );
 

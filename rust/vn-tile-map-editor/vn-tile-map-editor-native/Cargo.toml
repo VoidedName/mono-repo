@@ -1,0 +1,10 @@
+[package]
+name = "vn-tile-map-editor-native"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+vn-tile-map-editor-logic = { path = "../vn-tile-map-editor-logic" }
+anyhow = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }

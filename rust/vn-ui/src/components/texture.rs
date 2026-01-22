@@ -202,10 +202,7 @@ impl<State> ElementImpl for Texture<State> {
             tint: params.tint,
             texture_id: params.texture_id,
             uv_rect: params.uv_rect,
-            clip_rect: Rect {
-                position: [origin.0, origin.1],
-                size: [size.width, size.height],
-            },
+            clip_rect: ctx.clip_rect,
         });
     }
 }

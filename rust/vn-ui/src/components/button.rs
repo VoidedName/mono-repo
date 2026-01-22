@@ -48,14 +48,23 @@ impl<State> ElementImpl for Button<State> {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        let _params = (self.params)(crate::StateToParamsArgs {
+        let params = (self.params)(crate::StateToParamsArgs {
             state,
             id: self.id,
             ctx,
         });
 
+        let constraints = constraints.shrink_by(ElementSize {
+            width: params.border_width * 2.0,
+            height: params.border_width * 2.0,
+        });
+
         self.child
             .layout(ctx, state, constraints)
+            .grow_by(ElementSize {
+                width: params.border_width * 2.0,
+                height: params.border_width * 2.0,
+            })
             .clamp_to_constraints(constraints)
     }
 
@@ -73,17 +82,8 @@ impl<State> ElementImpl for Button<State> {
             ctx,
         });
 
-        let mut background = params.background;
-        let mut border_color = params.border_color;
-
-        if params.interaction.is_hovered {
-            background = background.lighten(0.1);
-        }
-
-        if params.interaction.is_focused {
-            background = background.darken(0.1);
-            border_color = Color::WHITE;
-        }
+        let background = params.background;
+        let border_color = params.border_color;
 
         ctx.with_hitbox_hierarchy(
             self.id,
@@ -103,7 +103,7 @@ impl<State> ElementImpl for Button<State> {
                     border_color,
                     border_thickness: params.border_width,
                     border_radius: params.corner_radius,
-                    clip_rect: Rect::NO_CLIP,
+                    clip_rect: ctx.clip_rect,
                 });
 
                 let margin = params.border_width * 2.0;
@@ -114,10 +114,10 @@ impl<State> ElementImpl for Button<State> {
                         origin.0 + params.border_width,
                         origin.1 + params.border_width,
                     ),
-                    ElementSize {
-                        width: size.width.max(margin) - margin,
-                        height: size.height.max(margin) - margin,
-                    },
+                    size.shrink_by(ElementSize {
+                        width: margin,
+                        height: margin,
+                    }),
                     canvas,
                 );
             },
