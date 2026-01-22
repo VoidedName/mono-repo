@@ -46,6 +46,7 @@ pub struct Editor {
     tile_height_input_id: ElementId,
     tileset_cols_input_id: ElementId,
     tileset_rows_input_id: ElementId,
+    tileset_preview_scroll_area_id: ElementId,
     pub tileset_scroll_controller: Rc<RefCell<SimpleScrollAreaCallbacks>>,
 }
 
@@ -106,6 +107,7 @@ impl Editor {
             tile_height_input_id,
             tileset_cols_input_id,
             tileset_rows_input_id,
+            tileset_preview_scroll_area_id: ElementId(0),
             tileset_scroll_controller: Rc::new(RefCell::new(SimpleScrollAreaCallbacks::new())),
         };
 
@@ -128,6 +130,7 @@ impl Editor {
         self.tile_height_input_id = editor_ui.tile_height_input_id;
         self.tileset_cols_input_id = editor_ui.tileset_cols_input_id;
         self.tileset_rows_input_id = editor_ui.tileset_rows_input_id;
+        self.tileset_preview_scroll_area_id = editor_ui.tileset_preview_scroll_area_id;
 
         if let Some(layer) = self.map_spec.layers.get(self.selected_layer_index) {
             self.tile_width_controller.borrow_mut().text = layer.tile_dimensions.0.to_string();
@@ -274,11 +277,12 @@ impl GameStateEx for Editor {
         let events = self.event_manager.borrow_mut().process_events();
         let mut editor_event = None;
         for event in events.clone() {
-            // currently always scrolling the tileset preview
-            // need to change it in the future
+            // only scroll if we are hovering the preview
             match &event.kind {
                 MouseScroll { y } => {
-                    self.handle_event(EditorEvent::ScrollTileset(*y));
+                    if self.event_manager.borrow().is_hovered(self.tileset_preview_scroll_area_id) {
+                        self.handle_event(EditorEvent::ScrollTileset(*y));
+                    }
                 }
                 _ => {}
             }

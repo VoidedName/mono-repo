@@ -1,6 +1,7 @@
+use crate::utils::ToArray;
 use crate::{
-    DynamicDimension, Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams,
-    UiContext,
+    DynamicDimension, Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints,
+    StateToParams, UiContext,
 };
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -133,88 +134,98 @@ impl<State> ElementImpl for ScrollArea<State> {
         size: ElementSize,
         scene: &mut dyn Scene,
     ) {
-        let params = (self.params)(crate::StateToParamsArgs {
-            state,
-            id: self.id,
-            ctx,
-        });
-
-        let child_origin = (
-            origin.0
-                - params
-                    .scroll_x
-                    .unwrap_or(0.0)
-                    .min((self.child_size.width - size.width).max(0.0)),
-            origin.1
-                - params
-                    .scroll_y
-                    .unwrap_or(0.0)
-                    .min((self.child_size.height - size.height).max(0.0)),
-        );
-
-        let clip_rect = Rect {
-            position: [origin.0, origin.1],
-            size: [size.width, size.height],
-        };
-
-        if let Some(controller) = params.controller {
-            controller.borrow_mut().layout_changed(ScrollAreaLayout {
-                max_scroll_x: (self.child_size.width - size.width).max(0.0),
-                max_scroll_y: (self.child_size.height - size.height).max(0.0),
-            });
-        }
-
-        ctx.with_clipping(clip_rect, |ctx| {
-            self.child
-                .draw(ctx, state, child_origin, self.child_size, scene);
-        });
-
-        // Draw scroll bars
-        if let Some(scroll_y) = params.scroll_y {
-            if self.child_size.height > size.height {
-                let scrollbar_height = (size.height / self.child_size.height) * size.height;
-                let scrollbar_y = (scroll_y / self.child_size.height) * size.height;
-
-                scene.add_box(BoxPrimitiveData {
-                    transform: Transform {
-                        translation: [
-                            origin.0 + size.width - params.scrollbar_width,
-                            origin.1 + scrollbar_y,
-                        ],
-                        ..Transform::DEFAULT
-                    },
-                    size: [params.scrollbar_width, scrollbar_height],
-                    color: Color::WHITE.with_alpha(0.5),
-                    border_color: Color::TRANSPARENT,
-                    border_thickness: 0.0,
-                    border_radius: params.scrollbar_width / 2.0,
-                    clip_rect: Rect::NO_CLIP,
+        ctx.with_hitbox_hierarchy(
+            self.id,
+            scene.current_layer_id(),
+            Rect {
+                position: origin.to_array(),
+                size: size.to_array(),
+            },
+            |ctx| {
+                let params = (self.params)(crate::StateToParamsArgs {
+                    state,
+                    id: self.id,
+                    ctx,
                 });
-            }
-        }
 
-        if let Some(scroll_x) = params.scroll_x {
-            if self.child_size.width > size.width {
-                let scrollbar_width = (size.width / self.child_size.width) * size.width;
-                let scrollbar_x = (scroll_x / self.child_size.width) * size.width;
+                let child_origin = (
+                    origin.0
+                        - params
+                            .scroll_x
+                            .unwrap_or(0.0)
+                            .min((self.child_size.width - size.width).max(0.0)),
+                    origin.1
+                        - params
+                            .scroll_y
+                            .unwrap_or(0.0)
+                            .min((self.child_size.height - size.height).max(0.0)),
+                );
 
-                scene.add_box(BoxPrimitiveData {
-                    transform: Transform {
-                        translation: [
-                            origin.0 + scrollbar_x,
-                            origin.1 + size.height - params.scrollbar_width,
-                        ],
-                        ..Transform::DEFAULT
-                    },
-                    size: [scrollbar_width, params.scrollbar_width],
-                    color: Color::WHITE.with_alpha(0.5),
-                    border_color: Color::TRANSPARENT,
-                    border_thickness: 0.0,
-                    border_radius: params.scrollbar_width / 2.0,
-                    clip_rect: Rect::NO_CLIP,
+                let clip_rect = Rect {
+                    position: [origin.0, origin.1],
+                    size: [size.width, size.height],
+                };
+
+                if let Some(controller) = params.controller {
+                    controller.borrow_mut().layout_changed(ScrollAreaLayout {
+                        max_scroll_x: (self.child_size.width - size.width).max(0.0),
+                        max_scroll_y: (self.child_size.height - size.height).max(0.0),
+                    });
+                }
+
+                ctx.with_clipping(clip_rect, |ctx| {
+                    self.child
+                        .draw(ctx, state, child_origin, self.child_size, scene);
                 });
-            }
-        }
+
+                // Draw scroll bars
+                if let Some(scroll_y) = params.scroll_y {
+                    if self.child_size.height > size.height {
+                        let scrollbar_height = (size.height / self.child_size.height) * size.height;
+                        let scrollbar_y = (scroll_y / self.child_size.height) * size.height;
+
+                        scene.add_box(BoxPrimitiveData {
+                            transform: Transform {
+                                translation: [
+                                    origin.0 + size.width - params.scrollbar_width,
+                                    origin.1 + scrollbar_y,
+                                ],
+                                ..Transform::DEFAULT
+                            },
+                            size: [params.scrollbar_width, scrollbar_height],
+                            color: Color::WHITE.with_alpha(0.5),
+                            border_color: Color::TRANSPARENT,
+                            border_thickness: 0.0,
+                            border_radius: params.scrollbar_width / 2.0,
+                            clip_rect: Rect::NO_CLIP,
+                        });
+                    }
+                }
+
+                if let Some(scroll_x) = params.scroll_x {
+                    if self.child_size.width > size.width {
+                        let scrollbar_width = (size.width / self.child_size.width) * size.width;
+                        let scrollbar_x = (scroll_x / self.child_size.width) * size.width;
+
+                        scene.add_box(BoxPrimitiveData {
+                            transform: Transform {
+                                translation: [
+                                    origin.0 + scrollbar_x,
+                                    origin.1 + size.height - params.scrollbar_width,
+                                ],
+                                ..Transform::DEFAULT
+                            },
+                            size: [scrollbar_width, params.scrollbar_width],
+                            color: Color::WHITE.with_alpha(0.5),
+                            border_color: Color::TRANSPARENT,
+                            border_thickness: 0.0,
+                            border_radius: params.scrollbar_width / 2.0,
+                            clip_rect: Rect::NO_CLIP,
+                        });
+                    }
+                }
+            },
+        )
     }
 }
 
