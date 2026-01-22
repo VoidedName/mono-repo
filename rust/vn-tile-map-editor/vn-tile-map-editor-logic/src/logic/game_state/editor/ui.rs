@@ -1,19 +1,17 @@
 use crate::logic::game_state::editor::grid::GridParams;
-use crate::logic::game_state::editor::{Editor, EditorEvent, Grid, TilesetGrid};
-use std::cell::RefCell;
+use crate::logic::game_state::editor::{Editor, EditorEvent, Grid};
 use std::rc::Rc;
 use vn_scene::{Color, Rect};
 use vn_ui::{
     Anchor, AnchorExt, AnchorLocation, AnchorParams, ButtonExt, ButtonParams, CardExt, CardParams,
-    Element, ElementId, ElementSize, ElementWorld, Empty, FillExt, FitStrategy, Flex, FlexChild,
-    FlexDirection, FlexParams, InputTextFieldController, InteractionState, InteractiveExt,
-    PaddingExt, PaddingParams, ScrollAreaCallbacks, ScrollAreaExt, ScrollAreaParams, Stack,
-    StateToParamsArgs, StaticTextFieldController, TextField, TextFieldParams, TextMetrics,
-    TextVisuals, Texture, TextureParams,
+    Element, ElementId, ElementWorld, FitStrategy, Flex, FlexChild, InteractionState,
+    InteractiveExt, PaddingExt, PaddingParams, ScrollAreaExt, ScrollAreaParams, Stack,
+    StateToParamsArgs, TextField,
+    TextFieldAction, TextFieldParams, TextMetrics, TextVisuals, Texture, TextureParams,
 };
 
 pub struct EditorUi {
-    pub root: Box<dyn Element<State = Editor>>,
+    pub root: Box<dyn Element<State = Editor, Message = EditorEvent>>,
     pub tileset_path_input_id: ElementId,
     pub tile_width_input_id: ElementId,
     pub tile_height_input_id: ElementId,
@@ -73,7 +71,7 @@ pub fn build_editor_ui(
 fn build_title(
     world: &mut ElementWorld,
     metrics: Rc<dyn TextMetrics>,
-) -> Box<dyn Element<State = Editor>> {
+) -> Box<dyn Element<State = Editor, Message = EditorEvent>> {
     Box::new(
         TextField::new(
             Box::new({
@@ -88,9 +86,9 @@ fn build_title(
                         caret_width: None,
                         caret_blink_duration: None,
                     },
-                    controller: Rc::new(RefCell::new(StaticTextFieldController::new())),
                     metrics: metrics.clone(),
                     interaction: Default::default(),
+                    on_action: None,
                 }
             }),
             world,
@@ -105,13 +103,15 @@ fn build_title(
     )
 }
 
-fn build_grid(world: &mut ElementWorld) -> Box<dyn Element<State = Editor>> {
+fn build_grid(world: &mut ElementWorld) -> Box<dyn Element<State = Editor, Message = EditorEvent>> {
     Box::new(
         Grid::new(
             Box::new(|_| GridParams {
                 grid_size: (32.0, 32.0),
                 cols: 10,
                 rows: 10,
+                grid_width: 3.0,
+                grid_color: Color::WHITE.with_alpha(0.5),
             }),
             world,
         )
@@ -129,7 +129,7 @@ fn build_grid(world: &mut ElementWorld) -> Box<dyn Element<State = Editor>> {
 }
 
 pub struct SidebarInfo {
-    pub sidebar: Box<dyn Element<State = Editor>>,
+    pub sidebar: Box<dyn Element<State = Editor, Message = EditorEvent>>,
     pub tileset_path_input_id: ElementId,
     pub tile_width_input_id: ElementId,
     pub tile_height_input_id: ElementId,
@@ -138,7 +138,7 @@ pub struct SidebarInfo {
 }
 
 pub struct TilesetViewInfo {
-    pub element: Box<dyn Element<State = Editor>>,
+    pub element: Box<dyn Element<State = Editor, Message = EditorEvent>>,
     pub tileset_path_input_id: ElementId,
     pub tile_width_input_id: ElementId,
     pub tile_height_input_id: ElementId,
@@ -164,9 +164,9 @@ fn build_sidebar(
                     caret_width: None,
                     caret_blink_duration: None,
                 },
-                controller: Rc::new(RefCell::new(StaticTextFieldController::new())),
                 metrics: metrics.clone(),
                 interaction: Default::default(),
+                on_action: None,
             }
         }),
         world,
@@ -219,8 +219,9 @@ fn build_layer_list(
     editor: &Editor,
     world: &mut ElementWorld,
     metrics: Rc<dyn TextMetrics>,
-) -> Box<dyn Element<State = Editor>> {
-    let mut layer_elements: Vec<Box<dyn Element<State = Editor>>> = Vec::new();
+) -> Box<dyn Element<State = Editor, Message = EditorEvent>> {
+    let mut layer_elements: Vec<Box<dyn Element<State = Editor, Message = EditorEvent>>> =
+        Vec::new();
     for (i, _layer) in editor.map_spec.layers.iter().enumerate() {
         let is_selected = i == editor.selected_layer_index;
 
@@ -241,9 +242,9 @@ fn build_layer_list(
                         caret_width: None,
                         caret_blink_duration: None,
                     },
-                    controller: Rc::new(RefCell::new(StaticTextFieldController::new())),
                     metrics: metrics.clone(),
                     interaction: Default::default(),
+                    on_action: None,
                 }
             }),
             world,
@@ -263,9 +264,9 @@ fn build_layer_list(
                         caret_width: None,
                         caret_blink_duration: None,
                     },
-                    controller: Rc::new(RefCell::new(StaticTextFieldController::new())),
                     metrics: metrics.clone(),
                     interaction: Default::default(),
+                    on_action: None,
                 }
             }),
             world,
@@ -273,26 +274,26 @@ fn build_layer_list(
         .interactive_set(false, world)
         .padding(Box::new(|_| PaddingParams::uniform(2.0)), world)
         .button(
-            Box::new(|args| ButtonParams {
-                background: Color::BLACK.with_alpha(0.3),
-                border_color: if args.ctx.event_manager.borrow().is_hovered(args.id) {
-                    Color::RED
-                } else {
-                    Color::TRANSPARENT
-                },
-                border_width: 2.0,
-                corner_radius: 2.0,
-                interaction: vn_ui::InteractionState {
-                    is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
-                    is_focused: false,
-                },
+            Box::new({
+                let i = i;
+                move |args| ButtonParams {
+                    background: Color::BLACK.with_alpha(0.3),
+                    border_color: if args.ctx.event_manager.borrow().is_hovered(args.id) {
+                        Color::RED
+                    } else {
+                        Color::TRANSPARENT
+                    },
+                    border_width: 2.0,
+                    corner_radius: 2.0,
+                    interaction: vn_ui::InteractionState {
+                        is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
+                        is_focused: false,
+                    },
+                    on_click: Some(EditorEvent::RemoveLayer(i)),
+                }
             }),
             world,
         );
-        editor
-            .button_events
-            .borrow_mut()
-            .push((remove_button.id(), EditorEvent::RemoveLayer(i)));
 
         let layer_row = Flex::new_row_unweighted(
             vec![Box::new(layer_label), Box::new(remove_button)],
@@ -301,31 +302,31 @@ fn build_layer_list(
         )
         .padding(Box::new(|_| PaddingParams::uniform(5.0)), world)
         .button(
-            Box::new(move |args| ButtonParams {
-                background: if is_selected {
-                    Color::WHITE.with_alpha(0.2)
-                } else {
-                    Color::WHITE.with_alpha(0.1)
-                },
-                border_color: if args.ctx.event_manager.borrow().is_hovered(args.id) {
-                    Color::WHITE
-                } else {
-                    Color::WHITE.with_alpha(0.3)
-                },
-                border_width: 2.0,
-                corner_radius: 3.0,
-                interaction: vn_ui::InteractionState {
-                    is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
-                    is_focused: false,
-                },
+            Box::new({
+                let i = i;
+                move |args| ButtonParams {
+                    background: if is_selected {
+                        Color::WHITE.with_alpha(0.2)
+                    } else {
+                        Color::WHITE.with_alpha(0.1)
+                    },
+                    border_color: if args.ctx.event_manager.borrow().is_hovered(args.id) {
+                        Color::WHITE
+                    } else {
+                        Color::WHITE.with_alpha(0.3)
+                    },
+                    border_width: 2.0,
+                    corner_radius: 3.0,
+                    interaction: vn_ui::InteractionState {
+                        is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
+                        is_focused: false,
+                    },
+                    on_click: Some(EditorEvent::SelectLayer(i)),
+                }
             }),
             world,
         );
 
-        editor
-            .button_events
-            .borrow_mut()
-            .push((layer_row.id(), EditorEvent::SelectLayer(i)));
         layer_elements.push(Box::new(layer_row));
     }
 
@@ -336,7 +337,7 @@ fn build_add_layer_button(
     editor: &Editor,
     world: &mut ElementWorld,
     metrics: Rc<dyn TextMetrics>,
-) -> Box<dyn Element<State = Editor>> {
+) -> Box<dyn Element<State = Editor, Message = EditorEvent>> {
     let button = TextField::new(
         Box::new({
             let metrics = metrics.clone();
@@ -350,9 +351,9 @@ fn build_add_layer_button(
                     caret_width: None,
                     caret_blink_duration: None,
                 },
-                controller: Rc::new(RefCell::new(StaticTextFieldController::new())),
                 metrics: metrics.clone(),
                 interaction: Default::default(),
+                on_action: None,
             }
         }),
         world,
@@ -373,21 +374,18 @@ fn build_add_layer_button(
                 is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
                 is_focused: false,
             },
+            on_click: Some(EditorEvent::AddLayer),
         }),
         world,
     );
 
-    editor
-        .button_events
-        .borrow_mut()
-        .push((button.id(), EditorEvent::AddLayer));
     Box::new(button)
 }
 
 fn build_tileset_title(
     world: &mut ElementWorld,
     metrics: Rc<dyn TextMetrics>,
-) -> Box<dyn Element<State = Editor>> {
+) -> Box<dyn Element<State = Editor, Message = EditorEvent>> {
     Box::new(TextField::new(
         Box::new({
             let metrics = metrics.clone();
@@ -401,9 +399,9 @@ fn build_tileset_title(
                     caret_width: None,
                     caret_blink_duration: None,
                 },
-                controller: Rc::new(RefCell::new(StaticTextFieldController::new())),
                 metrics: metrics.clone(),
                 interaction: Default::default(),
+                on_action: None,
             }
         }),
         world,
@@ -414,8 +412,13 @@ fn build_dimension_input(
     world: &mut ElementWorld,
     metrics: Rc<dyn TextMetrics>,
     label: String,
-    controller: Rc<RefCell<InputTextFieldController>>,
-) -> (Box<dyn Element<State = Editor>>, ElementId) {
+    text: fn(&Editor) -> String,
+    caret: fn(&Editor) -> usize,
+    on_action: Option<fn(ElementId, TextFieldAction) -> EditorEvent>,
+) -> (
+    Box<dyn Element<State = Editor, Message = EditorEvent>>,
+    ElementId,
+) {
     let label_el = TextField::new(
         Box::new({
             let metrics = metrics.clone();
@@ -429,9 +432,9 @@ fn build_dimension_input(
                     caret_width: None,
                     caret_blink_duration: None,
                 },
-                controller: Rc::new(RefCell::new(StaticTextFieldController::new())),
                 metrics: metrics.clone(),
                 interaction: Default::default(),
+                on_action: None,
             }
         }),
         world,
@@ -441,15 +444,14 @@ fn build_dimension_input(
     let input = TextField::new(
         Box::new({
             let metrics = metrics.clone();
-            let controller = controller.clone();
+            let text = text.clone();
             move |args: StateToParamsArgs<'_, Editor>| {
-                let controller_borrow = controller.borrow();
                 let is_focused = args.ctx.event_manager.borrow().is_focused(args.id);
                 TextFieldParams {
                     visuals: TextVisuals {
-                        text: controller_borrow.text.clone(),
+                        text: text(args.state),
                         caret_position: if is_focused {
-                            Some(controller_borrow.caret)
+                            Some(caret(args.state))
                         } else {
                             None
                         },
@@ -459,12 +461,12 @@ fn build_dimension_input(
                         caret_width: Some(2.0),
                         caret_blink_duration: Some(0.5),
                     },
-                    controller: controller.clone(),
                     metrics: metrics.clone(),
                     interaction: InteractionState {
                         is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
                         is_focused,
                     },
+                    on_action,
                 }
             }
         }),
@@ -501,7 +503,8 @@ fn build_tileset_view(
     world: &mut ElementWorld,
     metrics: Rc<dyn TextMetrics>,
 ) -> TilesetViewInfo {
-    let mut tileset_elements: Vec<Box<dyn Element<State = Editor>>> = Vec::new();
+    let mut tileset_elements: Vec<Box<dyn Element<State = Editor, Message = EditorEvent>>> =
+        Vec::new();
     let current_tileset = editor
         .map_spec
         .layers
@@ -523,9 +526,9 @@ fn build_tileset_view(
                     caret_width: None,
                     caret_blink_duration: None,
                 },
-                controller: Rc::new(RefCell::new(StaticTextFieldController::new())),
                 metrics: metrics.clone(),
                 interaction: Default::default(),
+                on_action: None,
             }
         }),
         world,
@@ -536,15 +539,13 @@ fn build_tileset_view(
     let tileset_input = TextField::new(
         Box::new({
             let metrics = metrics.clone();
-            let controller = editor.tileset_path_controller.clone();
             move |args: StateToParamsArgs<'_, Editor>| {
-                let controller_borrow = controller.borrow();
                 let is_focused = args.ctx.event_manager.borrow().is_focused(args.id);
                 TextFieldParams {
                     visuals: TextVisuals {
-                        text: controller_borrow.text.clone(),
+                        text: args.state.tileset_path.clone(),
                         caret_position: if is_focused {
-                            Some(controller_borrow.caret)
+                            Some(args.state.tileset_path_caret)
                         } else {
                             None
                         },
@@ -554,12 +555,12 @@ fn build_tileset_view(
                         caret_width: Some(2.0),
                         caret_blink_duration: Some(0.5),
                     },
-                    controller: controller.clone(),
                     metrics: metrics.clone(),
                     interaction: InteractionState {
                         is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
                         is_focused,
                     },
+                    on_action: Some(|id, action| EditorEvent::TextFieldAction { id, action }),
                 }
             }
         }),
@@ -595,9 +596,9 @@ fn build_tileset_view(
                     caret_width: None,
                     caret_blink_duration: None,
                 },
-                controller: Rc::new(RefCell::new(StaticTextFieldController::new())),
                 metrics: metrics.clone(),
                 interaction: Default::default(),
+                on_action: None,
             }
         }),
         world,
@@ -618,28 +619,28 @@ fn build_tileset_view(
                 is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
                 is_focused: false,
             },
+            on_click: Some(EditorEvent::LoadTilesetFromInput),
         }),
         world,
     );
 
-    editor
-        .button_events
-        .borrow_mut()
-        .push((load_button.id(), EditorEvent::LoadTilesetFromInput));
     tileset_elements.push(Box::new(load_button));
 
-    // Tile Dimensions
     let (tw_input, tw_id) = build_dimension_input(
         world,
         metrics.clone(),
         "Tile W:".to_string(),
-        editor.tile_width_controller.clone(),
+        |editor| editor.tile_width_text.clone(),
+        |editor| editor.tile_width_caret,
+        Some(|id, action| EditorEvent::TextFieldAction { id, action }),
     );
     let (th_input, th_id) = build_dimension_input(
         world,
         metrics.clone(),
         "Tile H:".to_string(),
-        editor.tile_height_controller.clone(),
+        |editor| editor.tile_height_text.clone(),
+        |editor| editor.tile_height_caret,
+        Some(|id, action| EditorEvent::TextFieldAction { id, action }),
     );
     tileset_elements.push(Box::new(Flex::new_row_unweighted(
         vec![tw_input, th_input],
@@ -652,13 +653,17 @@ fn build_tileset_view(
         world,
         metrics.clone(),
         "Set Cols:".to_string(),
-        editor.tileset_cols_controller.clone(),
+        |editor| editor.tileset_cols_text.clone(),
+        |editor| editor.tileset_cols_caret,
+        Some(|id, action| EditorEvent::TextFieldAction { id, action }),
     );
     let (tsh_input, tsh_id) = build_dimension_input(
         world,
         metrics.clone(),
         "Set Rows:".to_string(),
-        editor.tileset_rows_controller.clone(),
+        |editor| editor.tileset_rows_text.clone(),
+        |editor| editor.tileset_rows_caret,
+        Some(|id, action| EditorEvent::TextFieldAction { id, action }),
     );
     tileset_elements.push(Box::new(Flex::new_row_unweighted(
         vec![tsw_input, tsh_input],
@@ -666,7 +671,8 @@ fn build_tileset_view(
         world,
     )));
 
-    let mut recently_loaded_elements: Vec<Box<dyn Element<State = Editor>>> = Vec::new();
+    let mut recently_loaded_elements: Vec<Box<dyn Element<State = Editor, Message = EditorEvent>>> =
+        Vec::new();
     for (path, _) in &editor.loaded_tilesets {
         let path = path.clone();
         let is_selected = path == current_tileset;
@@ -688,9 +694,9 @@ fn build_tileset_view(
                         caret_width: None,
                         caret_blink_duration: None,
                     },
-                    controller: Rc::new(RefCell::new(StaticTextFieldController::new())),
                     metrics: metrics.clone(),
                     interaction: Default::default(),
+                    on_action: None,
                 }
             }),
             world,
@@ -698,31 +704,31 @@ fn build_tileset_view(
         .interactive_set(false, world)
         .padding(Box::new(|_| PaddingParams::uniform(3.0)), world)
         .button(
-            Box::new(move |args| ButtonParams {
-                background: if is_selected {
-                    Color::WHITE.with_alpha(0.2)
-                } else {
-                    Color::WHITE.with_alpha(0.1)
-                },
-                border_color: if args.ctx.event_manager.borrow().is_hovered(args.id) {
-                    Color::WHITE
-                } else {
-                    Color::WHITE.with_alpha(0.3)
-                },
-                border_width: 2.0,
-                corner_radius: 3.0,
-                interaction: vn_ui::InteractionState {
-                    is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
-                    is_focused: false,
-                },
+            Box::new({
+                let path = path.clone();
+                move |args| ButtonParams {
+                    background: if is_selected {
+                        Color::WHITE.with_alpha(0.2)
+                    } else {
+                        Color::WHITE.with_alpha(0.1)
+                    },
+                    border_color: if args.ctx.event_manager.borrow().is_hovered(args.id) {
+                        Color::WHITE
+                    } else {
+                        Color::WHITE.with_alpha(0.3)
+                    },
+                    border_width: 2.0,
+                    corner_radius: 3.0,
+                    interaction: vn_ui::InteractionState {
+                        is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
+                        is_focused: false,
+                    },
+                    on_click: Some(EditorEvent::SelectTileset(path.clone())),
+                }
             }),
             world,
         );
 
-        editor
-            .button_events
-            .borrow_mut()
-            .push((ts_button.id(), EditorEvent::SelectTileset(path.clone())));
         recently_loaded_elements.push(Box::new(ts_button));
     }
 
@@ -741,9 +747,9 @@ fn build_tileset_view(
                             caret_width: None,
                             caret_blink_duration: None,
                         },
-                        controller: Rc::new(RefCell::new(StaticTextFieldController::new())),
                         metrics: metrics.clone(),
                         interaction: Default::default(),
+                        on_action: None,
                     }
                 }),
                 world,
@@ -773,7 +779,7 @@ fn build_selection_info(
     editor: &Editor,
     world: &mut ElementWorld,
     metrics: Rc<dyn TextMetrics>,
-) -> Box<dyn Element<State = Editor>> {
+) -> Box<dyn Element<State = Editor, Message = EditorEvent>> {
     Box::new(TextField::new(
         Box::new({
             let metrics = metrics.clone();
@@ -793,9 +799,9 @@ fn build_selection_info(
                     caret_width: None,
                     caret_blink_duration: None,
                 },
-                controller: Rc::new(RefCell::new(StaticTextFieldController::new())),
                 metrics: metrics.clone(),
                 interaction: Default::default(),
+                on_action: None,
             }
         }),
         world,
@@ -806,8 +812,9 @@ fn build_footer(
     editor: &Editor,
     world: &mut ElementWorld,
     metrics: Rc<dyn TextMetrics>,
-) -> Box<dyn Element<State = Editor>> {
-    let mut footer_elements: Vec<Box<dyn Element<State = Editor>>> = Vec::new();
+) -> Box<dyn Element<State = Editor, Message = EditorEvent>> {
+    let mut footer_elements: Vec<Box<dyn Element<State = Editor, Message = EditorEvent>>> =
+        Vec::new();
     for btn_text in ["Save", "Load", "Settings"] {
         let event = match btn_text {
             "Save" => EditorEvent::SaveMap,
@@ -818,9 +825,10 @@ fn build_footer(
         let button = TextField::new(
             Box::new({
                 let metrics = metrics.clone();
+                let btn_text = btn_text.to_string();
                 move |_: StateToParamsArgs<'_, Editor>| TextFieldParams {
                     visuals: TextVisuals {
-                        text: btn_text.to_string(),
+                        text: btn_text.clone(),
                         caret_position: None,
                         font: "jetbrains-bold".to_string(),
                         font_size: 14.0,
@@ -828,32 +836,35 @@ fn build_footer(
                         caret_width: None,
                         caret_blink_duration: None,
                     },
-                    controller: Rc::new(RefCell::new(StaticTextFieldController::new())),
                     metrics: metrics.clone(),
                     interaction: Default::default(),
+                    on_action: None,
                 }
             }),
             world,
         )
         .padding(Box::new(|_| PaddingParams::uniform(5.0)), world)
         .button(
-            Box::new(|args| ButtonParams {
-                background: Color::WHITE.with_alpha(0.1),
-                border_color: if args.ctx.event_manager.borrow().is_hovered(args.id) {
-                    Color::WHITE
-                } else {
-                    Color::WHITE.with_alpha(0.3)
-                },
-                border_width: 2.0,
-                corner_radius: 3.0,
-                interaction: vn_ui::InteractionState {
-                    is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
-                    is_focused: false,
-                },
+            Box::new({
+                let event = event.clone();
+                move |args| ButtonParams {
+                    background: Color::WHITE.with_alpha(0.1),
+                    border_color: if args.ctx.event_manager.borrow().is_hovered(args.id) {
+                        Color::WHITE
+                    } else {
+                        Color::WHITE.with_alpha(0.3)
+                    },
+                    border_width: 2.0,
+                    corner_radius: 3.0,
+                    interaction: vn_ui::InteractionState {
+                        is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
+                        is_focused: false,
+                    },
+                    on_click: Some(event.clone()),
+                }
             }),
             world,
         );
-        editor.button_events.borrow_mut().push((button.id(), event));
         footer_elements.push(Box::new(button));
     }
     Box::new(Flex::new_row_unweighted(footer_elements, false, world))
@@ -862,15 +873,19 @@ fn build_footer(
 fn build_tileset_preview_panel(
     editor: &Editor,
     world: &mut ElementWorld,
-) -> (Box<dyn Element<State = Editor>>, ElementId) {
-    let mut tileset_preview_elements: Vec<Box<dyn Element<State = Editor>>> = Vec::new();
+) -> (
+    Box<dyn Element<State = Editor, Message = EditorEvent>>,
+    ElementId,
+) {
+    let mut tileset_preview_elements: Vec<Box<dyn Element<State = Editor, Message = EditorEvent>>> =
+        Vec::new();
     let mut scroll_area_id = world.next_id(); // Placeholder if no texture
 
     if let Some(layer) = editor.map_spec.layers.get(editor.selected_layer_index) {
         if let Some(texture_id) = editor.loaded_tilesets.get(&layer.tile_set) {
             let texture_id = texture_id.clone();
             let texture_preview = Texture::new(
-                Box::new(move |_| TextureParams {
+                Box::new(move |_: StateToParamsArgs<'_, Editor>| TextureParams {
                     texture_id: texture_id.clone(),
                     preferred_size: vn_ui::ElementSize {
                         width: 256.0,
@@ -886,19 +901,26 @@ fn build_tileset_preview_panel(
                 world,
             );
 
-            let grid_overlay = TilesetGrid::new(world);
-
-            let controller = editor.tileset_scroll_controller.clone();
+            let grid_overlay = Grid::new(
+                Box::new(move |_: StateToParamsArgs<'_, Editor>| GridParams {
+                    rows: 133,
+                    cols: 8,
+                    grid_size: (32.0, 32.0),
+                    grid_width: 3.0,
+                    grid_color: Color::WHITE.with_alpha(0.5),
+                }),
+                world,
+            );
 
             let scroll_area = Stack::new(
                 vec![Box::new(texture_preview), Box::new(grid_overlay)],
                 world,
             )
             .scroll_area(
-                Box::new(move |_| ScrollAreaParams {
-                    scroll_x: None,
-                    scroll_y: Some(controller.borrow().scroll_y()),
-                    controller: Some(controller.clone()),
+                Box::new(move |args: StateToParamsArgs<'_, Editor>| ScrollAreaParams {
+                    scroll_x: Some(args.state.tileset_scroll_x),
+                    scroll_y: Some(args.state.tileset_scroll_y),
+                    on_scroll: Some(|id, action| EditorEvent::ScrollAction { id, action }),
                     scrollbar_width: 6.0,
                     scrollbar_margin: 2.0,
                 }),

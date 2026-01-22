@@ -111,8 +111,16 @@ impl EventManager {
         self.hovered_elements.contains(&id)
     }
 
+    pub fn focused_element(&self) -> Option<ElementId> {
+        self.focused_element
+    }
+
     pub fn is_focused(&self, id: ElementId) -> bool {
         self.focused_element == Some(id)
+    }
+
+    pub fn set_focused_element(&mut self, id: Option<ElementId>) {
+        self.focused_element = id;
     }
 
     pub fn handle_mouse_move(&mut self, x: f32, y: f32) -> Vec<InteractionEvent> {
@@ -341,7 +349,20 @@ impl UiContext {
         F: FnOnce(&mut Self),
     {
         let old_clip = self.clip_rect;
-        self.clip_rect = self.clip_rect.intersect(&clip_rect);
+        let x1 = self.clip_rect.position[0].max(clip_rect.position[0]);
+        let y1 = self.clip_rect.position[1].max(clip_rect.position[1]);
+        let x2 = (self.clip_rect.position[0] + self.clip_rect.size[0])
+            .min(clip_rect.position[0] + clip_rect.size[0]);
+        let y2 = (self.clip_rect.position[1] + self.clip_rect.size[1])
+            .min(clip_rect.position[1] + clip_rect.size[1]);
+
+        let width = (x2 - x1).max(0.0);
+        let height = (y2 - y1).max(0.0);
+
+        self.clip_rect = crate::Rect {
+            position: [x1, y1],
+            size: [width, height],
+        };
         f(self);
         self.clip_rect = old_clip;
     }

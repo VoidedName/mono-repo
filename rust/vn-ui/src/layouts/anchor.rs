@@ -24,16 +24,16 @@ pub struct AnchorParams {
     pub location: AnchorLocation,
 }
 
-pub struct Anchor<State> {
+pub struct Anchor<State, Message> {
     id: ElementId,
-    child: Box<dyn Element<State = State>>,
+    child: Box<dyn Element<State = State, Message = Message>>,
     child_size: ElementSize,
     params: StateToParams<State, AnchorParams>,
 }
 
-impl<State> Anchor<State> {
+impl<State, Message> Anchor<State, Message> {
     pub fn new(
-        child: Box<dyn Element<State = State>>,
+        child: Box<dyn Element<State = State, Message = Message>>,
         params: StateToParams<State, AnchorParams>,
         world: &mut ElementWorld,
     ) -> Self {
@@ -46,8 +46,9 @@ impl<State> Anchor<State> {
     }
 }
 
-impl<State> ElementImpl for Anchor<State> {
+impl<State, Message> ElementImpl for Anchor<State, Message> {
     type State = State;
+    type Message = Message;
 
     fn id_impl(&self) -> ElementId {
         self.id
@@ -72,7 +73,10 @@ impl<State> ElementImpl for Anchor<State> {
 
         ElementSize {
             width: constraints.max_size.width.unwrap_or(self.child_size.width),
-            height: constraints.max_size.height.unwrap_or(self.child_size.height),
+            height: constraints
+                .max_size
+                .height
+                .unwrap_or(self.child_size.height),
         }
         .clamp_to_constraints(constraints)
     }
@@ -168,6 +172,15 @@ impl<State> ElementImpl for Anchor<State> {
             ),
         }
     }
+
+    fn handle_event_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        event: &crate::InteractionEvent,
+    ) -> Vec<Self::Message> {
+        self.child.handle_event(ctx, state, event)
+    }
 }
 
 pub trait AnchorExt: Element {
@@ -175,7 +188,7 @@ pub trait AnchorExt: Element {
         self,
         params: StateToParams<Self::State, AnchorParams>,
         world: &mut ElementWorld,
-    ) -> Anchor<Self::State>;
+    ) -> Anchor<Self::State, Self::Message>;
 }
 
 impl<E: Element + 'static> AnchorExt for E {
@@ -183,7 +196,7 @@ impl<E: Element + 'static> AnchorExt for E {
         self,
         params: StateToParams<Self::State, AnchorParams>,
         world: &mut ElementWorld,
-    ) -> Anchor<Self::State> {
+    ) -> Anchor<Self::State, Self::Message> {
         Anchor::new(Box::new(self), params, world)
     }
 }

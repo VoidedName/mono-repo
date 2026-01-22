@@ -1,4 +1,4 @@
-use crate::{ElementId, ElementSize, SizeConstraints, UiContext};
+use crate::{ElementId, ElementSize, InteractionEvent, SizeConstraints, UiContext};
 use std::collections::HashMap;
 use vn_scene::Scene;
 
@@ -41,6 +41,7 @@ impl LayoutCache for SimpleLayoutCache {
 /// Use the [Element] trait to interact with elements and do not call anything in here manually.
 pub trait ElementImpl {
     type State;
+    type Message;
 
     /// This ID is used in both the layout cache and for identifying elements in the UI and **MUST**
     /// be unique for each element.
@@ -68,6 +69,14 @@ pub trait ElementImpl {
         size: ElementSize,
         canvas: &mut dyn Scene,
     );
+
+    /// Handles an interaction event.
+    fn handle_event_impl(
+        &mut self,
+        _ctx: &mut UiContext,
+        _state: &Self::State,
+        _event: &InteractionEvent,
+    ) -> Vec<Self::Message>;
 }
 
 /// Represents a UI element that can be laid out and drawn.
@@ -147,6 +156,28 @@ pub trait Element: ElementImpl {
             });
         }
     }
+
+    /// Handles an interaction event.
+    fn handle_event(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        event: &InteractionEvent,
+    ) -> Vec<Self::Message> {
+        log::trace!(
+            "Start handling event {:?} for element {:?}",
+            event,
+            self.id()
+        );
+        let messages = self.handle_event_impl(ctx, state, event);
+        log::trace!(
+            "Finished handling event {:?} for element {:?}, sending {} messages",
+            event,
+            self.id(),
+            messages.len()
+        );
+        messages
+    }
 }
 
-impl<State, T: ElementImpl<State = State>> Element for T {}
+impl<State, Message, T: ElementImpl<State = State, Message = Message>> Element for T {}

@@ -1,12 +1,12 @@
 use crate::{
-    Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams,
-    UiContext,
+    Element, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionEvent, SizeConstraints,
+    StateToParams, UiContext,
 };
 use vn_scene::Scene;
 
-pub struct Interactive<State> {
+pub struct Interactive<State, Message> {
     id: ElementId,
-    child: Box<dyn Element<State = State>>,
+    child: Box<dyn Element<State = State, Message = Message>>,
     params: StateToParams<State, InteractiveParams>,
 }
 
@@ -14,9 +14,9 @@ pub struct InteractiveParams {
     pub is_interactive: bool,
 }
 
-impl<State> Interactive<State> {
+impl<State, Message> Interactive<State, Message> {
     pub fn new(
-        child: Box<dyn Element<State = State>>,
+        child: Box<dyn Element<State = State, Message = Message>>,
         params: StateToParams<State, InteractiveParams>,
         world: &mut ElementWorld,
     ) -> Self {
@@ -28,8 +28,9 @@ impl<State> Interactive<State> {
     }
 }
 
-impl<State> ElementImpl for Interactive<State> {
+impl<State, Message> ElementImpl for Interactive<State, Message> {
     type State = State;
+    type Message = Message;
 
     fn id_impl(&self) -> ElementId {
         self.id
@@ -66,6 +67,15 @@ impl<State> ElementImpl for Interactive<State> {
             self.child.draw(ctx, state, origin, size, canvas);
         });
     }
+
+    fn handle_event_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        event: &InteractionEvent,
+    ) -> Vec<Self::Message> {
+        self.child.handle_event(ctx, state, event)
+    }
 }
 
 pub trait InteractiveExt: Element {
@@ -73,13 +83,13 @@ pub trait InteractiveExt: Element {
         self,
         params: StateToParams<Self::State, InteractiveParams>,
         world: &mut ElementWorld,
-    ) -> Interactive<Self::State>;
+    ) -> Interactive<Self::State, Self::Message>;
 
     fn interactive_set(
         self,
         interactive: bool,
         world: &mut ElementWorld,
-    ) -> Interactive<Self::State>;
+    ) -> Interactive<Self::State, Self::Message>;
 }
 
 impl<E: Element + 'static> InteractiveExt for E {
@@ -87,7 +97,7 @@ impl<E: Element + 'static> InteractiveExt for E {
         self,
         params: StateToParams<Self::State, InteractiveParams>,
         world: &mut ElementWorld,
-    ) -> Interactive<Self::State> {
+    ) -> Interactive<Self::State, Self::Message> {
         Interactive::new(Box::new(self), params, world)
     }
 
@@ -95,7 +105,7 @@ impl<E: Element + 'static> InteractiveExt for E {
         self,
         interactive: bool,
         world: &mut ElementWorld,
-    ) -> Interactive<Self::State> {
+    ) -> Interactive<Self::State, Self::Message> {
         Interactive::new(
             Box::new(self),
             Box::new(move |_| InteractiveParams {

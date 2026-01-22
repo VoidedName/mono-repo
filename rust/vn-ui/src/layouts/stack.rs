@@ -1,17 +1,20 @@
 use crate::{
-    DynamicDimension, DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints,
-    UiContext,
+    DynamicDimension, DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld,
+    SizeConstraints, UiContext,
 };
 use vn_scene::Scene;
 
-pub struct Stack<State> {
+pub struct Stack<State, Message> {
     id: ElementId,
-    children: Vec<Box<dyn Element<State = State>>>,
+    children: Vec<Box<dyn Element<State = State, Message = Message>>>,
     children_size: Vec<ElementSize>,
 }
 
-impl<State> Stack<State> {
-    pub fn new(children: Vec<Box<dyn Element<State = State>>>, world: &mut ElementWorld) -> Self {
+impl<State, Message> Stack<State, Message> {
+    pub fn new(
+        children: Vec<Box<dyn Element<State = State, Message = Message>>>,
+        world: &mut ElementWorld,
+    ) -> Self {
         Stack {
             id: world.next_id(),
             children_size: vec![ElementSize::ZERO; children.len()],
@@ -20,8 +23,9 @@ impl<State> Stack<State> {
     }
 }
 
-impl<State> ElementImpl for Stack<State> {
+impl<State, Message> ElementImpl for Stack<State, Message> {
     type State = State;
+    type Message = Message;
 
     fn id_impl(&self) -> ElementId {
         self.id
@@ -62,7 +66,7 @@ impl<State> ElementImpl for Stack<State> {
     ) {
         let mut first_drawn = false;
 
-        let mut draw_child = |child: &mut Box<dyn Element<State = State>>,
+        let mut draw_child = |child: &mut Box<dyn Element<State = State, Message = Message>>,
                               child_size: ElementSize,
                               canvas: &mut dyn Scene| {
             child.draw(
@@ -93,22 +97,35 @@ impl<State> ElementImpl for Stack<State> {
             }
         }
     }
+
+    fn handle_event_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        event: &crate::InteractionEvent,
+    ) -> Vec<Self::Message> {
+        let mut messages = Vec::new();
+        for child in &mut self.children {
+            messages.extend(child.handle_event(ctx, state, event));
+        }
+        messages
+    }
 }
 
 pub trait StackExt: Element {
     fn stack_with(
         self,
-        others: Vec<Box<dyn Element<State = Self::State>>>,
+        others: Vec<Box<dyn Element<State = Self::State, Message = Self::Message>>>,
         world: &mut ElementWorld,
-    ) -> Stack<Self::State>;
+    ) -> Stack<Self::State, Self::Message>;
 }
 
 impl<E: Element + 'static> StackExt for E {
     fn stack_with(
         self,
-        others: Vec<Box<dyn Element<State = Self::State>>>,
+        others: Vec<Box<dyn Element<State = Self::State, Message = Self::Message>>>,
         world: &mut ElementWorld,
-    ) -> Stack<Self::State> {
+    ) -> Stack<Self::State, Self::Message> {
         let mut elements = others;
         elements.insert(0, Box::new(self));
         Stack::new(elements, world)

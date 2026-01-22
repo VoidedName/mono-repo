@@ -96,7 +96,7 @@ impl DynamicDimension {
             DynamicDimension::Limit(v) => DynamicDimension::Limit(f(v)),
         }
     }
-    
+
     pub fn to_option(&self) -> Option<f32> {
         match self {
             DynamicDimension::Hint(v) => None,

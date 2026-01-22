@@ -1,8 +1,8 @@
 use crate::components::ExtendedHitbox;
 use crate::utils::ToArray;
 use crate::{
-    DynamicDimension, DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionState,
-    SizeConstraints, StateToParams, UiContext,
+    DynamicDimension, DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld,
+    InteractionState, SizeConstraints, StateToParams, UiContext,
 };
 use vn_scene::{Rect, Scene};
 use vn_ui_animation_macros::Interpolatable;
@@ -17,10 +17,10 @@ pub struct TooltipParams {
     pub interaction: InteractionState,
 }
 
-pub struct ToolTip<State: 'static> {
+pub struct ToolTip<State: 'static, Message: 'static> {
     id: ElementId,
-    element: Box<dyn Element<State = State>>,
-    tooltip: Box<dyn Element<State = State>>,
+    element: Box<dyn Element<State = State, Message = Message>>,
+    tooltip: Box<dyn Element<State = State, Message = Message>>,
     params: StateToParams<State, TooltipParams>,
     show_tooltip: bool,
     tool_tip_size: ElementSize,
@@ -28,10 +28,10 @@ pub struct ToolTip<State: 'static> {
     hovered_start_at: Option<Instant>,
 }
 
-impl<State: 'static> ToolTip<State> {
+impl<State: 'static, Message: 'static> ToolTip<State, Message> {
     pub fn new(
-        element: Box<dyn Element<State = State>>,
-        tooltip: Box<dyn Element<State = State>>,
+        element: Box<dyn Element<State = State, Message = Message>>,
+        tooltip: Box<dyn Element<State = State, Message = Message>>,
         params: StateToParams<State, TooltipParams>,
         world: &mut ElementWorld,
     ) -> Self {
@@ -48,8 +48,9 @@ impl<State: 'static> ToolTip<State> {
     }
 }
 
-impl<State: 'static> ElementImpl for ToolTip<State> {
+impl<State: 'static, Message: 'static> ElementImpl for ToolTip<State, Message> {
     type State = State;
+    type Message = Message;
 
     fn id_impl(&self) -> ElementId {
         self.id
@@ -148,24 +149,37 @@ impl<State: 'static> ElementImpl for ToolTip<State> {
             },
         );
     }
+
+    fn handle_event_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        event: &crate::InteractionEvent,
+    ) -> Vec<Self::Message> {
+        let mut messages = self.element.handle_event(ctx, state, event);
+        if self.show_tooltip {
+            messages.extend(self.tooltip.handle_event(ctx, state, event));
+        }
+        messages
+    }
 }
 
 pub trait ToolTipExt: Element {
     fn tooltip(
         self,
-        tooltip: Box<dyn Element<State = Self::State>>,
+        tooltip: Box<dyn Element<State = Self::State, Message = Self::Message>>,
         params: StateToParams<Self::State, TooltipParams>,
         world: &mut ElementWorld,
-    ) -> ToolTip<Self::State>;
+    ) -> ToolTip<Self::State, Self::Message>;
 }
 
 impl<E: Element + 'static> ToolTipExt for E {
     fn tooltip(
         self,
-        tooltip: Box<dyn Element<State = Self::State>>,
+        tooltip: Box<dyn Element<State = Self::State, Message = Self::Message>>,
         params: StateToParams<Self::State, TooltipParams>,
         world: &mut ElementWorld,
-    ) -> ToolTip<Self::State> {
+    ) -> ToolTip<Self::State, Self::Message> {
         ToolTip::new(Box::new(self), tooltip, params, world)
     }
 }

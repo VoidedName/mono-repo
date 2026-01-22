@@ -25,15 +25,15 @@ impl PaddingParams {
     }
 }
 
-pub struct Padding<State> {
+pub struct Padding<State, Message> {
     id: ElementId,
-    child: Box<dyn Element<State = State>>,
+    child: Box<dyn Element<State = State, Message = Message>>,
     params: StateToParams<State, PaddingParams>,
 }
 
-impl<State> Padding<State> {
+impl<State, Message> Padding<State, Message> {
     pub fn new(
-        child: Box<dyn Element<State = State>>,
+        child: Box<dyn Element<State = State, Message = Message>>,
         params: StateToParams<State, PaddingParams>,
         world: &mut ElementWorld,
     ) -> Self {
@@ -45,8 +45,9 @@ impl<State> Padding<State> {
     }
 }
 
-impl<State> ElementImpl for Padding<State> {
+impl<State, Message> ElementImpl for Padding<State, Message> {
     type State = State;
+    type Message = Message;
 
     fn id_impl(&self) -> ElementId {
         self.id
@@ -119,6 +120,15 @@ impl<State> ElementImpl for Padding<State> {
             canvas,
         );
     }
+
+    fn handle_event_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        event: &crate::InteractionEvent,
+    ) -> Vec<Self::Message> {
+        self.child.handle_event(ctx, state, event)
+    }
 }
 
 pub trait PaddingExt: Element {
@@ -126,7 +136,7 @@ pub trait PaddingExt: Element {
         self,
         params: StateToParams<Self::State, PaddingParams>,
         world: &mut ElementWorld,
-    ) -> Padding<Self::State>;
+    ) -> Padding<Self::State, Self::Message>;
 }
 
 impl<E: Element + 'static> PaddingExt for E {
@@ -134,7 +144,7 @@ impl<E: Element + 'static> PaddingExt for E {
         self,
         params: StateToParams<Self::State, PaddingParams>,
         world: &mut ElementWorld,
-    ) -> Padding<Self::State> {
+    ) -> Padding<Self::State, Self::Message> {
         Padding::new(Box::new(self), params, world)
     }
 }

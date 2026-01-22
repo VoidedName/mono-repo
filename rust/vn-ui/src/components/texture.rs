@@ -1,5 +1,6 @@
 use crate::{
-    DynamicDimension, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams, UiContext,
+    DynamicDimension, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionEvent,
+    SizeConstraints, StateToParams, UiContext,
 };
 use vn_scene::{Color, ImagePrimitiveData, Rect, Scene, TextureId, Transform};
 use vn_ui_animation::Interpolatable;
@@ -62,22 +63,25 @@ pub struct TextureParams {
     pub fit_strategy: FitStrategy,
 }
 
-pub struct Texture<State> {
+pub struct Texture<State, Message> {
     id: ElementId,
     params: StateToParams<State, TextureParams>,
+    _phantom: std::marker::PhantomData<Message>,
 }
 
-impl<State> Texture<State> {
+impl<State, Message> Texture<State, Message> {
     pub fn new(params: StateToParams<State, TextureParams>, world: &mut ElementWorld) -> Self {
         Self {
             id: world.next_id(),
             params,
+            _phantom: std::marker::PhantomData,
         }
     }
 }
 
-impl<State> ElementImpl for Texture<State> {
+impl<State, Message> ElementImpl for Texture<State, Message> {
     type State = State;
+    type Message = Message;
 
     fn id_impl(&self) -> ElementId {
         self.id
@@ -99,18 +103,24 @@ impl<State> ElementImpl for Texture<State> {
             FitStrategy::Clip { rotation } => (params.preferred_size, rotation),
             FitStrategy::Stretch => {
                 let size = match (constraints.max_size.width, constraints.max_size.height) {
-                    (DynamicDimension::Limit(max_width), DynamicDimension::Limit(max_height)) => ElementSize {
-                        width: max_width,
-                        height: max_height,
-                    },
-                    (DynamicDimension::Limit(max_width), DynamicDimension::Hint(_)) => ElementSize {
-                        width: max_width,
-                        height: params.preferred_size.height,
-                    },
-                    (DynamicDimension::Hint(_), DynamicDimension::Limit(max_height)) => ElementSize {
-                        width: params.preferred_size.width,
-                        height: max_height,
-                    },
+                    (DynamicDimension::Limit(max_width), DynamicDimension::Limit(max_height)) => {
+                        ElementSize {
+                            width: max_width,
+                            height: max_height,
+                        }
+                    }
+                    (DynamicDimension::Limit(max_width), DynamicDimension::Hint(_)) => {
+                        ElementSize {
+                            width: max_width,
+                            height: params.preferred_size.height,
+                        }
+                    }
+                    (DynamicDimension::Hint(_), DynamicDimension::Limit(max_height)) => {
+                        ElementSize {
+                            width: params.preferred_size.width,
+                            height: max_height,
+                        }
+                    }
                     (DynamicDimension::Hint(_), DynamicDimension::Hint(_)) => params.preferred_size,
                 };
                 (size, 0.0)
@@ -204,5 +214,14 @@ impl<State> ElementImpl for Texture<State> {
             uv_rect: params.uv_rect,
             clip_rect: ctx.clip_rect,
         });
+    }
+
+    fn handle_event_impl(
+        &mut self,
+        _ctx: &mut UiContext,
+        _state: &Self::State,
+        _event: &InteractionEvent,
+    ) -> Vec<Self::Message> {
+        vec![]
     }
 }

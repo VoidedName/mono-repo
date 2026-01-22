@@ -14,15 +14,15 @@ pub struct CardParams {
     pub corner_radius: f32,
 }
 
-pub struct Card<State> {
+pub struct Card<State, Message> {
     id: ElementId,
-    child: Box<dyn Element<State = State>>,
+    child: Box<dyn Element<State = State, Message = Message>>,
     params: StateToParams<State, CardParams>,
 }
 
-impl<State> Card<State> {
+impl<State, Message> Card<State, Message> {
     pub fn new(
-        child: Box<dyn Element<State = State>>,
+        child: Box<dyn Element<State = State, Message = Message>>,
         params: StateToParams<State, CardParams>,
         world: &mut ElementWorld,
     ) -> Self {
@@ -37,8 +37,9 @@ impl<State> Card<State> {
 // Actually, the Card should probably manage its Padding internal params based on its own params.
 // But Padding now also uses StateToParams.
 
-impl<State> ElementImpl for Card<State> {
+impl<State, Message> ElementImpl for Card<State, Message> {
     type State = State;
+    type Message = Message;
 
     fn id_impl(&self) -> ElementId {
         self.id
@@ -123,6 +124,15 @@ impl<State> ElementImpl for Card<State> {
             canvas,
         );
     }
+
+    fn handle_event_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        event: &crate::InteractionEvent,
+    ) -> Vec<Self::Message> {
+        self.child.handle_event(ctx, state, event)
+    }
 }
 
 pub trait CardExt: Element {
@@ -130,7 +140,7 @@ pub trait CardExt: Element {
         self,
         params: StateToParams<Self::State, CardParams>,
         world: &mut ElementWorld,
-    ) -> Card<Self::State>;
+    ) -> Card<Self::State, Self::Message>;
 }
 
 impl<E: Element + 'static> CardExt for E {
@@ -138,7 +148,7 @@ impl<E: Element + 'static> CardExt for E {
         self,
         params: StateToParams<Self::State, CardParams>,
         world: &mut ElementWorld,
-    ) -> Card<Self::State> {
+    ) -> Card<Self::State, Self::Message> {
         Card::new(Box::new(self), params, world)
     }
 }

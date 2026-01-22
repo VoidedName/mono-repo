@@ -17,20 +17,23 @@ pub struct FlexParams {
     pub force_orthogonal_same_size: bool,
 }
 
-pub struct FlexChild<State> {
-    pub element: Box<dyn Element<State = State>>,
+pub struct FlexChild<State, Message> {
+    pub element: Box<dyn Element<State = State, Message = Message>>,
     pub weight: Option<f32>,
 }
 
-impl<State> FlexChild<State> {
-    pub fn new(element: Box<dyn Element<State = State>>) -> Self {
+impl<State, Message> FlexChild<State, Message> {
+    pub fn new(element: Box<dyn Element<State = State, Message = Message>>) -> Self {
         Self {
             element,
             weight: None,
         }
     }
 
-    pub fn weighted(element: Box<dyn Element<State = State>>, weight: f32) -> Self {
+    pub fn weighted(
+        element: Box<dyn Element<State = State, Message = Message>>,
+        weight: f32,
+    ) -> Self {
         Self {
             element,
             weight: Some(weight),
@@ -38,32 +41,36 @@ impl<State> FlexChild<State> {
     }
 }
 
-pub trait WeightedElement<State> {
-    fn with_weight_element(self, weight: f32) -> FlexChild<State>;
+pub trait WeightedElement<State, Message> {
+    fn with_weight_element(self, weight: f32) -> FlexChild<State, Message>;
 }
 
-impl<State, E: Element<State = State> + 'static> WeightedElement<State> for E {
-    fn with_weight_element(self, weight: f32) -> FlexChild<State> {
+impl<State, Message, E: Element<State = State, Message = Message> + 'static>
+    WeightedElement<State, Message> for E
+{
+    fn with_weight_element(self, weight: f32) -> FlexChild<State, Message> {
         FlexChild::weighted(Box::new(self), weight)
     }
 }
 
-impl<State> WeightedElement<State> for Box<dyn Element<State = State>> {
-    fn with_weight_element(self, weight: f32) -> FlexChild<State> {
+impl<State, Message> WeightedElement<State, Message>
+    for Box<dyn Element<State = State, Message = Message>>
+{
+    fn with_weight_element(self, weight: f32) -> FlexChild<State, Message> {
         FlexChild::weighted(self, weight)
     }
 }
 
-pub struct Flex<State> {
+pub struct Flex<State, Message> {
     id: ElementId,
-    children: Vec<FlexChild<State>>,
+    children: Vec<FlexChild<State, Message>>,
     layout: Vec<ElementSize>,
     params: StateToParams<State, FlexParams>,
 }
 
-impl<State> Flex<State> {
+impl<State, Message> Flex<State, Message> {
     pub fn new(
-        children: Vec<FlexChild<State>>,
+        children: Vec<FlexChild<State, Message>>,
         params: StateToParams<State, FlexParams>,
         world: &mut ElementWorld,
     ) -> Self {
@@ -78,7 +85,7 @@ impl<State> Flex<State> {
     }
 
     pub fn new_unweighted(
-        children: Vec<Box<dyn Element<State = State>>>,
+        children: Vec<Box<dyn Element<State = State, Message = Message>>>,
         params: StateToParams<State, FlexParams>,
         world: &mut ElementWorld,
     ) -> Self {
@@ -90,7 +97,7 @@ impl<State> Flex<State> {
     }
 
     pub fn new_row(
-        children: Vec<FlexChild<State>>,
+        children: Vec<FlexChild<State, Message>>,
         force_orthogonal_same_size: bool,
         world: &mut ElementWorld,
     ) -> Self {
@@ -105,7 +112,7 @@ impl<State> Flex<State> {
     }
 
     pub fn new_row_unweighted(
-        children: Vec<Box<dyn Element<State = State>>>,
+        children: Vec<Box<dyn Element<State = State, Message = Message>>>,
         force_orthogonal_same_size: bool,
         world: &mut ElementWorld,
     ) -> Self {
@@ -120,7 +127,7 @@ impl<State> Flex<State> {
     }
 
     pub fn new_column(
-        children: Vec<FlexChild<State>>,
+        children: Vec<FlexChild<State, Message>>,
         force_orthogonal_same_size: bool,
         world: &mut ElementWorld,
     ) -> Self {
@@ -135,7 +142,7 @@ impl<State> Flex<State> {
     }
 
     pub fn new_column_unweighted(
-        children: Vec<Box<dyn Element<State = State>>>,
+        children: Vec<Box<dyn Element<State = State, Message = Message>>>,
         force_orthogonal_same_size: bool,
         world: &mut ElementWorld,
     ) -> Self {
@@ -151,8 +158,9 @@ impl<State> Flex<State> {
 }
 
 // todo: allow for weight / spacing between children?
-impl<State> ElementImpl for Flex<State> {
+impl<State, Message> ElementImpl for Flex<State, Message> {
     type State = State;
+    type Message = Message;
 
     fn id_impl(&self) -> ElementId {
         self.id
@@ -340,96 +348,137 @@ impl<State> ElementImpl for Flex<State> {
             }
         }
     }
+
+    fn handle_event_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        event: &crate::InteractionEvent,
+    ) -> Vec<Self::Message> {
+        let mut messages = Vec::new();
+        for child in &mut self.children {
+            messages.extend(child.element.handle_event(ctx, state, event));
+        }
+        messages
+    }
 }
 
 pub trait FlexExt: Element {
-    fn flex(
+    fn flex<M>(
         self,
-        others: Vec<Box<dyn Element<State = Self::State>>>,
+        others: Vec<Box<dyn Element<State = Self::State, Message = M>>>,
         params: StateToParams<Self::State, FlexParams>,
         world: &mut ElementWorld,
-    ) -> Flex<Self::State>;
-
-    fn flex_row(
-        self,
-        others: Vec<Box<dyn Element<State = Self::State>>>,
-        force_orthogonal_same_size: bool,
-        world: &mut ElementWorld,
-    ) -> Flex<Self::State>;
-
-    fn flex_column(
-        self,
-        others: Vec<Box<dyn Element<State = Self::State>>>,
-        force_orthogonal_same_size: bool,
-        world: &mut ElementWorld,
-    ) -> Flex<Self::State>;
-
-    fn flex_weighted(
-        self,
-        others: Vec<FlexChild<Self::State>>,
-        params: StateToParams<Self::State, FlexParams>,
-        world: &mut ElementWorld,
-    ) -> Flex<Self::State>;
-
-    fn with_weight(self, weight: f32) -> FlexChild<Self::State>
+    ) -> Flex<Self::State, M>
     where
-        Self: Sized + 'static;
-    fn without_weight(self) -> FlexChild<Self::State>;
+        Self: Element<Message = M> + 'static;
+
+    fn flex_row<M>(
+        self,
+        others: Vec<Box<dyn Element<State = Self::State, Message = M>>>,
+        force_orthogonal_same_size: bool,
+        world: &mut ElementWorld,
+    ) -> Flex<Self::State, M>
+    where
+        Self: Element<Message = M> + 'static;
+
+    fn flex_column<M>(
+        self,
+        others: Vec<Box<dyn Element<State = Self::State, Message = M>>>,
+        force_orthogonal_same_size: bool,
+        world: &mut ElementWorld,
+    ) -> Flex<Self::State, M>
+    where
+        Self: Element<Message = M> + 'static;
+
+    fn flex_weighted<M>(
+        self,
+        others: Vec<FlexChild<Self::State, M>>,
+        params: StateToParams<Self::State, FlexParams>,
+        world: &mut ElementWorld,
+    ) -> Flex<Self::State, M>
+    where
+        Self: Element<Message = M> + 'static;
+
+    fn with_weight<M>(self, weight: f32) -> FlexChild<Self::State, M>
+    where
+        Self: Sized + Element<Message = M> + 'static;
+    fn without_weight<M>(self) -> FlexChild<Self::State, M>
+    where
+        Self: Sized + Element<Message = M> + 'static;
 }
 
 impl<E: Element + 'static> FlexExt for E {
-    fn flex(
+    fn flex<M>(
         self,
-        others: Vec<Box<dyn Element<State = Self::State>>>,
+        others: Vec<Box<dyn Element<State = Self::State, Message = M>>>,
         params: StateToParams<Self::State, FlexParams>,
         world: &mut ElementWorld,
-    ) -> Flex<Self::State> {
-        let mut elements: Vec<FlexChild<Self::State>> =
+    ) -> Flex<Self::State, M>
+    where
+        Self: Element<Message = M> + 'static,
+    {
+        let mut elements: Vec<FlexChild<Self::State, M>> =
             others.into_iter().map(FlexChild::new).collect();
         elements.insert(0, FlexChild::new(Box::new(self)));
         Flex::new(elements, params, world)
     }
 
-    fn flex_row(
+    fn flex_row<M>(
         self,
-        others: Vec<Box<dyn Element<State = Self::State>>>,
+        others: Vec<Box<dyn Element<State = Self::State, Message = M>>>,
         force_orthogonal_same_size: bool,
         world: &mut ElementWorld,
-    ) -> Flex<Self::State> {
-        let mut elements: Vec<FlexChild<Self::State>> =
+    ) -> Flex<Self::State, M>
+    where
+        Self: Element<Message = M> + 'static,
+    {
+        let mut elements: Vec<FlexChild<Self::State, M>> =
             others.into_iter().map(FlexChild::new).collect();
         elements.insert(0, FlexChild::new(Box::new(self)));
         Flex::new_row(elements, force_orthogonal_same_size, world)
     }
 
-    fn flex_column(
+    fn flex_column<M>(
         self,
-        others: Vec<Box<dyn Element<State = Self::State>>>,
+        others: Vec<Box<dyn Element<State = Self::State, Message = M>>>,
         force_orthogonal_same_size: bool,
         world: &mut ElementWorld,
-    ) -> Flex<Self::State> {
-        let mut elements: Vec<FlexChild<Self::State>> =
+    ) -> Flex<Self::State, M>
+    where
+        Self: Element<Message = M> + 'static,
+    {
+        let mut elements: Vec<FlexChild<Self::State, M>> =
             others.into_iter().map(FlexChild::new).collect();
         elements.insert(0, FlexChild::new(Box::new(self)));
         Flex::new_column(elements, force_orthogonal_same_size, world)
     }
 
-    fn flex_weighted(
+    fn flex_weighted<M>(
         self,
-        others: Vec<FlexChild<Self::State>>,
+        others: Vec<FlexChild<Self::State, M>>,
         params: StateToParams<Self::State, FlexParams>,
         world: &mut ElementWorld,
-    ) -> Flex<Self::State> {
+    ) -> Flex<Self::State, M>
+    where
+        Self: Element<Message = M> + 'static,
+    {
         let mut elements = others;
         elements.insert(0, FlexChild::new(Box::new(self)));
         Flex::new(elements, params, world)
     }
 
-    fn with_weight(self, weight: f32) -> FlexChild<Self::State> {
+    fn with_weight<M>(self, weight: f32) -> FlexChild<Self::State, M>
+    where
+        Self: Sized + Element<Message = M> + 'static,
+    {
         FlexChild::weighted(Box::new(self), weight)
     }
 
-    fn without_weight(self) -> FlexChild<Self::State> {
+    fn without_weight<M>(self) -> FlexChild<Self::State, M>
+    where
+        Self: Sized + Element<Message = M> + 'static,
+    {
         FlexChild::new(Box::new(self))
     }
 }

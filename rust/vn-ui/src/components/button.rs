@@ -6,25 +6,25 @@ use crate::{
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
 use vn_ui_animation_macros::Interpolatable;
 
-#[derive(Clone, Copy, Interpolatable)]
-pub struct ButtonParams {
+pub struct ButtonParams<Message> {
     pub background: Color,
     pub border_color: Color,
     pub border_width: f32,
     pub corner_radius: f32,
     pub interaction: InteractionState,
+    pub on_click: Option<Message>,
 }
 
-pub struct Button<State> {
+pub struct Button<State, Message> {
     id: ElementId,
-    child: Box<dyn Element<State = State>>,
-    params: StateToParams<State, ButtonParams>,
+    child: Box<dyn Element<State = State, Message = Message>>,
+    params: StateToParams<State, ButtonParams<Message>>,
 }
 
-impl<State> Button<State> {
+impl<State, Message> Button<State, Message> {
     pub fn new(
-        child: Box<dyn Element<State = State>>,
-        params: StateToParams<State, ButtonParams>,
+        child: Box<dyn Element<State = State, Message = Message>>,
+        params: StateToParams<State, ButtonParams<Message>>,
         world: &mut ElementWorld,
     ) -> Self {
         Self {
@@ -35,8 +35,9 @@ impl<State> Button<State> {
     }
 }
 
-impl<State> ElementImpl for Button<State> {
+impl<State, Message: Clone> ElementImpl for Button<State, Message> {
     type State = State;
+    type Message = Message;
 
     fn id_impl(&self) -> ElementId {
         self.id
@@ -123,22 +124,46 @@ impl<State> ElementImpl for Button<State> {
             },
         );
     }
+
+    fn handle_event_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        event: &crate::InteractionEvent,
+    ) -> Vec<Self::Message> {
+        let mut messages = self.child.handle_event(ctx, state, event);
+
+        if event.target == Some(self.id) {
+            if let crate::InteractionEventKind::Click { .. } = event.kind {
+                let params = (self.params)(crate::StateToParamsArgs {
+                    state,
+                    id: self.id,
+                    ctx,
+                });
+                if let Some(msg) = params.on_click {
+                    messages.push(msg);
+                }
+            }
+        }
+
+        messages
+    }
 }
 
 pub trait ButtonExt: Element {
     fn button(
         self,
-        params: StateToParams<Self::State, ButtonParams>,
+        params: StateToParams<Self::State, ButtonParams<Self::Message>>,
         world: &mut ElementWorld,
-    ) -> Button<Self::State>;
+    ) -> Button<Self::State, Self::Message>;
 }
 
 impl<E: Element + 'static> ButtonExt for E {
     fn button(
         self,
-        params: StateToParams<Self::State, ButtonParams>,
+        params: StateToParams<Self::State, ButtonParams<Self::Message>>,
         world: &mut ElementWorld,
-    ) -> Button<Self::State> {
+    ) -> Button<Self::State, Self::Message> {
         Button::new(Box::new(self), params, world)
     }
 }

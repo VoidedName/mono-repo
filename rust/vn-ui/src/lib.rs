@@ -50,14 +50,22 @@ pub trait TextMetrics {
     fn get_glyphs(&self, text: &str, font: &str, font_size: f32) -> Vec<vn_scene::GlyphData>;
 }
 
-pub trait TextFieldCallbacks {
-    fn text_layout_changed(&mut self, layout: &text::layout::TextLayout);
-}
-
 pub struct StateToParamsArgs<'a, State> {
     pub state: &'a State,
     pub id: ElementId,
     pub ctx: &'a UiContext,
+}
+
+#[derive(Clone, Debug)]
+pub enum TextFieldAction {
+    TextChange(String),
+    CaretMove(usize),
+}
+
+#[derive(Clone, Debug)]
+pub enum ScrollAreaAction {
+    ScrollX(f32),
+    ScrollY(f32),
 }
 
 pub type StateToParams<State, Params> = Box<dyn Fn(StateToParamsArgs<State>) -> Params>;

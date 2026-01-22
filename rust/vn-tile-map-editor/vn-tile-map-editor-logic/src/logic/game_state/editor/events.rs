@@ -12,4 +12,17 @@ pub enum EditorEvent {
     SelectTileset(String),
     LoadTilesetFromInput,
     ScrollTileset(f32),
+    ScrollAction {
+        id: vn_ui::ElementId,
+        action: vn_ui::ScrollAreaAction,
+    },
+    UpdateTilesetPath(String),
+    UpdateTileWidth(String),
+    UpdateTileHeight(String),
+    UpdateTilesetCols(String),
+    UpdateTilesetRows(String),
+    TextFieldAction {
+        id: vn_ui::ElementId,
+        action: vn_ui::TextFieldAction,
+    },
 }

@@ -4,20 +4,24 @@ use crate::{
 };
 use vn_scene::{Rect, Scene};
 
-pub struct ExtendedHitbox<State> {
+pub struct ExtendedHitbox<State, Message> {
     id: ElementId,
-    element: Box<dyn Element<State = State>>,
+    element: Box<dyn Element<State = State, Message = Message>>,
 }
 
-impl<State> ExtendedHitbox<State> {
-    pub fn new(element: Box<dyn Element<State = State>>, world: &mut ElementWorld) -> Self {
+impl<State, Message> ExtendedHitbox<State, Message> {
+    pub fn new(
+        element: Box<dyn Element<State = State, Message = Message>>,
+        world: &mut ElementWorld,
+    ) -> Self {
         let ui_id = world.next_id();
         Self { id: ui_id, element }
     }
 }
 
-impl<State> ElementImpl for ExtendedHitbox<State> {
+impl<State, Message> ElementImpl for ExtendedHitbox<State, Message> {
     type State = State;
+    type Message = Message;
 
     fn id_impl(&self) -> ElementId {
         self.id
@@ -53,5 +57,14 @@ impl<State> ElementImpl for ExtendedHitbox<State> {
                 self.element.draw(ctx, state, origin, size, canvas);
             },
         );
+    }
+
+    fn handle_event_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        event: &crate::InteractionEvent,
+    ) -> Vec<Self::Message> {
+        self.element.handle_event(ctx, state, event)
     }
 }

@@ -1,13 +1,11 @@
 use crate::text::layout::TextLayout;
 use crate::utils::ToArray;
 use crate::{
-    DynamicDimension, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionState, SizeConstraints,
-    StateToParams, TextFieldCallbacks, TextMetrics, UiContext,
+    DynamicDimension, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionState,
+    Interpolatable, SizeConstraints, StateToParams, TextFieldAction, TextMetrics, UiContext,
 };
-use std::cell::RefCell;
 use std::rc::Rc;
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, TextPrimitiveData, Transform};
-use vn_ui_animation_macros::Interpolatable;
 use web_time::Instant;
 
 #[derive(Clone, PartialEq, Interpolatable)]
@@ -26,209 +24,28 @@ pub struct TextVisuals {
     pub caret_blink_duration: Option<f32>,
 }
 
-#[derive(Clone, Interpolatable)]
-pub struct TextFieldParams {
+#[derive(Clone)]
+pub struct TextFieldParams<Message: Clone> {
     pub visuals: TextVisuals,
-    #[interpolate_snappy = "snap_middle"]
-    pub controller: Rc<RefCell<dyn TextFieldCallbacks>>,
-    #[interpolate_snappy = "snap_middle"]
     pub metrics: Rc<dyn TextMetrics>,
     pub interaction: InteractionState,
+    pub on_action: Option<fn(ElementId, TextFieldAction) -> Message>,
 }
 
-pub struct DynamicString(pub Box<dyn Fn() -> String>);
-
-pub enum TextFieldText {
-    Static(String),
-    Dynamic(DynamicString),
-}
-
-pub struct StaticTextFieldController;
-
-impl StaticTextFieldController {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
-impl TextFieldCallbacks for StaticTextFieldController {
-    fn text_layout_changed(&mut self, _: &TextLayout) {}
-}
-
-pub struct DynamicTextFieldController {
-    text_layout: Option<TextLayout>,
-    f: Box<dyn Fn() -> String>,
-}
-
-impl DynamicTextFieldController {
-    pub fn new(f: Box<dyn Fn() -> String>) -> Self {
+impl<Message: Clone> Interpolatable for TextFieldParams<Message> {
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
         Self {
-            f,
-            text_layout: None,
-        }
-    }
-
-    pub fn text(&self) -> String {
-        (self.f)()
-    }
-
-    pub fn current_layout(&self) -> Option<&TextLayout> {
-        self.text_layout.as_ref()
-    }
-}
-
-impl TextFieldCallbacks for DynamicTextFieldController {
-    fn text_layout_changed(&mut self, layout: &TextLayout) {
-        self.text_layout = Some(layout.clone());
-    }
-}
-
-pub struct InputTextFieldController {
-    pub id: ElementId,
-    pub text: String,
-    pub caret: usize,
-    pub intended_x: f32,
-    pub last_move_was_vertical: bool,
-    text_layout: Option<TextLayout>,
-}
-
-impl InputTextFieldController {
-    pub fn new(id: ElementId) -> Self {
-        Self {
-            id,
-            text: "".to_string(),
-            caret: 0,
-            intended_x: 0.0,
-            last_move_was_vertical: false,
-            text_layout: None,
-        }
-    }
-
-    pub fn current_layout(&self) -> Option<&TextLayout> {
-        self.text_layout.as_ref()
-    }
-}
-
-impl TextFieldCallbacks for InputTextFieldController {
-    fn text_layout_changed(&mut self, layout: &TextLayout) {
-        self.text_layout = Some(layout.clone());
-    }
-}
-
-pub trait InputTextFieldControllerExt {
-    fn handle_key(&mut self, key_event: &winit::event::KeyEvent);
-    fn handle_click(&mut self, x: f32, y: f32);
-}
-
-impl InputTextFieldControllerExt for InputTextFieldController {
-    fn handle_key(&mut self, key_event: &winit::event::KeyEvent) {
-        if key_event.state.is_pressed() {
-            use vn_utils::string::{InsertAtCharIndex, RemoveAtCharIndex};
-            use winit::keyboard::{Key, NamedKey};
-
-            if !self.last_move_was_vertical {
-                if let Some(layout) = &self.text_layout {
-                    self.intended_x = layout.get_caret_x(self.caret);
-                }
-            }
-
-            match &key_event.logical_key {
-                Key::Character(s) => {
-                    self.text.insert_str_at_char_index(self.caret, s);
-                    self.caret += s.chars().count();
-                    if let Some(layout) = &self.text_layout {
-                        self.intended_x = layout.get_caret_x(self.caret);
-                    }
-                    self.last_move_was_vertical = false;
-                }
-                Key::Named(NamedKey::Space) => {
-                    self.text.insert_at_char_index(self.caret, ' ');
-                    self.caret += 1;
-                    if let Some(layout) = &self.text_layout {
-                        self.intended_x = layout.get_caret_x(self.caret);
-                    }
-                    self.last_move_was_vertical = false;
-                }
-                Key::Named(NamedKey::Backspace) => {
-                    if self.caret > 0 && self.caret <= self.text.len() {
-                        self.caret -= 1;
-                        self.text.remove_at_char_index(self.caret);
-                        if let Some(layout) = &self.text_layout {
-                            self.intended_x = layout.get_caret_x(self.caret);
-                        }
-                    }
-                    self.last_move_was_vertical = false;
-                }
-                Key::Named(NamedKey::Delete) => {
-                    if self.caret < self.text.len() {
-                        self.text.remove_at_char_index(self.caret);
-                        if let Some(layout) = &self.text_layout {
-                            self.intended_x = layout.get_caret_x(self.caret);
-                        }
-                    }
-                    self.last_move_was_vertical = false;
-                }
-                Key::Named(NamedKey::ArrowLeft) => {
-                    if self.caret > 0 {
-                        self.caret -= 1;
-                        if let Some(layout) = &self.text_layout {
-                            self.intended_x = layout.get_caret_x(self.caret);
-                        }
-                    }
-                    self.last_move_was_vertical = false;
-                }
-                Key::Named(NamedKey::ArrowRight) => {
-                    if self.caret < self.text.len() {
-                        self.caret += 1;
-                        if let Some(layout) = &self.text_layout {
-                            self.intended_x = layout.get_caret_x(self.caret);
-                        }
-                    }
-                    self.last_move_was_vertical = false;
-                }
-                Key::Named(NamedKey::ArrowUp) => {
-                    if let Some(layout) = &self.text_layout {
-                        self.caret = layout.get_vertical_move(self.caret, -1, self.intended_x);
-                    }
-                    self.last_move_was_vertical = true;
-                }
-                Key::Named(NamedKey::ArrowDown) => {
-                    if let Some(layout) = &self.text_layout {
-                        self.caret = layout.get_vertical_move(self.caret, 1, self.intended_x);
-                    }
-                    self.last_move_was_vertical = true;
-                }
-                Key::Named(NamedKey::Enter) => {
-                    self.text.insert_at_char_index(self.caret, '\n');
-                    self.caret += 1;
-                    if let Some(layout) = &self.text_layout {
-                        self.intended_x = layout.get_caret_x(self.caret);
-                    }
-                    self.last_move_was_vertical = false;
-                }
-                _ => {}
-            }
-        }
-    }
-
-    fn handle_click(&mut self, x: f32, y: f32) {
-        let c_pos = self
-            .current_layout()
-            .and_then(|layout: &TextLayout| layout.hit_test(x, y));
-
-        if let Some(c_pos) = c_pos {
-            self.caret = c_pos;
-            if let Some(layout) = self.current_layout() {
-                self.intended_x = layout.get_caret_x(self.caret);
-            }
-            self.last_move_was_vertical = false;
+            visuals: self.visuals.interpolate(&other.visuals, t),
+            metrics: other.metrics.clone(),
+            interaction: other.interaction.clone(),
+            on_action: other.on_action.clone(),
         }
     }
 }
 
-pub struct TextField<State> {
+pub struct TextField<State, Message: Clone> {
     id: ElementId,
-    params: StateToParams<State, TextFieldParams>,
+    params: StateToParams<State, TextFieldParams<Message>>,
     visuals: Option<TextVisuals>,
     layout: Option<TextLayout>,
     size: ElementSize,
@@ -236,10 +53,14 @@ pub struct TextField<State> {
     show_caret: bool,
     line_height: f32,
     last_max_width: Option<f32>,
+    _phantom: std::marker::PhantomData<Message>,
 }
 
-impl<State> TextField<State> {
-    pub fn new(params: StateToParams<State, TextFieldParams>, world: &mut ElementWorld) -> Self {
+impl<State, Message: Clone> TextField<State, Message> {
+    pub fn new(
+        params: StateToParams<State, TextFieldParams<Message>>,
+        world: &mut ElementWorld,
+    ) -> Self {
         Self {
             id: world.next_id(),
             line_height: 0.0,
@@ -250,10 +71,16 @@ impl<State> TextField<State> {
             gained_focus_at: None,
             size: ElementSize::ZERO,
             last_max_width: None,
+            _phantom: std::marker::PhantomData,
         }
     }
 
-    pub fn update_state(&mut self, state: &State, max_width: DynamicDimension, ctx: &UiContext) -> bool {
+    pub fn update_state(
+        &mut self,
+        state: &State,
+        max_width: DynamicDimension,
+        ctx: &UiContext,
+    ) -> bool {
         let params = (self.params)(crate::StateToParamsArgs {
             state,
             id: self.id,
@@ -283,7 +110,6 @@ impl<State> TextField<State> {
                 max_width.map(|w| w - caret_space).to_option(),
                 params.metrics.as_ref(),
             );
-            params.controller.borrow_mut().text_layout_changed(&layout);
 
             self.size = ElementSize {
                 width: layout.total_width + caret_space,
@@ -296,8 +122,9 @@ impl<State> TextField<State> {
     }
 }
 
-impl<State> ElementImpl for TextField<State> {
+impl<State, Message: Clone> ElementImpl for TextField<State, Message> {
     type State = State;
+    type Message = Message;
 
     fn id_impl(&self) -> ElementId {
         self.id
@@ -334,8 +161,8 @@ impl<State> ElementImpl for TextField<State> {
                 self.show_caret = true;
             }
             (true, Some(start_at)) => {
-                self.show_caret = start_at.elapsed().as_secs_f32() % caret_blink_duration
-                    < caret_blink_duration / 2.0;
+                let elapsed = start_at.elapsed().as_secs_f32();
+                self.show_caret = elapsed % caret_blink_duration < caret_blink_duration / 2.0;
             }
         }
 
@@ -434,5 +261,140 @@ impl<State> ElementImpl for TextField<State> {
                 }
             },
         );
+    }
+
+    fn handle_event_impl(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        event: &crate::InteractionEvent,
+    ) -> Vec<Self::Message> {
+        let params = (self.params)(crate::StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
+
+        let mut messages = Vec::new();
+
+        if event.target != Some(self.id) {
+            return messages;
+        }
+
+        let on_action = match params.on_action {
+            Some(oa) => oa,
+            None => return messages,
+        };
+
+        match &event.kind {
+            crate::InteractionEventKind::Click { x, y, .. } => {
+                if let Some(layout) = &self.layout {
+                    if let Some(c_pos) = layout.hit_test(*x, *y) {
+                        messages.push(on_action(self.id, TextFieldAction::CaretMove(c_pos)));
+                    }
+                }
+            }
+            crate::InteractionEventKind::Keyboard(key_event) => {
+                if key_event.state.is_pressed() {
+                    use vn_utils::string::{InsertAtCharIndex, RemoveAtCharIndex};
+                    use winit::keyboard::{Key, NamedKey};
+
+                    let current_text = &params.visuals.text;
+                    let caret = params.visuals.caret_position.unwrap_or(0);
+
+                    match &key_event.logical_key {
+                        Key::Character(s) => {
+                            let mut new_text = current_text.clone();
+                            new_text.insert_str_at_char_index(caret, s);
+                            messages
+                                .push(on_action(self.id, TextFieldAction::TextChange(new_text)));
+                            messages.push(on_action(
+                                self.id,
+                                TextFieldAction::CaretMove(caret + s.chars().count()),
+                            ));
+                        }
+                        Key::Named(NamedKey::Space) => {
+                            let mut new_text = current_text.clone();
+                            new_text.insert_at_char_index(caret, ' ');
+                            messages
+                                .push(on_action(self.id, TextFieldAction::TextChange(new_text)));
+                            messages
+                                .push(on_action(self.id, TextFieldAction::CaretMove(caret + 1)));
+                        }
+                        Key::Named(NamedKey::Backspace) => {
+                            if caret > 0 && caret <= current_text.chars().count() {
+                                let mut new_text = current_text.clone();
+                                new_text.remove_at_char_index(caret - 1);
+                                messages.push(on_action(
+                                    self.id,
+                                    TextFieldAction::TextChange(new_text),
+                                ));
+                                messages.push(on_action(
+                                    self.id,
+                                    TextFieldAction::CaretMove(caret - 1),
+                                ));
+                            }
+                        }
+                        Key::Named(NamedKey::Delete) => {
+                            if caret < current_text.chars().count() {
+                                let mut new_text = current_text.clone();
+                                new_text.remove_at_char_index(caret);
+                                messages.push(on_action(
+                                    self.id,
+                                    TextFieldAction::TextChange(new_text),
+                                ));
+                            }
+                        }
+                        Key::Named(NamedKey::ArrowLeft) => {
+                            if caret > 0 {
+                                messages.push(on_action(
+                                    self.id,
+                                    TextFieldAction::CaretMove(caret - 1),
+                                ));
+                            }
+                        }
+                        Key::Named(NamedKey::ArrowRight) => {
+                            if caret < current_text.chars().count() {
+                                messages.push(on_action(
+                                    self.id,
+                                    TextFieldAction::CaretMove(caret + 1),
+                                ));
+                            }
+                        }
+                        Key::Named(NamedKey::ArrowUp) => {
+                            if let Some(layout) = &self.layout {
+                                let intended_x = layout.get_caret_x(caret);
+                                let new_caret = layout.get_vertical_move(caret, -1, intended_x);
+                                messages.push(on_action(
+                                    self.id,
+                                    TextFieldAction::CaretMove(new_caret),
+                                ));
+                            }
+                        }
+                        Key::Named(NamedKey::ArrowDown) => {
+                            if let Some(layout) = &self.layout {
+                                let intended_x = layout.get_caret_x(caret);
+                                let new_caret = layout.get_vertical_move(caret, 1, intended_x);
+                                messages.push(on_action(
+                                    self.id,
+                                    TextFieldAction::CaretMove(new_caret),
+                                ));
+                            }
+                        }
+                        Key::Named(NamedKey::Enter) => {
+                            let mut new_text = current_text.clone();
+                            new_text.insert_at_char_index(caret, '\n');
+                            messages
+                                .push(on_action(self.id, TextFieldAction::TextChange(new_text)));
+                            messages
+                                .push(on_action(self.id, TextFieldAction::CaretMove(caret + 1)));
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            _ => {}
+        }
+        messages
     }
 }

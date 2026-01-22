@@ -3,7 +3,7 @@ mod grid;
 mod ui;
 
 pub use events::EditorEvent;
-pub use grid::{Grid, TilesetGrid};
+pub use grid::{Grid};
 
 use crate::logic::game_state::GameStateEx;
 use crate::logic::{PlatformHooks, TextMetric};
@@ -17,8 +17,8 @@ use vn_tilemap::{
 use vn_ui::InteractionEventKind::MouseScroll;
 use vn_ui::{
     DynamicDimension, DynamicSize, Element, ElementId, ElementSize, ElementWorld, EventManager,
-    InputTextFieldController, InputTextFieldControllerExt, InteractionEventKind,
-    ScrollAreaCallbacks, SimpleLayoutCache, SimpleScrollAreaCallbacks, SizeConstraints, Stack,
+    InteractionEventKind,
+    SimpleLayoutCache, SizeConstraints, Stack,
     UiContext,
 };
 use vn_wgpu_window::resource_manager::{ResourceManager, Sampling};
@@ -27,7 +27,7 @@ use web_time::Instant;
 use winit::event::{ElementState, KeyEvent, MouseButton};
 
 pub struct Editor {
-    ui: RefCell<Box<dyn Element<State = Editor>>>,
+    ui: RefCell<Box<dyn Element<State = Editor, Message = EditorEvent>>>,
     event_manager: Rc<RefCell<EventManager>>,
     map_spec: TileMapSpecification,
     selected_layer_index: usize,
@@ -36,18 +36,24 @@ pub struct Editor {
     resource_manager: Rc<ResourceManager>,
     platform: Rc<Box<dyn PlatformHooks>>,
     loaded_tilesets: HashMap<String, TextureId>,
-    tileset_path_controller: Rc<RefCell<InputTextFieldController>>,
-    tile_width_controller: Rc<RefCell<InputTextFieldController>>,
-    tile_height_controller: Rc<RefCell<InputTextFieldController>>,
-    tileset_cols_controller: Rc<RefCell<InputTextFieldController>>,
-    tileset_rows_controller: Rc<RefCell<InputTextFieldController>>,
+    tileset_path: String,
+    tileset_path_caret: usize,
+    tile_width_text: String,
+    tile_width_caret: usize,
+    tile_height_text: String,
+    tile_height_caret: usize,
+    tileset_cols_text: String,
+    tileset_cols_caret: usize,
+    tileset_rows_text: String,
+    tileset_rows_caret: usize,
     tileset_path_input_id: ElementId,
     tile_width_input_id: ElementId,
     tile_height_input_id: ElementId,
     tileset_cols_input_id: ElementId,
     tileset_rows_input_id: ElementId,
     tileset_preview_scroll_area_id: ElementId,
-    pub tileset_scroll_controller: Rc<RefCell<SimpleScrollAreaCallbacks>>,
+    tileset_scroll_y: f32,
+    tileset_scroll_x: f32,
 }
 
 impl Editor {
@@ -58,30 +64,10 @@ impl Editor {
     ) -> anyhow::Result<Self> {
         let mut world = ElementWorld::new();
         let tileset_path_input_id = world.next_id();
-        let tileset_path_controller = Rc::new(RefCell::new(InputTextFieldController::new(
-            tileset_path_input_id,
-        )));
-        tileset_path_controller.borrow_mut().text = "[Base]BaseChip_pipo.png".to_string();
-
         let tile_width_input_id = world.next_id();
-        let tile_width_controller = Rc::new(RefCell::new(InputTextFieldController::new(
-            tile_width_input_id,
-        )));
-
         let tile_height_input_id = world.next_id();
-        let tile_height_controller = Rc::new(RefCell::new(InputTextFieldController::new(
-            tile_height_input_id,
-        )));
-
         let tileset_cols_input_id = world.next_id();
-        let tileset_cols_controller = Rc::new(RefCell::new(InputTextFieldController::new(
-            tileset_cols_input_id,
-        )));
-
         let tileset_rows_input_id = world.next_id();
-        let tileset_rows_controller = Rc::new(RefCell::new(InputTextFieldController::new(
-            tileset_rows_input_id,
-        )));
 
         let mut editor = Self {
             ui: RefCell::new(Box::new(Stack::new(vec![], &mut world))),
@@ -97,18 +83,24 @@ impl Editor {
             resource_manager: rm,
             platform,
             loaded_tilesets: HashMap::new(),
-            tileset_path_controller,
-            tile_width_controller,
-            tile_height_controller,
-            tileset_cols_controller,
-            tileset_rows_controller,
+            tileset_path: "[Base]BaseChip_pipo.png".to_string(),
+            tileset_path_caret: 0,
+            tile_width_text: "".to_string(),
+            tile_width_caret: 0,
+            tile_height_text: "".to_string(),
+            tile_height_caret: 0,
+            tileset_cols_text: "".to_string(),
+            tileset_cols_caret: 0,
+            tileset_rows_text: "".to_string(),
+            tileset_rows_caret: 0,
             tileset_path_input_id,
             tile_width_input_id,
             tile_height_input_id,
             tileset_cols_input_id,
             tileset_rows_input_id,
             tileset_preview_scroll_area_id: ElementId(0),
-            tileset_scroll_controller: Rc::new(RefCell::new(SimpleScrollAreaCallbacks::new())),
+            tileset_scroll_y: 0.0,
+            tileset_scroll_x: 0.0,
         };
 
         editor.rebuild_ui();
@@ -117,6 +109,8 @@ impl Editor {
     }
 
     fn rebuild_ui(&mut self) {
+        let old_focused = self.event_manager.borrow().focused_element();
+
         let mut world = ElementWorld::new();
         self.button_events.borrow_mut().clear();
         let metrics = Rc::new(TextMetric {
@@ -125,6 +119,20 @@ impl Editor {
         });
 
         let editor_ui = ui::build_editor_ui(self, &mut world, metrics);
+
+        let mut new_focused = None;
+        if old_focused == Some(self.tileset_path_input_id) {
+            new_focused = Some(editor_ui.tileset_path_input_id);
+        } else if old_focused == Some(self.tile_width_input_id) {
+            new_focused = Some(editor_ui.tile_width_input_id);
+        } else if old_focused == Some(self.tile_height_input_id) {
+            new_focused = Some(editor_ui.tile_height_input_id);
+        } else if old_focused == Some(self.tileset_cols_input_id) {
+            new_focused = Some(editor_ui.tileset_cols_input_id);
+        } else if old_focused == Some(self.tileset_rows_input_id) {
+            new_focused = Some(editor_ui.tileset_rows_input_id);
+        }
+
         self.tileset_path_input_id = editor_ui.tileset_path_input_id;
         self.tile_width_input_id = editor_ui.tile_width_input_id;
         self.tile_height_input_id = editor_ui.tile_height_input_id;
@@ -132,23 +140,32 @@ impl Editor {
         self.tileset_rows_input_id = editor_ui.tileset_rows_input_id;
         self.tileset_preview_scroll_area_id = editor_ui.tileset_preview_scroll_area_id;
 
+        if let Some(f) = new_focused {
+            self.event_manager.borrow_mut().set_focused_element(Some(f));
+        }
+
         if let Some(layer) = self.map_spec.layers.get(self.selected_layer_index) {
-            self.tile_width_controller.borrow_mut().text = layer.tile_dimensions.0.to_string();
-            self.tile_height_controller.borrow_mut().text = layer.tile_dimensions.1.to_string();
-            self.tileset_cols_controller.borrow_mut().text =
-                layer.tile_set_dimensions.0.to_string();
-            self.tileset_rows_controller.borrow_mut().text =
-                layer.tile_set_dimensions.1.to_string();
+            self.tile_width_text = layer.tile_dimensions.0.to_string();
+            self.tile_height_text = layer.tile_dimensions.1.to_string();
+            self.tileset_cols_text = layer.tile_set_dimensions.0.to_string();
+            self.tileset_rows_text = layer.tile_set_dimensions.1.to_string();
         }
 
         *self.ui.borrow_mut() = editor_ui.root;
     }
 
-    fn handle_event(&mut self, event: EditorEvent) -> Option<EditorEvent> {
-        match event.clone() {
+    fn handle_event(&mut self, event: EditorEvent) {
+        match event {
             EditorEvent::ScrollTileset(delta_y) => {
-                let mut borrow = self.tileset_scroll_controller.borrow_mut();
-                borrow.scroll_y = borrow.scroll_y() - delta_y;
+                self.tileset_scroll_y -= delta_y;
+            }
+            EditorEvent::ScrollAction { id, action } => {
+                if id == self.tileset_preview_scroll_area_id {
+                    match action {
+                        vn_ui::ScrollAreaAction::ScrollX(x) => self.tileset_scroll_x = x,
+                        vn_ui::ScrollAreaAction::ScrollY(y) => self.tileset_scroll_y = y,
+                    }
+                }
             }
             EditorEvent::AddLayer => {
                 let (w, h) = self.map_spec.map_dimensions;
@@ -260,13 +277,121 @@ impl Editor {
                 self.rebuild_ui();
             }
             EditorEvent::LoadTilesetFromInput => {
-                let path = self.tileset_path_controller.borrow().text.clone();
+                let path = self.tileset_path.clone();
                 if !path.is_empty() {
-                    self.handle_event(EditorEvent::SelectTileset(path));
+                    let ev = EditorEvent::SelectTileset(path);
+                    self.handle_event(ev);
+                }
+            }
+            EditorEvent::UpdateTilesetPath(text) => {
+                self.tileset_path = text;
+            }
+            EditorEvent::UpdateTileWidth(text) => {
+                let val = {
+                    self.tile_width_text = text;
+                    self.tile_width_text.parse::<u32>().ok()
+                };
+                if let Some(val) = val {
+                    let old_val = self.map_spec.layers.get(self.selected_layer_index).map(|l| l.tile_dimensions.0);
+                    if let Some(old_val) = old_val {
+                        if val != old_val {
+                            let h = self.map_spec.layers[self.selected_layer_index].tile_dimensions.1;
+                            let ev = EditorEvent::ChangeTileDimensions(val, h);
+                            self.handle_event(ev);
+                        }
+                    }
+                }
+            }
+            EditorEvent::UpdateTileHeight(text) => {
+                let val = {
+                    self.tile_height_text = text;
+                    self.tile_height_text.parse::<u32>().ok()
+                };
+                if let Some(val) = val {
+                    let old_val = self.map_spec.layers.get(self.selected_layer_index).map(|l| l.tile_dimensions.1);
+                    if let Some(old_val) = old_val {
+                        if val != old_val {
+                            let w = self.map_spec.layers[self.selected_layer_index].tile_dimensions.0;
+                            let ev = EditorEvent::ChangeTileDimensions(w, val);
+                            self.handle_event(ev);
+                        }
+                    }
+                }
+            }
+            EditorEvent::UpdateTilesetCols(text) => {
+                let val = {
+                    self.tileset_cols_text = text;
+                    self.tileset_cols_text.parse::<u32>().ok()
+                };
+                if let Some(val) = val {
+                    let old_val = self.map_spec.layers.get(self.selected_layer_index).map(|l| l.tile_set_dimensions.0);
+                    if let Some(old_val) = old_val {
+                        if val != old_val {
+                            let h = self.map_spec.layers[self.selected_layer_index].tile_set_dimensions.1;
+                            let ev = EditorEvent::ChangeTileSetDimensions(val, h);
+                            self.handle_event(ev);
+                        }
+                    }
+                }
+            }
+            EditorEvent::UpdateTilesetRows(text) => {
+                let val = {
+                    self.tileset_rows_text = text;
+                    self.tileset_rows_text.parse::<u32>().ok()
+                };
+                if let Some(val) = val {
+                    let old_val = self.map_spec.layers.get(self.selected_layer_index).map(|l| l.tile_set_dimensions.1);
+                    if let Some(old_val) = old_val {
+                        if val != old_val {
+                            let w = self.map_spec.layers[self.selected_layer_index].tile_set_dimensions.0;
+                            let ev = EditorEvent::ChangeTileSetDimensions(w, val);
+                            self.handle_event(ev);
+                        }
+                    }
+                }
+            }
+            EditorEvent::TextFieldAction { id, action } => {
+                use vn_ui::TextFieldAction::*;
+                if id == self.tileset_path_input_id {
+                    match action {
+                        TextChange(text) => self.tileset_path = text,
+                        CaretMove(caret) => self.tileset_path_caret = caret,
+                    }
+                } else if id == self.tile_width_input_id {
+                    match action {
+                        TextChange(text) => {
+                            self.tile_width_text = text.clone();
+                            self.handle_event(EditorEvent::UpdateTileWidth(text));
+                        }
+                        CaretMove(caret) => self.tile_width_caret = caret,
+                    }
+                } else if id == self.tile_height_input_id {
+                    match action {
+                        TextChange(text) => {
+                            self.tile_height_text = text.clone();
+                            self.handle_event(EditorEvent::UpdateTileHeight(text));
+                        }
+                        CaretMove(caret) => self.tile_height_caret = caret,
+                    }
+                } else if id == self.tileset_cols_input_id {
+                    match action {
+                        TextChange(text) => {
+                            self.tileset_cols_text = text.clone();
+                            self.handle_event(EditorEvent::UpdateTilesetCols(text));
+                        }
+                        CaretMove(caret) => self.tileset_cols_caret = caret,
+                    }
+                } else if id == self.tileset_rows_input_id {
+                    match action {
+                        TextChange(text) => {
+                            self.tileset_rows_text = text.clone();
+                            self.handle_event(EditorEvent::UpdateTilesetRows(text));
+                        }
+                        CaretMove(caret) => self.tileset_rows_caret = caret,
+                    }
                 }
             }
         }
-        Some(event)
     }
 }
 
@@ -275,198 +400,24 @@ impl GameStateEx for Editor {
 
     fn process_events(&mut self) -> Option<Self::Event> {
         let events = self.event_manager.borrow_mut().process_events();
-        let mut editor_event = None;
-        for event in events.clone() {
-            // only scroll if we are hovering the preview
-            match &event.kind {
-                MouseScroll { y } => {
-                    if self.event_manager.borrow().is_hovered(self.tileset_preview_scroll_area_id) {
-                        self.handle_event(EditorEvent::ScrollTileset(*y));
-                    }
-                }
-                _ => {}
-            }
 
-            if let Some(target) = event.target {
+        let mut ctx = UiContext {
+            event_manager: self.event_manager.clone(),
+            parent_id: None,
+            layout_cache: Box::new(SimpleLayoutCache::new()),
+            interactive: true,
+            clip_rect: vn_scene::Rect::NO_CLIP,
+            now: Instant::now(),
+        };
 
-                if target == self.tileset_path_input_id {
-                    match &event.kind {
-                        InteractionEventKind::Keyboard(key_event) => {
-                            self.tileset_path_controller
-                                .borrow_mut()
-                                .handle_key(key_event);
-                        }
-                        InteractionEventKind::Click { x, y, .. } => {
-                            self.tileset_path_controller
-                                .borrow_mut()
-                                .handle_click(*x, *y);
-                        }
-                        _ => {}
-                    }
-                } else if target == self.tile_width_input_id {
-                    match &event.kind {
-                        InteractionEventKind::Keyboard(key_event) => {
-                            let (val, changed) = {
-                                let mut controller = self.tile_width_controller.borrow_mut();
-                                controller.handle_key(key_event);
-                                let val = controller.text.parse::<u32>().ok();
-                                let changed = if let (Some(val), Some(layer)) =
-                                    (val, self.map_spec.layers.get(self.selected_layer_index))
-                                {
-                                    val != layer.tile_dimensions.0
-                                } else {
-                                    false
-                                };
-                                (val, changed)
-                            };
-
-                            if changed {
-                                if let (Some(val), Some(layer)) =
-                                    (val, self.map_spec.layers.get(self.selected_layer_index))
-                                {
-                                    editor_event =
-                                        self.handle_event(EditorEvent::ChangeTileDimensions(
-                                            val,
-                                            layer.tile_dimensions.1,
-                                        ));
-                                }
-                            }
-                        }
-                        InteractionEventKind::Click { x, y, .. } => {
-                            self.tile_width_controller.borrow_mut().handle_click(*x, *y);
-                        }
-                        _ => {}
-                    }
-                } else if target == self.tile_height_input_id {
-                    match &event.kind {
-                        InteractionEventKind::Keyboard(key_event) => {
-                            let (val, changed) = {
-                                let mut controller = self.tile_height_controller.borrow_mut();
-                                controller.handle_key(key_event);
-                                let val = controller.text.parse::<u32>().ok();
-                                let changed = if let (Some(val), Some(layer)) =
-                                    (val, self.map_spec.layers.get(self.selected_layer_index))
-                                {
-                                    val != layer.tile_dimensions.1
-                                } else {
-                                    false
-                                };
-                                (val, changed)
-                            };
-
-                            if changed {
-                                if let (Some(val), Some(layer)) =
-                                    (val, self.map_spec.layers.get(self.selected_layer_index))
-                                {
-                                    editor_event =
-                                        self.handle_event(EditorEvent::ChangeTileDimensions(
-                                            layer.tile_dimensions.0,
-                                            val,
-                                        ));
-                                }
-                            }
-                        }
-                        InteractionEventKind::Click { x, y, .. } => {
-                            self.tile_height_controller
-                                .borrow_mut()
-                                .handle_click(*x, *y);
-                        }
-                        _ => {}
-                    }
-                } else if target == self.tileset_cols_input_id {
-                    match &event.kind {
-                        InteractionEventKind::Keyboard(key_event) => {
-                            let (val, changed) = {
-                                let mut controller = self.tileset_cols_controller.borrow_mut();
-                                controller.handle_key(key_event);
-                                let val = controller.text.parse::<u32>().ok();
-                                let changed = if let (Some(val), Some(layer)) =
-                                    (val, self.map_spec.layers.get(self.selected_layer_index))
-                                {
-                                    val != layer.tile_set_dimensions.0
-                                } else {
-                                    false
-                                };
-                                (val, changed)
-                            };
-
-                            if changed {
-                                if let (Some(val), Some(layer)) =
-                                    (val, self.map_spec.layers.get(self.selected_layer_index))
-                                {
-                                    editor_event =
-                                        self.handle_event(EditorEvent::ChangeTileSetDimensions(
-                                            val,
-                                            layer.tile_set_dimensions.1,
-                                        ));
-                                }
-                            }
-                        }
-                        InteractionEventKind::Click { x, y, .. } => {
-                            self.tileset_cols_controller
-                                .borrow_mut()
-                                .handle_click(*x, *y);
-                        }
-                        _ => {}
-                    }
-                } else if target == self.tileset_rows_input_id {
-                    match &event.kind {
-                        InteractionEventKind::Keyboard(key_event) => {
-                            let (val, changed) = {
-                                let mut controller = self.tileset_rows_controller.borrow_mut();
-                                controller.handle_key(key_event);
-                                let val = controller.text.parse::<u32>().ok();
-                                let changed = if let (Some(val), Some(layer)) =
-                                    (val, self.map_spec.layers.get(self.selected_layer_index))
-                                {
-                                    val != layer.tile_set_dimensions.1
-                                } else {
-                                    false
-                                };
-                                (val, changed)
-                            };
-
-                            if changed {
-                                if let (Some(val), Some(layer)) =
-                                    (val, self.map_spec.layers.get(self.selected_layer_index))
-                                {
-                                    editor_event =
-                                        self.handle_event(EditorEvent::ChangeTileSetDimensions(
-                                            layer.tile_set_dimensions.0,
-                                            val,
-                                        ));
-                                }
-                            }
-                        }
-                        InteractionEventKind::Click { x, y, .. } => {
-                            self.tileset_rows_controller
-                                .borrow_mut()
-                                .handle_click(*x, *y);
-                        }
-                        _ => {}
-                    }
-                }
+        for event in &events {
+            let messages = self.ui.borrow_mut().handle_event(&mut ctx, self, event);
+            for msg in messages {
+                self.handle_event(msg);
             }
         }
 
-        for event in events {
-            if let Some(target) = event.target {
-                let ev = self
-                    .button_events
-                    .borrow()
-                    .iter()
-                    .find(|(id, _)| *id == target)
-                    .map(|(_, ev)| ev.clone());
-
-                if let Some(ev) = ev {
-                    if let InteractionEventKind::Click { .. } = event.kind {
-                        editor_event = self.handle_event(ev);
-                        break;
-                    }
-                }
-            }
-        }
-        editor_event
+        None
     }
 
     fn render_target(&self, size: (f32, f32)) -> WgpuScene {
