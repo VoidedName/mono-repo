@@ -1,5 +1,5 @@
 use crate::{
-    Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, UiContext,
+    DynamicDimension, Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, UiContext,
 };
 
 use vn_scene::Scene;
@@ -34,20 +34,20 @@ impl<State> ElementImpl for Fill<State> {
         let child_size = self.element.layout(ctx, state, constraints);
 
         let height = match constraints.max_size.height {
-            Some(h) => h,
-            _ => child_size.height,
+            DynamicDimension::Limit(h) => h,
+            DynamicDimension::Hint(_) => child_size.height,
         };
 
         let width = match constraints.max_size.width {
-            Some(w) => w,
-            _ => child_size.width,
+            DynamicDimension::Limit(w) => w,
+            DynamicDimension::Hint(_) => child_size.width,
         };
 
         let mut desired_size = ElementSize { width, height }.clamp_to_constraints(constraints);
 
         if width > desired_size.width {
             let mut new_constraints = constraints;
-            new_constraints.max_size.width = Some(desired_size.width);
+            new_constraints.max_size.width = DynamicDimension::Limit(desired_size.width);
             let new_size = self.element.layout(ctx, state, new_constraints);
             desired_size = new_size.clamp_to_constraints(constraints);
         }

@@ -6,6 +6,9 @@ edition = "2024"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+debug_outlines = ["vn-ui/debug_outlines"]
+
 [dependencies]
 vn-tilemap = { path = "../../vn-tilemap" }
 vn-scene = { path = "../../vn-scene" }

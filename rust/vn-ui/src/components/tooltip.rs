@@ -1,7 +1,7 @@
 use crate::components::ExtendedHitbox;
 use crate::utils::ToArray;
 use crate::{
-    DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionState,
+    DynamicDimension, DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionState,
     SizeConstraints, StateToParams, UiContext,
 };
 use vn_scene::{Rect, Scene};
@@ -101,8 +101,8 @@ impl<State: 'static> ElementImpl for ToolTip<State> {
                 SizeConstraints {
                     min_size: ElementSize::ZERO,
                     max_size: DynamicSize {
-                        width: Some(constraints.scene_size.0),
-                        height: Some(constraints.scene_size.1),
+                        width: DynamicDimension::Limit(constraints.scene_size.0),
+                        height: DynamicDimension::Limit(constraints.scene_size.1),
                     },
                     scene_size: constraints.scene_size,
                 },

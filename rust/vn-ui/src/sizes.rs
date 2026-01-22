@@ -62,33 +62,100 @@ impl ElementSize {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DynamicDimension {
+    Hint(f32),
+    Limit(f32),
+}
+
+impl DynamicDimension {
+    pub fn value(self) -> f32 {
+        match self {
+            DynamicDimension::Hint(v) => v,
+            DynamicDimension::Limit(v) => v,
+        }
+    }
+
+    pub fn unwrap_or(self, default: f32) -> f32 {
+        match self {
+            DynamicDimension::Hint(_) => default,
+            DynamicDimension::Limit(v) => v,
+        }
+    }
+
+    pub fn update<F: FnOnce(f32) -> f32>(&mut self, f: F) {
+        *self = match *self {
+            DynamicDimension::Hint(v) => DynamicDimension::Hint(f(v)),
+            DynamicDimension::Limit(v) => DynamicDimension::Limit(f(v)),
+        }
+    }
+
+    pub fn map<F: FnOnce(f32) -> f32>(self, f: F) -> Self {
+        match self {
+            DynamicDimension::Hint(v) => DynamicDimension::Hint(f(v)),
+            DynamicDimension::Limit(v) => DynamicDimension::Limit(f(v)),
+        }
+    }
+    
+    pub fn to_option(&self) -> Option<f32> {
+        match self {
+            DynamicDimension::Hint(v) => None,
+            DynamicDimension::Limit(v) => Some(*v),
+        }
+    }
+}
+
+impl From<f32> for DynamicDimension {
+    fn from(v: f32) -> Self {
+        DynamicDimension::Limit(v)
+    }
+}
+
 /// Sometimes we need to denote that an element in its layout does not have any constraint
-/// along some axis. This will be represented with a None in that axis.
+/// along some axis. This will be represented with a Hint in that axis.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DynamicSize {
-    pub width: Option<f32>,
-    pub height: Option<f32>,
+    pub width: DynamicDimension,
+    pub height: DynamicDimension,
 }
 
 impl DynamicSize {
     pub fn to_concrete(self) -> ElementSize {
         ElementSize {
-            width: self.width.unwrap_or(f32::INFINITY),
-            height: self.height.unwrap_or(f32::INFINITY),
+            width: match self.width {
+                DynamicDimension::Hint(_) => f32::INFINITY,
+                DynamicDimension::Limit(v) => v,
+            },
+            height: match self.height {
+                DynamicDimension::Hint(_) => f32::INFINITY,
+                DynamicDimension::Limit(v) => v,
+            },
         }
     }
 
     pub fn shrink_by(&self, size: ElementSize) -> Self {
         Self {
-            width: self.width.map(|width| width - size.width.min(width)),
-            height: self.height.map(|height| height - size.height.min(height)),
+            width: match self.width {
+                DynamicDimension::Hint(v) => DynamicDimension::Hint(v - size.width.min(v)),
+                DynamicDimension::Limit(v) => DynamicDimension::Limit(v - size.width.min(v)),
+            },
+            height: match self.height {
+                DynamicDimension::Hint(v) => DynamicDimension::Hint(v - size.height.min(v)),
+                DynamicDimension::Limit(v) => DynamicDimension::Limit(v - size.height.min(v)),
+            },
         }
     }
 
     pub fn grow_by(&self, size: ElementSize) -> Self {
         Self {
-            width: self.width.map(|width| width + size.width),
-            height: self.height.map(|height| height + size.height),
+            width: match self.width {
+                DynamicDimension::Hint(v) => DynamicDimension::Hint(v + size.width),
+                DynamicDimension::Limit(v) => DynamicDimension::Limit(v + size.width),
+            },
+            height: match self.height {
+                DynamicDimension::Hint(v) => DynamicDimension::Hint(v + size.height),
+                DynamicDimension::Limit(v) => DynamicDimension::Limit(v + size.height),
+            },
         }
     }
 }

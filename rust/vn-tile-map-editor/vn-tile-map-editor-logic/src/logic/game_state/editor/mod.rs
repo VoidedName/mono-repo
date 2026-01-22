@@ -16,7 +16,7 @@ use vn_tilemap::{
 };
 use vn_ui::InteractionEventKind::MouseScroll;
 use vn_ui::{
-    DynamicSize, Element, ElementId, ElementSize, ElementWorld, EventManager,
+    DynamicDimension, DynamicSize, Element, ElementId, ElementSize, ElementWorld, EventManager,
     InputTextFieldController, InputTextFieldControllerExt, InteractionEventKind,
     ScrollAreaCallbacks, SimpleLayoutCache, SimpleScrollAreaCallbacks, SizeConstraints, Stack,
     UiContext,
@@ -494,8 +494,8 @@ impl GameStateEx for Editor {
                     height: 0.0,
                 },
                 max_size: DynamicSize {
-                    width: Some(size.0),
-                    height: Some(size.1),
+                    width: DynamicDimension::Limit(size.0),
+                    height: DynamicDimension::Limit(size.1),
                 },
                 scene_size: (size.0, size.1),
             },

@@ -1,5 +1,5 @@
 use crate::{
-    Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams,
+    DynamicDimension, Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams,
     UiContext,
 };
 use std::cell::RefCell;
@@ -106,11 +106,11 @@ impl<State> ElementImpl for ScrollArea<State> {
         let mut child_constraints = constraints;
         let mut grow_by = ElementSize::ZERO;
         if params.scroll_x.is_some() {
-            child_constraints.max_size.width = None;
+            child_constraints.max_size.width = DynamicDimension::Hint(0.0);
             grow_by.height = params.scrollbar_width + params.scrollbar_margin;
         }
         if params.scroll_y.is_some() {
-            child_constraints.max_size.height = None;
+            child_constraints.max_size.height = DynamicDimension::Hint(0.0);
             grow_by.width = params.scrollbar_width + params.scrollbar_margin;
         }
 

@@ -1,6 +1,6 @@
 use crate::{
-    Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams,
-    UiContext,
+    DynamicDimension, Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints,
+    StateToParams, UiContext,
 };
 use vn_scene::Scene;
 
@@ -13,18 +13,57 @@ pub enum FlexDirection {
 #[derive(Clone, Copy)]
 pub struct FlexParams {
     pub direction: FlexDirection,
+    /// if true, all elements will be forced to the same size along the orthogonal axis.
+    pub force_orthogonal_same_size: bool,
+}
+
+pub struct FlexChild<State> {
+    pub element: Box<dyn Element<State = State>>,
+    pub weight: Option<f32>,
+}
+
+impl<State> FlexChild<State> {
+    pub fn new(element: Box<dyn Element<State = State>>) -> Self {
+        Self {
+            element,
+            weight: None,
+        }
+    }
+
+    pub fn weighted(element: Box<dyn Element<State = State>>, weight: f32) -> Self {
+        Self {
+            element,
+            weight: Some(weight),
+        }
+    }
+}
+
+pub trait WeightedElement<State> {
+    fn with_weight_element(self, weight: f32) -> FlexChild<State>;
+}
+
+impl<State, E: Element<State = State> + 'static> WeightedElement<State> for E {
+    fn with_weight_element(self, weight: f32) -> FlexChild<State> {
+        FlexChild::weighted(Box::new(self), weight)
+    }
+}
+
+impl<State> WeightedElement<State> for Box<dyn Element<State = State>> {
+    fn with_weight_element(self, weight: f32) -> FlexChild<State> {
+        FlexChild::weighted(self, weight)
+    }
 }
 
 pub struct Flex<State> {
     id: ElementId,
-    children: Vec<Box<dyn Element<State = State>>>,
+    children: Vec<FlexChild<State>>,
     layout: Vec<ElementSize>,
     params: StateToParams<State, FlexParams>,
 }
 
 impl<State> Flex<State> {
     pub fn new(
-        children: Vec<Box<dyn Element<State = State>>>,
+        children: Vec<FlexChild<State>>,
         params: StateToParams<State, FlexParams>,
         world: &mut ElementWorld,
     ) -> Self {
@@ -38,27 +77,73 @@ impl<State> Flex<State> {
         }
     }
 
-    pub fn new_row(
+    pub fn new_unweighted(
         children: Vec<Box<dyn Element<State = State>>>,
+        params: StateToParams<State, FlexParams>,
+        world: &mut ElementWorld,
+    ) -> Self {
+        Self::new(
+            children.into_iter().map(FlexChild::new).collect(),
+            params,
+            world,
+        )
+    }
+
+    pub fn new_row(
+        children: Vec<FlexChild<State>>,
+        force_orthogonal_same_size: bool,
         world: &mut ElementWorld,
     ) -> Self {
         Self::new(
             children,
-            Box::new(|_| FlexParams {
+            Box::new(move |_| FlexParams {
                 direction: FlexDirection::Row,
+                force_orthogonal_same_size,
+            }),
+            world,
+        )
+    }
+
+    pub fn new_row_unweighted(
+        children: Vec<Box<dyn Element<State = State>>>,
+        force_orthogonal_same_size: bool,
+        world: &mut ElementWorld,
+    ) -> Self {
+        Self::new_unweighted(
+            children,
+            Box::new(move |_| FlexParams {
+                direction: FlexDirection::Row,
+                force_orthogonal_same_size,
             }),
             world,
         )
     }
 
     pub fn new_column(
-        children: Vec<Box<dyn Element<State = State>>>,
+        children: Vec<FlexChild<State>>,
+        force_orthogonal_same_size: bool,
         world: &mut ElementWorld,
     ) -> Self {
         Self::new(
             children,
-            Box::new(|_| FlexParams {
+            Box::new(move |_| FlexParams {
                 direction: FlexDirection::Column,
+                force_orthogonal_same_size,
+            }),
+            world,
+        )
+    }
+
+    pub fn new_column_unweighted(
+        children: Vec<Box<dyn Element<State = State>>>,
+        force_orthogonal_same_size: bool,
+        world: &mut ElementWorld,
+    ) -> Self {
+        Self::new_unweighted(
+            children,
+            Box::new(move |_| FlexParams {
+                direction: FlexDirection::Column,
+                force_orthogonal_same_size,
             }),
             world,
         )
@@ -81,7 +166,7 @@ impl<State> ElementImpl for Flex<State> {
     ) -> ElementSize {
         // what do we do with containers that grow? like anchor?
         // do we extend constraints to denote that they should not grow along some axis?
-        let mut total_in_direction: f32 = 0.0;
+        let mut total_unweighted_in_direction: f32 = 0.0;
         let mut max_orthogonal: f32 = 0.0;
         let params = (self.params)(crate::StateToParamsArgs {
             state,
@@ -92,11 +177,22 @@ impl<State> ElementImpl for Flex<State> {
         let mut child_constraints = constraints;
         child_constraints.min_size.width = 0.0;
         child_constraints.min_size.height = 0.0;
-        child_constraints.max_size.width = None;
-        child_constraints.max_size.height = None;
+        child_constraints.max_size.width =
+            DynamicDimension::Hint(constraints.max_size.width.value());
+        child_constraints.max_size.height =
+            DynamicDimension::Hint(constraints.max_size.height.value());
 
-        for (_, child) in self.children.iter_mut().enumerate() {
-            let child_size = child.layout_impl(ctx, state, child_constraints);
+        let mut total_weight = None;
+
+        for (idx, child) in self.children.iter_mut().enumerate() {
+            let child_size = child.element.layout_impl(ctx, state, child_constraints);
+
+            if let Some(weight) = child.weight {
+                match total_weight {
+                    None => total_weight = Some(weight),
+                    Some(total) => total_weight = Some(total + weight),
+                }
+            }
 
             match params.direction {
                 FlexDirection::Row => {
@@ -106,32 +202,82 @@ impl<State> ElementImpl for Flex<State> {
                     max_orthogonal = max_orthogonal.max(child_size.width);
                 }
             }
+
+            self.layout[idx] = child_size;
         }
 
         match params.direction {
             FlexDirection::Row => {
-                child_constraints.min_size.height = max_orthogonal;
-                child_constraints.max_size.height = Some(max_orthogonal);
+                if params.force_orthogonal_same_size {
+                    child_constraints.min_size.height = max_orthogonal;
+                }
+                child_constraints.max_size.height = DynamicDimension::Limit(max_orthogonal);
             }
             FlexDirection::Column => {
-                child_constraints.min_size.width = max_orthogonal;
-                child_constraints.max_size.width = Some(max_orthogonal);
+                if params.force_orthogonal_same_size {
+                    child_constraints.min_size.width = max_orthogonal;
+                }
+                child_constraints.max_size.width = DynamicDimension::Limit(max_orthogonal);
             }
         }
 
         for (idx, child) in self.children.iter_mut().enumerate() {
-            let child_size = child.layout_impl(ctx, state, child_constraints);
+            if let Some(_) = child.weight {
+                continue;
+            }
+
+            let child_size = child.element.layout_impl(ctx, state, child_constraints);
 
             match params.direction {
                 FlexDirection::Row => {
-                    total_in_direction += child_size.width;
+                    total_unweighted_in_direction += child_size.width;
                 }
                 FlexDirection::Column => {
-                    total_in_direction += child_size.height;
+                    total_unweighted_in_direction += child_size.height;
                 }
             }
 
             self.layout[idx] = child_size;
+        }
+
+        let remaining_available_space = match params.direction {
+            FlexDirection::Row => constraints.max_size.width,
+            FlexDirection::Column => constraints.max_size.height,
+        }
+        .map(|v| (v - total_unweighted_in_direction).max(0.0))
+        .value();
+
+        let mut total_in_direction = total_unweighted_in_direction;
+
+        if let Some(total_weight) = total_weight {
+            total_in_direction += remaining_available_space;
+
+            let unit_per_weight = if total_weight > 0.0 {
+                (remaining_available_space / total_weight).max(0.0)
+            } else {
+                0.0
+            };
+
+            for (idx, child) in self.children.iter_mut().enumerate() {
+                if child.weight.is_none() {
+                    continue;
+                }
+
+                match params.direction {
+                    FlexDirection::Row => {
+                        let space = child.weight.unwrap() * unit_per_weight;
+                        child_constraints.min_size.width = space;
+                        child_constraints.max_size.width = DynamicDimension::Limit(space);
+                    }
+                    FlexDirection::Column => {
+                        let space = child.weight.unwrap() * unit_per_weight;
+                        child_constraints.min_size.height = space;
+                        child_constraints.max_size.height = DynamicDimension::Limit(space);
+                    }
+                }
+
+                self.layout[idx] = child.element.layout_impl(ctx, state, child_constraints);
+            }
         }
 
         let size = match params.direction {
@@ -176,7 +322,9 @@ impl<State> ElementImpl for Flex<State> {
                     child_size.width = child_size.width.min(size.width - (offset - origin.0));
                     child_size.height = child_size.height.min(size.height);
 
-                    child.draw(ctx, state, (offset, origin.1), child_size, canvas);
+                    child
+                        .element
+                        .draw(ctx, state, (offset, origin.1), child_size, canvas);
                     offset += self.layout[idx].width;
                 }
                 FlexDirection::Column => {
@@ -184,7 +332,9 @@ impl<State> ElementImpl for Flex<State> {
                     child_size.width = child_size.width.min(size.width);
                     child_size.height = child_size.height.min(size.height - (offset - origin.1));
 
-                    child.draw(ctx, state, (origin.0, offset), child_size, canvas);
+                    child
+                        .element
+                        .draw(ctx, state, (origin.0, offset), child_size, canvas);
                     offset += self.layout[idx].height;
                 }
             }
@@ -203,14 +353,28 @@ pub trait FlexExt: Element {
     fn flex_row(
         self,
         others: Vec<Box<dyn Element<State = Self::State>>>,
+        force_orthogonal_same_size: bool,
         world: &mut ElementWorld,
     ) -> Flex<Self::State>;
 
     fn flex_column(
         self,
         others: Vec<Box<dyn Element<State = Self::State>>>,
+        force_orthogonal_same_size: bool,
         world: &mut ElementWorld,
     ) -> Flex<Self::State>;
+
+    fn flex_weighted(
+        self,
+        others: Vec<FlexChild<Self::State>>,
+        params: StateToParams<Self::State, FlexParams>,
+        world: &mut ElementWorld,
+    ) -> Flex<Self::State>;
+
+    fn with_weight(self, weight: f32) -> FlexChild<Self::State>
+    where
+        Self: Sized + 'static;
+    fn without_weight(self) -> FlexChild<Self::State>;
 }
 
 impl<E: Element + 'static> FlexExt for E {
@@ -220,28 +384,52 @@ impl<E: Element + 'static> FlexExt for E {
         params: StateToParams<Self::State, FlexParams>,
         world: &mut ElementWorld,
     ) -> Flex<Self::State> {
-        let mut elements = others;
-        elements.insert(0, Box::new(self));
+        let mut elements: Vec<FlexChild<Self::State>> =
+            others.into_iter().map(FlexChild::new).collect();
+        elements.insert(0, FlexChild::new(Box::new(self)));
         Flex::new(elements, params, world)
     }
 
     fn flex_row(
         self,
         others: Vec<Box<dyn Element<State = Self::State>>>,
+        force_orthogonal_same_size: bool,
         world: &mut ElementWorld,
     ) -> Flex<Self::State> {
-        let mut elements = others;
-        elements.insert(0, Box::new(self));
-        Flex::new_row(elements, world)
+        let mut elements: Vec<FlexChild<Self::State>> =
+            others.into_iter().map(FlexChild::new).collect();
+        elements.insert(0, FlexChild::new(Box::new(self)));
+        Flex::new_row(elements, force_orthogonal_same_size, world)
     }
 
     fn flex_column(
         self,
         others: Vec<Box<dyn Element<State = Self::State>>>,
+        force_orthogonal_same_size: bool,
+        world: &mut ElementWorld,
+    ) -> Flex<Self::State> {
+        let mut elements: Vec<FlexChild<Self::State>> =
+            others.into_iter().map(FlexChild::new).collect();
+        elements.insert(0, FlexChild::new(Box::new(self)));
+        Flex::new_column(elements, force_orthogonal_same_size, world)
+    }
+
+    fn flex_weighted(
+        self,
+        others: Vec<FlexChild<Self::State>>,
+        params: StateToParams<Self::State, FlexParams>,
         world: &mut ElementWorld,
     ) -> Flex<Self::State> {
         let mut elements = others;
-        elements.insert(0, Box::new(self));
-        Flex::new_column(elements, world)
+        elements.insert(0, FlexChild::new(Box::new(self)));
+        Flex::new(elements, params, world)
+    }
+
+    fn with_weight(self, weight: f32) -> FlexChild<Self::State> {
+        FlexChild::weighted(Box::new(self), weight)
+    }
+
+    fn without_weight(self) -> FlexChild<Self::State> {
+        FlexChild::new(Box::new(self))
     }
 }

@@ -1,7 +1,7 @@
 use crate::text::layout::TextLayout;
 use crate::utils::ToArray;
 use crate::{
-    ElementId, ElementImpl, ElementSize, ElementWorld, InteractionState, SizeConstraints,
+    DynamicDimension, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionState, SizeConstraints,
     StateToParams, TextFieldCallbacks, TextMetrics, UiContext,
 };
 use std::cell::RefCell;
@@ -253,7 +253,7 @@ impl<State> TextField<State> {
         }
     }
 
-    pub fn update_state(&mut self, state: &State, max_width: Option<f32>, ctx: &UiContext) -> bool {
+    pub fn update_state(&mut self, state: &State, max_width: DynamicDimension, ctx: &UiContext) -> bool {
         let params = (self.params)(crate::StateToParamsArgs {
             state,
             id: self.id,
@@ -261,8 +261,13 @@ impl<State> TextField<State> {
         });
         let mut changed = self.visuals.as_ref() != Some(&params.visuals);
 
-        if max_width != self.last_max_width {
-            self.last_max_width = max_width;
+        let max_width_opt = match max_width {
+            DynamicDimension::Hint(_) => None,
+            DynamicDimension::Limit(v) => Some(v),
+        };
+
+        if max_width_opt != self.last_max_width {
+            self.last_max_width = max_width_opt;
             changed = true;
         }
 
@@ -275,7 +280,7 @@ impl<State> TextField<State> {
                 &params.visuals.text,
                 &params.visuals.font,
                 params.visuals.font_size,
-                max_width.map(|w| w - caret_space),
+                max_width.map(|w| w - caret_space).to_option(),
                 params.metrics.as_ref(),
             );
             params.controller.borrow_mut().text_layout_changed(&layout);

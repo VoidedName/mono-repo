@@ -1,14 +1,15 @@
+use crate::logic::game_state::editor::grid::GridParams;
 use crate::logic::game_state::editor::{Editor, EditorEvent, Grid, TilesetGrid};
 use std::cell::RefCell;
 use std::rc::Rc;
 use vn_scene::{Color, Rect};
 use vn_ui::{
-    AnchorExt, AnchorLocation, AnchorParams, ButtonExt, ButtonParams, CardExt, CardParams, Element,
-    ElementId, ElementWorld, FitStrategy, Flex, FlexDirection, FlexParams,
-    InputTextFieldController, InteractionState, InteractiveExt, PaddingExt, PaddingParams,
-    ScrollAreaCallbacks, ScrollAreaExt, ScrollAreaParams, Stack, StateToParamsArgs,
-    StaticTextFieldController, TextField, TextFieldParams, TextMetrics, TextVisuals, Texture,
-    TextureParams,
+    Anchor, AnchorExt, AnchorLocation, AnchorParams, ButtonExt, ButtonParams, CardExt, CardParams,
+    Element, ElementId, ElementSize, ElementWorld, Empty, FillExt, FitStrategy, Flex, FlexChild,
+    FlexDirection, FlexParams, InputTextFieldController, InteractionState, InteractiveExt,
+    PaddingExt, PaddingParams, ScrollAreaCallbacks, ScrollAreaExt, ScrollAreaParams, Stack,
+    StateToParamsArgs, StaticTextFieldController, TextField, TextFieldParams, TextMetrics,
+    TextVisuals, Texture, TextureParams,
 };
 
 pub struct EditorUi {
@@ -31,24 +32,35 @@ pub fn build_editor_ui(
     let sidebar_info = build_sidebar(editor, world, metrics.clone());
     let (preview, tileset_preview_scroll_area_id) = build_tileset_preview_panel(editor, world);
 
-    let main_layout = Flex::new(
-        vec![grid, sidebar_info.sidebar, preview],
-        Box::new(|_| FlexParams {
-            direction: FlexDirection::Row,
-        }),
+    let main_layout = Flex::new_row(
+        vec![
+            FlexChild::new(sidebar_info.sidebar),
+            FlexChild::weighted(
+                Box::new(Anchor::new(
+                    grid,
+                    Box::new(|_| AnchorParams {
+                        location: AnchorLocation::CENTER,
+                    }),
+                    world,
+                )),
+                1.0,
+            ),
+            FlexChild::new(preview),
+        ],
+        false,
         world,
     )
     .padding(Box::new(|_| PaddingParams::uniform(40.0)), world);
 
     EditorUi {
-        root: Box::new(
-            Flex::new_column(vec![title, Box::new(main_layout)], world).anchor(
-                Box::new(|_| AnchorParams {
-                    location: AnchorLocation::CENTER,
-                }),
-                world,
-            ),
-        ),
+        root: Box::new(Flex::new_column(
+            vec![
+                FlexChild::new(title),
+                FlexChild::weighted(Box::new(main_layout), 1.0),
+            ],
+            false,
+            world,
+        )),
         tileset_path_input_id: sidebar_info.tileset_path_input_id,
         tile_width_input_id: sidebar_info.tile_width_input_id,
         tile_height_input_id: sidebar_info.tile_height_input_id,
@@ -95,17 +107,24 @@ fn build_title(
 
 fn build_grid(world: &mut ElementWorld) -> Box<dyn Element<State = Editor>> {
     Box::new(
-        Grid::new(world)
-            .padding(Box::new(|_| PaddingParams::uniform(10.0)), world)
-            .card(
-                Box::new(|_| CardParams {
-                    background_color: Color::BLACK.with_alpha(0.3),
-                    border_size: 2.0,
-                    border_color: Color::WHITE.with_alpha(0.5),
-                    corner_radius: 5.0,
-                }),
-                world,
-            ),
+        Grid::new(
+            Box::new(|_| GridParams {
+                grid_size: (32.0, 32.0),
+                cols: 10,
+                rows: 10,
+            }),
+            world,
+        )
+        .padding(Box::new(|_| PaddingParams::uniform(10.0)), world)
+        .card(
+            Box::new(|_| CardParams {
+                background_color: Color::BLACK.with_alpha(0.3),
+                border_size: 2.0,
+                border_color: Color::WHITE.with_alpha(0.5),
+                corner_radius: 5.0,
+            }),
+            world,
+        ),
     )
 }
 
@@ -161,7 +180,7 @@ fn build_sidebar(
     let footer = build_footer(editor, world, metrics.clone());
 
     let sidebar = Box::new(
-        Flex::new_column(
+        Flex::new_column_unweighted(
             vec![
                 sidebar_title,
                 layer_list,
@@ -171,6 +190,7 @@ fn build_sidebar(
                 selection_info,
                 footer,
             ],
+            true,
             world,
         )
         .padding(Box::new(|_| PaddingParams::uniform(10.0)), world)
@@ -274,29 +294,33 @@ fn build_layer_list(
             .borrow_mut()
             .push((remove_button.id(), EditorEvent::RemoveLayer(i)));
 
-        let layer_row = Flex::new_row(vec![Box::new(layer_label), Box::new(remove_button)], world)
-            .padding(Box::new(|_| PaddingParams::uniform(5.0)), world)
-            .button(
-                Box::new(move |args| ButtonParams {
-                    background: if is_selected {
-                        Color::WHITE.with_alpha(0.2)
-                    } else {
-                        Color::WHITE.with_alpha(0.1)
-                    },
-                    border_color: if args.ctx.event_manager.borrow().is_hovered(args.id) {
-                        Color::WHITE
-                    } else {
-                        Color::WHITE.with_alpha(0.3)
-                    },
-                    border_width: 2.0,
-                    corner_radius: 3.0,
-                    interaction: vn_ui::InteractionState {
-                        is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
-                        is_focused: false,
-                    },
-                }),
-                world,
-            );
+        let layer_row = Flex::new_row_unweighted(
+            vec![Box::new(layer_label), Box::new(remove_button)],
+            false,
+            world,
+        )
+        .padding(Box::new(|_| PaddingParams::uniform(5.0)), world)
+        .button(
+            Box::new(move |args| ButtonParams {
+                background: if is_selected {
+                    Color::WHITE.with_alpha(0.2)
+                } else {
+                    Color::WHITE.with_alpha(0.1)
+                },
+                border_color: if args.ctx.event_manager.borrow().is_hovered(args.id) {
+                    Color::WHITE
+                } else {
+                    Color::WHITE.with_alpha(0.3)
+                },
+                border_width: 2.0,
+                corner_radius: 3.0,
+                interaction: vn_ui::InteractionState {
+                    is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
+                    is_focused: false,
+                },
+            }),
+            world,
+        );
 
         editor
             .button_events
@@ -305,7 +329,7 @@ fn build_layer_list(
         layer_elements.push(Box::new(layer_row));
     }
 
-    Box::new(Flex::new_column(layer_elements, world))
+    Box::new(Flex::new_column_unweighted(layer_elements, false, world))
 }
 
 fn build_add_layer_button(
@@ -463,8 +487,9 @@ fn build_dimension_input(
         );
 
     (
-        Box::new(Flex::new_row(
+        Box::new(Flex::new_row_unweighted(
             vec![Box::new(label_el), Box::new(input)],
+            false,
             world,
         )),
         input_id,
@@ -616,7 +641,11 @@ fn build_tileset_view(
         "Tile H:".to_string(),
         editor.tile_height_controller.clone(),
     );
-    tileset_elements.push(Box::new(Flex::new_row(vec![tw_input, th_input], world)));
+    tileset_elements.push(Box::new(Flex::new_row_unweighted(
+        vec![tw_input, th_input],
+        false,
+        world,
+    )));
 
     // Tileset Dimensions (in tiles)
     let (tsw_input, tsw_id) = build_dimension_input(
@@ -631,7 +660,11 @@ fn build_tileset_view(
         "Set Rows:".to_string(),
         editor.tileset_rows_controller.clone(),
     );
-    tileset_elements.push(Box::new(Flex::new_row(vec![tsw_input, tsh_input], world)));
+    tileset_elements.push(Box::new(Flex::new_row_unweighted(
+        vec![tsw_input, tsh_input],
+        false,
+        world,
+    )));
 
     let mut recently_loaded_elements: Vec<Box<dyn Element<State = Editor>>> = Vec::new();
     for (path, _) in &editor.loaded_tilesets {
@@ -717,10 +750,14 @@ fn build_tileset_view(
             )
             .padding(Box::new(|_| PaddingParams::uniform(5.0)), world),
         ));
-        tileset_elements.push(Box::new(Flex::new_column(recently_loaded_elements, world)));
+        tileset_elements.push(Box::new(Flex::new_column_unweighted(
+            recently_loaded_elements,
+            false,
+            world,
+        )));
     }
 
-    let element = Box::new(Flex::new_column(tileset_elements, world));
+    let element = Box::new(Flex::new_column_unweighted(tileset_elements, false, world));
 
     TilesetViewInfo {
         element,
@@ -819,7 +856,7 @@ fn build_footer(
         editor.button_events.borrow_mut().push((button.id(), event));
         footer_elements.push(Box::new(button));
     }
-    Box::new(Flex::new_row(footer_elements, world))
+    Box::new(Flex::new_row_unweighted(footer_elements, false, world))
 }
 
 fn build_tileset_preview_panel(
@@ -886,7 +923,7 @@ fn build_tileset_preview_panel(
     }
     (
         Box::new(
-            Flex::new_column(tileset_preview_elements, world)
+            Flex::new_column_unweighted(tileset_preview_elements, false, world)
                 .padding(Box::new(|_| PaddingParams::uniform(10.0)), world)
                 .card(
                     Box::new(|_| CardParams {

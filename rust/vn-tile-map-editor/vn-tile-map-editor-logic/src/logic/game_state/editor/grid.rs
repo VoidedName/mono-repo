@@ -1,21 +1,33 @@
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
-use vn_ui::{ElementId, ElementImpl, ElementSize, SizeConstraints, UiContext};
+use vn_ui::{Element, ElementId, ElementImpl, ElementSize, ElementWorld, ScrollAreaParams, SizeConstraints, StateToParams, StateToParamsArgs, UiContext};
 use crate::logic::game_state::editor::Editor;
 
-pub struct Grid {
-    id: ElementId,
+pub struct GridParams {
+    pub rows: u32,
+    pub cols: u32,
+    pub grid_size: (f32, f32),
 }
 
-impl Grid {
-    pub fn new(world: &mut vn_ui::ElementWorld) -> Self {
+pub struct Grid<State> {
+    id: ElementId,
+    params: StateToParams<State, GridParams>
+}
+
+impl<State> Grid<State> {
+
+    pub fn new(
+        params: StateToParams<State, GridParams>,
+        world: &mut ElementWorld,
+    ) -> Self {
         Self {
             id: world.next_id(),
+            params
         }
     }
 }
 
-impl ElementImpl for Grid {
-    type State = Editor;
+impl<State> ElementImpl for Grid<State> {
+    type State = State;
 
     fn id_impl(&self) -> ElementId {
         self.id
@@ -23,15 +35,20 @@ impl ElementImpl for Grid {
 
     fn layout_impl(
         &mut self,
-        _ctx: &mut UiContext,
+        ctx: &mut UiContext,
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
+        let params = (self.params)(StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
+
         ElementSize {
-            width: state.map_spec.map_dimensions.0 as f32 * state.map_spec.grid_dimensions.0 + 1.0,
-            height: state.map_spec.map_dimensions.1 as f32 * state.map_spec.grid_dimensions.1 + 1.0,
-        }
-        .clamp_to_constraints(constraints)
+            width: params.grid_size.0 * params.cols as f32,
+            height: params.grid_size.1 * params.rows as f32,
+        }.clamp_to_constraints(constraints)
     }
 
     fn draw_impl(
@@ -42,64 +59,37 @@ impl ElementImpl for Grid {
         size: ElementSize,
         scene: &mut dyn Scene,
     ) {
-        ctx.with_hitbox_hierarchy(
-            self.id,
-            scene.current_layer_id(),
-            Rect {
-                position: [origin.0, origin.1],
-                size: [size.width, size.height],
-            },
-            |ctx| {
-                let clip_rect = ctx.clip_rect;
-                let (grid_w, grid_h) = state.map_spec.grid_dimensions;
-                let (map_w, map_h) = state.map_spec.map_dimensions;
+        let params = (self.params)(StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
 
-                // Draw tiles
-                for (_layer_index, layer) in state.map_spec.layers.iter().enumerate() {
-                    // Only draw up to selected layer or all? Usually all.
-                    for (_y, row) in layer.map.tiles.iter().enumerate() {
-                        for (_x, tile_id) in row.iter().enumerate() {
-                            if let Some(_id) = tile_id {
-                                // TODO: Render actual tile image when textures are loaded
-                            }
-                        }
-                    }
-                }
+        for y in 0..=params.cols {
+            let px = origin.0 + y as f32 * params.grid_size.0;
+            scene.add_box(BoxPrimitiveData {
+                transform: Transform::builder().translation([px, origin.1]).build(),
+                size: [1.0, size.height.min(params.grid_size.1 * params.rows as f32)],
+                color: Color::WHITE.with_alpha(0.2),
+                border_radius: 0.0,
+                border_color: Color::TRANSPARENT,
+                border_thickness: 0.0,
+                clip_rect: Rect::NO_CLIP,
+            });
+        }
 
-                // Draw grid lines
-                for x in 0..=map_w {
-                    let px = origin.0 + x as f32 * grid_w;
-                    if px > origin.0 + size.width {
-                        break;
-                    }
-                    scene.add_box(BoxPrimitiveData {
-                        transform: Transform::builder().translation([px, origin.1]).build(),
-                        size: [1.0, size.height],
-                        color: Color::WHITE.with_alpha(0.2),
-                        border_radius: 0.0,
-                        border_color: Color::TRANSPARENT,
-                        border_thickness: 0.0,
-                        clip_rect,
-                    });
-                }
-
-                for y in 0..=map_h {
-                    let py = origin.1 + y as f32 * grid_h;
-                    if py > origin.1 + size.height {
-                        break;
-                    }
-                    scene.add_box(BoxPrimitiveData {
-                        transform: Transform::builder().translation([origin.0, py]).build(),
-                        size: [size.width, 1.0],
-                        color: Color::WHITE.with_alpha(0.2),
-                        border_radius: 0.0,
-                        border_color: Color::TRANSPARENT,
-                        border_thickness: 0.0,
-                        clip_rect,
-                    });
-                }
-            },
-        );
+        for x in 0..=params.rows {
+            let px = origin.1 + x as f32 * params.grid_size.1;
+            scene.add_box(BoxPrimitiveData {
+                transform: Transform::builder().translation([origin.0, px]).build(),
+                size: [size.width.min(params.grid_size.0 * params.cols as f32), 1.0],
+                color: Color::WHITE.with_alpha(0.2),
+                border_radius: 0.0,
+                border_color: Color::TRANSPARENT,
+                border_thickness: 0.0,
+                clip_rect: Rect::NO_CLIP,
+            });
+        }
     }
 }
 

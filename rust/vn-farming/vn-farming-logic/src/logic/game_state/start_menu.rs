@@ -5,13 +5,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Instant;
 use vn_scene::{Color, Rect};
-use vn_ui::{
-    AnchorExt, AnchorLocation, AnchorParams, ButtonExt, ButtonParams, DynamicSize, Element,
-    ElementId, ElementSize, ElementWorld, EventManager, Flex, InteractionEventKind,
-    InteractionState, InteractiveExt, InteractiveParams, PaddingExt, PaddingParams,
-    SimpleLayoutCache, SizeConstraints, StackExt, StaticTextFieldController, TextField,
-    TextFieldParams, TextVisuals, UiContext,
-};
+use vn_ui::{AnchorExt, AnchorLocation, AnchorParams, ButtonExt, ButtonParams, DynamicDimension, DynamicSize, Element, ElementId, ElementSize, ElementWorld, EventManager, Flex, FlexExt, InteractionEventKind, InteractionState, InteractiveExt, InteractiveParams, PaddingExt, PaddingParams, SimpleLayoutCache, SizeConstraints, StackExt, StaticTextFieldController, TextField, TextFieldParams, TextVisuals, UiContext};
 use vn_wgpu_window::resource_manager::{ResourceManager, Sampling};
 use vn_wgpu_window::{GraphicsContext, WgpuScene};
 use winit::event::{ElementState, KeyEvent, MouseButton};
@@ -160,7 +154,7 @@ impl StartMenu {
             ));
         }
 
-        let ui = Flex::new_column(buttons, &mut world).anchor(
+        let ui = Flex::new_column_unweighted(buttons, true, &mut world).anchor(
             Box::new(|_| AnchorParams {
                 location: AnchorLocation::CENTER,
             }),
@@ -287,8 +281,8 @@ impl GameStateEx for StartMenu {
                     height: 0.0,
                 },
                 max_size: DynamicSize {
-                    width: Some(size.0),
-                    height: Some(size.1),
+                    width: DynamicDimension::Limit(size.0),
+                    height: DynamicDimension::Limit(size.1),
                 },
                 scene_size: (size.0, size.1),
             },

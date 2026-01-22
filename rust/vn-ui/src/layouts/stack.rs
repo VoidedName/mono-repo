@@ -1,5 +1,5 @@
 use crate::{
-    DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints,
+    DynamicDimension, DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints,
     UiContext,
 };
 use vn_scene::Scene;
@@ -72,8 +72,8 @@ impl<State> ElementImpl for Stack<State> {
                 child_size.clamp_to_constraints(SizeConstraints {
                     min_size: ElementSize::ZERO,
                     max_size: DynamicSize {
-                        width: Some(size.width),
-                        height: Some(size.height),
+                        width: DynamicDimension::Limit(size.width),
+                        height: DynamicDimension::Limit(size.height),
                     },
                     scene_size: (size.width, size.height), // Approximation
                 }),

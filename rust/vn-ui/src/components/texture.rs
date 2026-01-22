@@ -1,5 +1,5 @@
 use crate::{
-    ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams, UiContext,
+    DynamicDimension, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams, UiContext,
 };
 use vn_scene::{Color, ImagePrimitiveData, Rect, Scene, TextureId, Transform};
 use vn_ui_animation::Interpolatable;
@@ -99,19 +99,19 @@ impl<State> ElementImpl for Texture<State> {
             FitStrategy::Clip { rotation } => (params.preferred_size, rotation),
             FitStrategy::Stretch => {
                 let size = match (constraints.max_size.width, constraints.max_size.height) {
-                    (Some(max_width), Some(max_height)) => ElementSize {
+                    (DynamicDimension::Limit(max_width), DynamicDimension::Limit(max_height)) => ElementSize {
                         width: max_width,
                         height: max_height,
                     },
-                    (Some(max_width), None) => ElementSize {
+                    (DynamicDimension::Limit(max_width), DynamicDimension::Hint(_)) => ElementSize {
                         width: max_width,
                         height: params.preferred_size.height,
                     },
-                    (None, Some(max_height)) => ElementSize {
+                    (DynamicDimension::Hint(_), DynamicDimension::Limit(max_height)) => ElementSize {
                         width: params.preferred_size.width,
                         height: max_height,
                     },
-                    (None, None) => params.preferred_size,
+                    (DynamicDimension::Hint(_), DynamicDimension::Hint(_)) => params.preferred_size,
                 };
                 (size, 0.0)
             }
@@ -120,7 +120,7 @@ impl<State> ElementImpl for Texture<State> {
                 let sin = rotation.sin().abs();
                 let aspect_ratio = params.preferred_size.width / params.preferred_size.height;
                 let size = match (constraints.max_size.width, constraints.max_size.height) {
-                    (Some(max_width), Some(max_height)) => {
+                    (DynamicDimension::Limit(max_width), DynamicDimension::Limit(max_height)) => {
                         // W = w*cos + h*sin = h*R*cos + h*sin = h*(R*cos + sin)
                         // H = w*sin + h*cos = h*R*sin + h*cos = h*(R*sin + cos)
                         let h1 = max_width / (aspect_ratio * cos + sin);
@@ -131,21 +131,21 @@ impl<State> ElementImpl for Texture<State> {
                             height: h,
                         }
                     }
-                    (Some(max_width), None) => {
+                    (DynamicDimension::Limit(max_width), DynamicDimension::Hint(_)) => {
                         let h = max_width / (aspect_ratio * cos + sin);
                         ElementSize {
                             width: h * aspect_ratio,
                             height: h,
                         }
                     }
-                    (None, Some(max_height)) => {
+                    (DynamicDimension::Hint(_), DynamicDimension::Limit(max_height)) => {
                         let h = max_height / (aspect_ratio * sin + cos);
                         ElementSize {
                             width: h * aspect_ratio,
                             height: h,
                         }
                     }
-                    (None, None) => params.preferred_size,
+                    (DynamicDimension::Hint(_), DynamicDimension::Hint(_)) => params.preferred_size,
                 };
                 (size, rotation)
             }

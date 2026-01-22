@@ -72,10 +72,7 @@ impl<State> ElementImpl for Anchor<State> {
 
         ElementSize {
             width: constraints.max_size.width.unwrap_or(self.child_size.width),
-            height: constraints
-                .max_size
-                .height
-                .unwrap_or(self.child_size.height),
+            height: constraints.max_size.height.unwrap_or(self.child_size.height),
         }
         .clamp_to_constraints(constraints)
     }
