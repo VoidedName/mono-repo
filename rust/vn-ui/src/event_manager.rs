@@ -194,6 +194,16 @@ impl EventManager {
                     y,
                 },
             });
+        } else {
+            events.push(InteractionEvent {
+                target: None,
+                kind: InteractionEventKind::MouseMove {
+                    local_x: x,
+                    local_y: y,
+                    x,
+                    y,
+                },
+            })
         }
 
         self.hovered_elements = new_hovered;
@@ -264,6 +274,17 @@ impl EventManager {
                 });
             }
             self.focused_element = None;
+
+            events.push(InteractionEvent {
+                target: None,
+                kind: InteractionEventKind::MouseDown {
+                    button,
+                    local_x: x,
+                    local_y: y,
+                    x,
+                    y,
+                },
+            })
         }
 
         events
@@ -312,6 +333,17 @@ impl EventManager {
                     },
                 });
             }
+        } else {
+            events.push(InteractionEvent {
+                target: None,
+                kind: InteractionEventKind::MouseUp {
+                    button,
+                    local_x: x,
+                    local_y: y,
+                    x,
+                    y,
+                },
+            })
         }
 
         events
