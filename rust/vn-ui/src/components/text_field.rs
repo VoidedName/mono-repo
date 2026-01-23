@@ -1,8 +1,9 @@
 use crate::text::layout::TextLayout;
 use crate::utils::ToArray;
 use crate::{
-    DynamicDimension, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionState,
-    Interpolatable, SizeConstraints, StateToParams, TextFieldAction, TextMetrics, UiContext,
+    DynamicDimension, ElementId, ElementImpl, ElementSize, ElementWorld, EventHandler,
+    InteractionState, Interpolatable, SizeConstraints, StateToParams, TextFieldAction, TextMetrics,
+    UiContext,
 };
 use std::rc::Rc;
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, TextPrimitiveData, Transform};
@@ -29,7 +30,7 @@ pub struct TextFieldParams<Message: Clone> {
     pub visuals: TextVisuals,
     pub metrics: Rc<dyn TextMetrics>,
     pub interaction: InteractionState,
-    pub on_action: Option<fn(ElementId, TextFieldAction) -> Message>,
+    pub text_field_action_handler: EventHandler<TextFieldAction, Message>,
 }
 
 impl<Message: Clone> Interpolatable for TextFieldParams<Message> {
@@ -38,7 +39,7 @@ impl<Message: Clone> Interpolatable for TextFieldParams<Message> {
             visuals: self.visuals.interpolate(&other.visuals, t),
             metrics: other.metrics.clone(),
             interaction: other.interaction.clone(),
-            on_action: other.on_action.clone(),
+            text_field_action_handler: other.text_field_action_handler.clone(),
         }
     }
 }
@@ -275,24 +276,18 @@ impl<State, Message: Clone> ElementImpl for TextField<State, Message> {
             ctx,
         });
 
-        let mut messages = Vec::new();
-
         if event.target != Some(self.id) {
-            return messages;
+            return Vec::new();
         }
 
-        let on_action = match params.on_action {
-            Some(oa) => oa,
-            None => return messages,
-        };
-
-        match &event.kind {
+        let messages = params.text_field_action_handler.handle(self.id, event, || match &event.kind {
             crate::InteractionEventKind::Click { x, y, .. } => {
                 if let Some(layout) = &self.layout {
                     if let Some(c_pos) = layout.hit_test(*x, *y) {
-                        messages.push(on_action(self.id, TextFieldAction::CaretMove(c_pos)));
+                        return vec![TextFieldAction::CaretMove(c_pos)];
                     }
                 }
+                vec![]
             }
             crate::InteractionEventKind::Keyboard(key_event) => {
                 if key_event.state.is_pressed() {
@@ -306,95 +301,89 @@ impl<State, Message: Clone> ElementImpl for TextField<State, Message> {
                         Key::Character(s) => {
                             let mut new_text = current_text.clone();
                             new_text.insert_str_at_char_index(caret, s);
-                            messages
-                                .push(on_action(self.id, TextFieldAction::TextChange(new_text)));
-                            messages.push(on_action(
-                                self.id,
+                            vec![
+                                TextFieldAction::TextChange(new_text),
                                 TextFieldAction::CaretMove(caret + s.chars().count()),
-                            ));
+                            ]
                         }
                         Key::Named(NamedKey::Space) => {
                             let mut new_text = current_text.clone();
                             new_text.insert_at_char_index(caret, ' ');
-                            messages
-                                .push(on_action(self.id, TextFieldAction::TextChange(new_text)));
-                            messages
-                                .push(on_action(self.id, TextFieldAction::CaretMove(caret + 1)));
+                            vec![
+                                TextFieldAction::TextChange(new_text),
+                                TextFieldAction::CaretMove(caret + 1),
+                            ]
                         }
                         Key::Named(NamedKey::Backspace) => {
                             if caret > 0 && caret <= current_text.chars().count() {
                                 let mut new_text = current_text.clone();
                                 new_text.remove_at_char_index(caret - 1);
-                                messages.push(on_action(
-                                    self.id,
+                                vec![
                                     TextFieldAction::TextChange(new_text),
-                                ));
-                                messages.push(on_action(
-                                    self.id,
                                     TextFieldAction::CaretMove(caret - 1),
-                                ));
+                                ]
+                            } else {
+                                vec![]
                             }
                         }
                         Key::Named(NamedKey::Delete) => {
                             if caret < current_text.chars().count() {
                                 let mut new_text = current_text.clone();
                                 new_text.remove_at_char_index(caret);
-                                messages.push(on_action(
-                                    self.id,
-                                    TextFieldAction::TextChange(new_text),
-                                ));
+                                vec![TextFieldAction::TextChange(new_text)]
+                            } else {
+                                vec![]
                             }
                         }
                         Key::Named(NamedKey::ArrowLeft) => {
                             if caret > 0 {
-                                messages.push(on_action(
-                                    self.id,
-                                    TextFieldAction::CaretMove(caret - 1),
-                                ));
+                                vec![TextFieldAction::CaretMove(caret - 1)]
+                            } else {
+                                vec![]
                             }
                         }
                         Key::Named(NamedKey::ArrowRight) => {
                             if caret < current_text.chars().count() {
-                                messages.push(on_action(
-                                    self.id,
-                                    TextFieldAction::CaretMove(caret + 1),
-                                ));
+                                vec![TextFieldAction::CaretMove(caret + 1)]
+                            } else {
+                                vec![]
                             }
                         }
                         Key::Named(NamedKey::ArrowUp) => {
                             if let Some(layout) = &self.layout {
                                 let intended_x = layout.get_caret_x(caret);
                                 let new_caret = layout.get_vertical_move(caret, -1, intended_x);
-                                messages.push(on_action(
-                                    self.id,
-                                    TextFieldAction::CaretMove(new_caret),
-                                ));
+                                vec![TextFieldAction::CaretMove(new_caret)]
+                            } else {
+                                vec![]
                             }
                         }
                         Key::Named(NamedKey::ArrowDown) => {
                             if let Some(layout) = &self.layout {
                                 let intended_x = layout.get_caret_x(caret);
                                 let new_caret = layout.get_vertical_move(caret, 1, intended_x);
-                                messages.push(on_action(
-                                    self.id,
-                                    TextFieldAction::CaretMove(new_caret),
-                                ));
+                                vec![TextFieldAction::CaretMove(new_caret)]
+                            } else {
+                                vec![]
                             }
                         }
                         Key::Named(NamedKey::Enter) => {
                             let mut new_text = current_text.clone();
                             new_text.insert_at_char_index(caret, '\n');
-                            messages
-                                .push(on_action(self.id, TextFieldAction::TextChange(new_text)));
-                            messages
-                                .push(on_action(self.id, TextFieldAction::CaretMove(caret + 1)));
+                            vec![
+                                TextFieldAction::TextChange(new_text),
+                                TextFieldAction::CaretMove(caret + 1),
+                            ]
                         }
-                        _ => {}
+                        _ => vec![],
                     }
+                } else {
+                    vec![]
                 }
             }
-            _ => {}
-        }
+            _ => vec![],
+        });
+
         messages
     }
 }

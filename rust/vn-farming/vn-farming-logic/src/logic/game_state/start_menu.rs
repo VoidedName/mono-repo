@@ -5,7 +5,13 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Instant;
 use vn_scene::{Color, Rect};
-use vn_ui::{AnchorExt, AnchorLocation, AnchorParams, ButtonExt, ButtonParams, DynamicDimension, DynamicSize, Element, ElementId, ElementSize, ElementWorld, EventManager, Flex, FlexExt, InteractionEventKind, InteractionState, InteractiveExt, InteractiveParams, PaddingExt, PaddingParams, SimpleLayoutCache, SizeConstraints, StackExt, StaticTextFieldController, TextField, TextFieldParams, TextVisuals, UiContext};
+use vn_ui::{
+    AnchorExt, AnchorLocation, AnchorParams, ButtonExt, ButtonParams, DynamicDimension,
+    DynamicSize, Element, ElementId, ElementSize, ElementWorld, EventHandler, EventManager, Flex,
+    FlexExt, InteractionEventKind, InteractionState, InteractiveExt, InteractiveParams, PaddingExt,
+    PaddingParams, SimpleLayoutCache, SizeConstraints, StackExt, TextField, TextFieldParams,
+    TextVisuals, UiContext,
+};
 use vn_wgpu_window::resource_manager::{ResourceManager, Sampling};
 use vn_wgpu_window::{GraphicsContext, WgpuScene};
 use winit::event::{ElementState, KeyEvent, MouseButton};
@@ -25,6 +31,7 @@ enum StartMenuButton {
     Exit,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum StartMenuEvent {
     StartGame,
     LoadGame,
@@ -62,7 +69,7 @@ impl StartMenuButton {
 }
 
 pub struct StartMenu {
-    ui: RefCell<Box<dyn Element<State = StartMenu>>>,
+    ui: RefCell<Box<dyn Element<State = StartMenu, Message = StartMenuEvent>>>,
     focused_button: Rc<RefCell<StartMenuButton>>,
     button_ids: Rc<RefCell<Vec<(StartMenuButton, ElementId)>>>,
     event_manager: Rc<RefCell<EventManager>>,
@@ -83,7 +90,8 @@ impl StartMenu {
         let focused_button = Rc::new(RefCell::new(StartMenuButton::Start));
         let button_ids = Rc::new(RefCell::new(Vec::new()));
 
-        let mut buttons: Vec<Box<dyn Element<State = StartMenu>>> = Vec::new();
+        let mut buttons: Vec<Box<dyn Element<State = StartMenu, Message = StartMenuEvent>>> =
+            Vec::new();
 
         for btn_type in [
             StartMenuButton::Start,
@@ -109,9 +117,9 @@ impl StartMenu {
                         caret_width: None,
                         caret_blink_duration: None,
                     },
-                    controller: Rc::new(RefCell::new(StaticTextFieldController::new())),
                     metrics: metrics.clone(),
                     interaction: Default::default(),
+                    text_field_action_handler: EventHandler::none(),
                 }),
                 &mut world,
             )
@@ -143,6 +151,11 @@ impl StartMenu {
                             is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
                             is_focused,
                         },
+                        on_click: if args.ctx.event_manager.borrow().is_hovered(args.id) {
+                            Some(btn_type.to_menu_event())
+                        } else {
+                            None
+                        },
                     }
                 }),
                 &mut world,
@@ -151,7 +164,7 @@ impl StartMenu {
             button_ids.borrow_mut().push((btn_type, button.id()));
             buttons.push(Box::new(
                 button.padding(Box::new(|_| PaddingParams::uniform(8.0)), &mut world),
-            ));
+            ) as Box<dyn Element<State = StartMenu, Message = StartMenuEvent>>);
         }
 
         let ui = Flex::new_column_unweighted(buttons, true, &mut world).anchor(

@@ -1,7 +1,7 @@
 use crate::utils::ToArray;
 use crate::{
-    DynamicDimension, Element, ElementId, ElementImpl, ElementSize, ElementWorld, ScrollAreaAction,
-    SizeConstraints, StateToParams, UiContext,
+    DynamicDimension, Element, ElementId, ElementImpl, ElementSize, ElementWorld, EventHandler,
+    ScrollAreaAction, SizeConstraints, StateToParams, UiContext,
 };
 use std::cell::RefCell;
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
@@ -10,7 +10,7 @@ use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
 pub struct ScrollAreaParams<Message: Clone> {
     pub scroll_x: Option<f32>,
     pub scroll_y: Option<f32>,
-    pub on_scroll: Option<fn(ElementId, ScrollAreaAction) -> Message>,
+    pub scroll_action_handler: EventHandler<ScrollAreaAction, Message>,
     pub scrollbar_width: f32,
     pub scrollbar_margin: f32,
 }
@@ -228,7 +228,32 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
             ctx,
         });
 
-        let mut messages = Vec::new();
+        let mut messages = params.scroll_action_handler.handle(self.id, event, || match &event.kind {
+            crate::InteractionEventKind::MouseMove { x, y } => {
+                if let Some(drag) = self.drag_state.borrow().as_ref() {
+                    if drag.id == self.scroll_v_id {
+                        let delta_mouse = y - drag.initial_mouse;
+                        let scroll_ratio = self.child_size.height / self.viewport_size.height;
+                        let new_scroll = drag.initial_scroll + delta_mouse * scroll_ratio;
+                        return vec![ScrollAreaAction::ScrollY(new_scroll)];
+                    } else if drag.id == self.scroll_h_id {
+                        let delta_mouse = x - drag.initial_mouse;
+                        let scroll_ratio = self.child_size.width / self.viewport_size.width;
+                        let new_scroll = drag.initial_scroll + delta_mouse * scroll_ratio;
+                        return vec![ScrollAreaAction::ScrollX(new_scroll)];
+                    }
+                }
+                vec![]
+            }
+            crate::InteractionEventKind::MouseScroll { y } => {
+                if ctx.event_manager.borrow().is_hovered(self.id) {
+                    let current = params.scroll_y.unwrap_or(0.0);
+                    return vec![ScrollAreaAction::ScrollY(current - y)];
+                }
+                vec![]
+            }
+            _ => vec![],
+        });
 
         match &event.kind {
             crate::InteractionEventKind::MouseDown { x, y, .. } => {
@@ -246,33 +271,8 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                     });
                 }
             }
-            crate::InteractionEventKind::MouseMove { x, y } => {
-                if let Some(drag) = self.drag_state.borrow().as_ref() {
-                    if let Some(on_scroll) = params.on_scroll {
-                        if drag.id == self.scroll_v_id {
-                            let delta_mouse = y - drag.initial_mouse;
-                            let scroll_ratio = self.child_size.height / self.viewport_size.height;
-                            let new_scroll = drag.initial_scroll + delta_mouse * scroll_ratio;
-                            messages.push(on_scroll(self.id, ScrollAreaAction::ScrollY(new_scroll)));
-                        } else if drag.id == self.scroll_h_id {
-                            let delta_mouse = x - drag.initial_mouse;
-                            let scroll_ratio = self.child_size.width / self.viewport_size.width;
-                            let new_scroll = drag.initial_scroll + delta_mouse * scroll_ratio;
-                            messages.push(on_scroll(self.id, ScrollAreaAction::ScrollX(new_scroll)));
-                        }
-                    }
-                }
-            }
             crate::InteractionEventKind::MouseUp { .. } => {
                 *self.drag_state.borrow_mut() = None;
-            }
-            crate::InteractionEventKind::MouseScroll { y } => {
-                if ctx.event_manager.borrow().is_hovered(self.id) {
-                    if let Some(on_scroll) = params.on_scroll {
-                        let current = params.scroll_y.unwrap_or(0.0);
-                        messages.push(on_scroll(self.id, ScrollAreaAction::ScrollY(current - y)));
-                    }
-                }
             }
             _ => {}
         }

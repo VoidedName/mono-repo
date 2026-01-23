@@ -4,11 +4,14 @@ use std::rc::Rc;
 use vn_scene::{Color, Rect};
 use vn_ui::{
     Anchor, AnchorExt, AnchorLocation, AnchorParams, ButtonExt, ButtonParams, CardExt, CardParams,
-    Element, ElementId, ElementWorld, FitStrategy, Flex, FlexChild, InteractionState,
-    InteractiveExt, PaddingExt, PaddingParams, ScrollAreaExt, ScrollAreaParams, Stack,
-    StateToParamsArgs, TextField,
-    TextFieldAction, TextFieldParams, TextMetrics, TextVisuals, Texture, TextureParams,
+    Element, ElementId, ElementWorld, EventHandler, FitStrategy, Flex, FlexChild,
+    InteractionEventKind, InteractionState, InteractiveExt, PaddingExt, PaddingParams,
+    ScrollAreaExt, ScrollAreaParams, Stack, StateToParamsArgs, TextField, TextFieldAction,
+    TextFieldParams, TextMetrics, TextVisuals, Texture, TextureParams,
 };
+use winit::event::{ElementState, KeyEvent};
+use winit::keyboard;
+use winit::keyboard::NamedKey;
 
 pub struct EditorUi {
     pub root: Box<dyn Element<State = Editor, Message = EditorEvent>>,
@@ -88,7 +91,7 @@ fn build_title(
                     },
                     metrics: metrics.clone(),
                     interaction: Default::default(),
-                    on_action: None,
+                    text_field_action_handler: EventHandler::none(),
                 }
             }),
             world,
@@ -166,7 +169,7 @@ fn build_sidebar(
                 },
                 metrics: metrics.clone(),
                 interaction: Default::default(),
-                on_action: None,
+                text_field_action_handler: EventHandler::none(),
             }
         }),
         world,
@@ -244,7 +247,7 @@ fn build_layer_list(
                     },
                     metrics: metrics.clone(),
                     interaction: Default::default(),
-                    on_action: None,
+                    text_field_action_handler: EventHandler::none(),
                 }
             }),
             world,
@@ -266,7 +269,7 @@ fn build_layer_list(
                     },
                     metrics: metrics.clone(),
                     interaction: Default::default(),
-                    on_action: None,
+                    text_field_action_handler: EventHandler::none(),
                 }
             }),
             world,
@@ -353,7 +356,7 @@ fn build_add_layer_button(
                 },
                 metrics: metrics.clone(),
                 interaction: Default::default(),
-                on_action: None,
+                text_field_action_handler: EventHandler::none(),
             }
         }),
         world,
@@ -401,7 +404,7 @@ fn build_tileset_title(
                 },
                 metrics: metrics.clone(),
                 interaction: Default::default(),
-                on_action: None,
+                text_field_action_handler: EventHandler::none(),
             }
         }),
         world,
@@ -434,7 +437,7 @@ fn build_dimension_input(
                 },
                 metrics: metrics.clone(),
                 interaction: Default::default(),
-                on_action: None,
+                text_field_action_handler: EventHandler::none(),
             }
         }),
         world,
@@ -466,7 +469,18 @@ fn build_dimension_input(
                         is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
                         is_focused,
                     },
-                    on_action,
+                    text_field_action_handler: on_action.map_or(EventHandler::none(), |f| {
+                        EventHandler::new(f).with_overwrite(|a, b| match b.kind {
+                            InteractionEventKind::Keyboard(KeyEvent {
+                                state: ElementState::Pressed,
+                                logical_key: keyboard::Key::Named(NamedKey::Enter),
+                                ..
+                            }) => {
+                                return (vec![], false);
+                            }
+                            _ => (vec![], true),
+                        })
+                    }),
                 }
             }
         }),
@@ -528,7 +542,7 @@ fn build_tileset_view(
                 },
                 metrics: metrics.clone(),
                 interaction: Default::default(),
-                on_action: None,
+                text_field_action_handler: EventHandler::none(),
             }
         }),
         world,
@@ -560,7 +574,9 @@ fn build_tileset_view(
                         is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
                         is_focused,
                     },
-                    on_action: Some(|id, action| EditorEvent::TextFieldAction { id, action }),
+                    text_field_action_handler: EventHandler::new(|id, action| {
+                        EditorEvent::TextFieldAction { id, action }
+                    }),
                 }
             }
         }),
@@ -598,7 +614,7 @@ fn build_tileset_view(
                 },
                 metrics: metrics.clone(),
                 interaction: Default::default(),
-                on_action: None,
+                text_field_action_handler: EventHandler::none(),
             }
         }),
         world,
@@ -696,7 +712,7 @@ fn build_tileset_view(
                     },
                     metrics: metrics.clone(),
                     interaction: Default::default(),
-                    on_action: None,
+                    text_field_action_handler: EventHandler::none(),
                 }
             }),
             world,
@@ -749,7 +765,7 @@ fn build_tileset_view(
                         },
                         metrics: metrics.clone(),
                         interaction: Default::default(),
-                        on_action: None,
+                        text_field_action_handler: EventHandler::none(),
                     }
                 }),
                 world,
@@ -801,7 +817,7 @@ fn build_selection_info(
                 },
                 metrics: metrics.clone(),
                 interaction: Default::default(),
-                on_action: None,
+                text_field_action_handler: EventHandler::none(),
             }
         }),
         world,
@@ -838,7 +854,7 @@ fn build_footer(
                     },
                     metrics: metrics.clone(),
                     interaction: Default::default(),
-                    on_action: None,
+                    text_field_action_handler: EventHandler::none(),
                 }
             }),
             world,
@@ -917,13 +933,17 @@ fn build_tileset_preview_panel(
                 world,
             )
             .scroll_area(
-                Box::new(move |args: StateToParamsArgs<'_, Editor>| ScrollAreaParams {
-                    scroll_x: Some(args.state.tileset_scroll_x),
-                    scroll_y: Some(args.state.tileset_scroll_y),
-                    on_scroll: Some(|id, action| EditorEvent::ScrollAction { id, action }),
-                    scrollbar_width: 6.0,
-                    scrollbar_margin: 2.0,
-                }),
+                Box::new(
+                    move |args: StateToParamsArgs<'_, Editor>| ScrollAreaParams {
+                        scroll_x: Some(args.state.tileset_scroll_x),
+                        scroll_y: Some(args.state.tileset_scroll_y),
+                        scroll_action_handler: EventHandler::new(|id, action| {
+                            EditorEvent::ScrollAction { id, action }
+                        }),
+                        scrollbar_width: 6.0,
+                        scrollbar_margin: 2.0,
+                    },
+                ),
                 world,
             );
 

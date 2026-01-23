@@ -288,7 +288,12 @@ impl Editor {
             }
             EditorEvent::UpdateTileWidth(text) => {
                 let val = {
-                    self.tile_width_text = text;
+                    let is_valid = text.parse::<u32>().is_ok();
+                    if is_valid {
+                        self.tile_width_text = text;
+                    } else if text.is_empty() {
+                        self.tile_width_text = "0".to_string();
+                    }
                     self.tile_width_text.parse::<u32>().ok()
                 };
                 if let Some(val) = val {
@@ -304,7 +309,12 @@ impl Editor {
             }
             EditorEvent::UpdateTileHeight(text) => {
                 let val = {
-                    self.tile_height_text = text;
+                    let is_valid = text.parse::<u32>().is_ok();
+                    if is_valid {
+                        self.tile_height_text = text;
+                    } else if text.is_empty() {
+                        self.tile_height_text = "0".to_string();
+                    }
                     self.tile_height_text.parse::<u32>().ok()
                 };
                 if let Some(val) = val {
@@ -320,7 +330,12 @@ impl Editor {
             }
             EditorEvent::UpdateTilesetCols(text) => {
                 let val = {
-                    self.tileset_cols_text = text;
+                    let is_valid = text.parse::<u32>().is_ok();
+                    if is_valid {
+                        self.tileset_cols_text = text;
+                    } else if text.is_empty() {
+                        self.tileset_cols_text = "0".to_string();
+                    }
                     self.tileset_cols_text.parse::<u32>().ok()
                 };
                 if let Some(val) = val {
@@ -336,7 +351,12 @@ impl Editor {
             }
             EditorEvent::UpdateTilesetRows(text) => {
                 let val = {
-                    self.tileset_rows_text = text;
+                    let is_valid = text.parse::<u32>().is_ok();
+                    if is_valid {
+                        self.tileset_rows_text = text;
+                    } else if text.is_empty() {
+                        self.tileset_rows_text = "0".to_string();
+                    }
                     self.tileset_rows_text.parse::<u32>().ok()
                 };
                 if let Some(val) = val {

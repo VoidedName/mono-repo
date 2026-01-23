@@ -68,4 +68,82 @@ pub enum ScrollAreaAction {
     ScrollY(f32),
 }
 
+#[derive(Clone, Debug)]
+pub struct EventHandler<Action: Clone, Message: Clone> {
+    pub on_action: Option<fn(ElementId, Action) -> Message>,
+    pub on_event: Option<fn(ElementId, &InteractionEvent) -> (Vec<Message>, bool)>,
+}
+
+impl<Action: Clone, Message: Clone> EventHandler<Action, Message> {
+    pub fn none() -> Self {
+        Self {
+            on_action: None,
+            on_event: None,
+        }
+    }
+
+    pub fn new(on_action: fn(ElementId, Action) -> Message) -> Self {
+        Self {
+            on_action: Some(on_action),
+            on_event: None,
+        }
+    }
+
+    pub fn with_overwrite(
+        mut self,
+        on_event: fn(ElementId, &InteractionEvent) -> (Vec<Message>, bool),
+    ) -> Self {
+        self.on_event = Some(on_event);
+        self
+    }
+
+    pub fn handle(
+        &self,
+        id: ElementId,
+        event: &InteractionEvent,
+        mut action_provider: impl FnMut() -> Vec<Action>,
+    ) -> Vec<Message> {
+        let mut messages = Vec::new();
+        let mut continue_processing = true;
+
+        if let Some(on_event) = self.on_event {
+            let (custom_messages, cont) = on_event(id, event);
+            messages.extend(custom_messages);
+            continue_processing = cont;
+        }
+
+        if continue_processing {
+            if let Some(on_action) = self.on_action {
+                for action in action_provider() {
+                    messages.push(on_action(id, action));
+                }
+            }
+        }
+
+        messages
+    }
+}
+
+impl<Action: Clone, Message: Clone> From<Option<fn(ElementId, Action) -> Message>>
+    for EventHandler<Action, Message>
+{
+    fn from(on_action: Option<fn(ElementId, Action) -> Message>) -> Self {
+        Self {
+            on_action,
+            on_event: None,
+        }
+    }
+}
+
+impl<Action: Clone, Message: Clone> From<fn(ElementId, Action) -> Message>
+    for EventHandler<Action, Message>
+{
+    fn from(on_action: fn(ElementId, Action) -> Message) -> Self {
+        Self {
+            on_action: Some(on_action),
+            on_event: None,
+        }
+    }
+}
+
 pub type StateToParams<State, Params> = Box<dyn Fn(StateToParamsArgs<State>) -> Params>;
