@@ -62,13 +62,13 @@ impl<State, Message> ElementImpl for Stack<State, Message> {
         state: &Self::State,
         origin: (f32, f32),
         size: ElementSize,
-        canvas: &mut dyn Scene,
+        scene: &mut dyn Scene,
     ) {
         let mut first_drawn = false;
 
         let mut draw_child = |child: &mut Box<dyn Element<State = State, Message = Message>>,
                               child_size: ElementSize,
-                              canvas: &mut dyn Scene| {
+                              scene: &mut dyn Scene| {
             child.draw(
                 ctx,
                 state,
@@ -81,17 +81,17 @@ impl<State, Message> ElementImpl for Stack<State, Message> {
                     },
                     scene_size: (size.width, size.height), // Approximation
                 }),
-                canvas,
+                scene,
             );
         };
 
         for (idx, child) in self.children.iter_mut().enumerate() {
             match first_drawn {
-                true => canvas.with_next_layer(&mut |canvas| {
-                    draw_child(child, self.children_size[idx], canvas)
+                true => scene.with_next_layer(&mut |scene| {
+                    draw_child(child, self.children_size[idx], scene)
                 }),
                 false => {
-                    draw_child(child, self.children_size[idx], canvas);
+                    draw_child(child, self.children_size[idx], scene);
                     first_drawn = true;
                 }
             }

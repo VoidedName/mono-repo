@@ -67,6 +67,49 @@ impl Texture {
         id
     }
 
+    pub fn empty(
+        device: &wgpu::Device,
+        dimensions: (u32, u32),
+        label: Option<&str>,
+        usage: wgpu::TextureUsages,
+    ) -> Self {
+        let size = wgpu::Extent3d {
+            width: dimensions.0.max(1),
+            height: dimensions.1.max(1),
+            depth_or_array_layers: 1,
+        };
+
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label,
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: usage | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+            ..Default::default()
+        });
+
+        Self {
+            id: Self::next_id(),
+            texture,
+            view,
+            sampler,
+            size: (dimensions.0.max(1), dimensions.1.max(1)),
+        }
+    }
+
     /// Loads a texture from raw bytes (supports various image formats).
     pub fn from_bytes(
         device: &wgpu::Device,
@@ -198,5 +241,54 @@ impl Texture {
             sampler,
             size: (dimensions.0.max(1), dimensions.1.max(1)),
         }
+    }
+}
+
+pub struct TextureAtlas {
+    pub texture: Rc<Texture>,
+    current_x: u32,
+    current_y: u32,
+    row_height: u32,
+    padding: u32,
+}
+
+impl TextureAtlas {
+    pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
+        let texture = Texture::empty(
+            device,
+            (width, height),
+            Some("Texture Atlas"),
+            wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
+        );
+
+        Self {
+            texture: Rc::new(texture),
+            current_x: 0,
+            current_y: 0,
+            row_height: 0,
+            padding: 2,
+        }
+    }
+
+    pub fn allocate(&mut self, width: u32, height: u32) -> Option<vn_scene::Rect> {
+        if self.current_x + width + self.padding > self.texture.size.0 {
+            self.current_x = 0;
+            self.current_y += self.row_height + self.padding;
+            self.row_height = 0;
+        }
+
+        if self.current_y + height + self.padding > self.texture.size.1 {
+            return None;
+        }
+
+        let rect = vn_scene::Rect {
+            position: [self.current_x as f32 / self.texture.size.0 as f32, self.current_y as f32 / self.texture.size.1 as f32],
+            size: [width as f32 / self.texture.size.0 as f32, height as f32 / self.texture.size.1 as f32],
+        };
+
+        self.current_x += width + self.padding;
+        self.row_height = self.row_height.max(height);
+
+        Some(rect)
     }
 }

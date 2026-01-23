@@ -3,7 +3,7 @@ mod grid;
 mod ui;
 
 pub use events::EditorEvent;
-pub use grid::{Grid};
+pub use grid::Grid;
 
 use crate::logic::game_state::GameStateEx;
 use crate::logic::{FpsStats, PlatformHooks, TextMetric};
@@ -17,9 +17,7 @@ use vn_tilemap::{
 use vn_ui::InteractionEventKind::MouseScroll;
 use vn_ui::{
     DynamicDimension, DynamicSize, Element, ElementId, ElementSize, ElementWorld, EventManager,
-    InteractionEventKind,
-    SimpleLayoutCache, SizeConstraints, Stack,
-    UiContext,
+    InteractionEventKind, SimpleLayoutCache, SizeConstraints, Stack, UiContext,
 };
 use vn_wgpu_window::resource_manager::{ResourceManager, Sampling};
 use vn_wgpu_window::{GraphicsContext, WgpuScene};
@@ -85,7 +83,7 @@ impl Editor {
             resource_manager: rm,
             platform,
             loaded_tilesets: HashMap::new(),
-            tileset_path: "[Base]BaseChip_pipo.pngssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss\nssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss".to_string(),
+            tileset_path: "[Base]BaseChip_pipo.png".to_string(),
             tileset_path_caret: 0,
             tile_width_text: "".to_string(),
             tile_width_caret: 0,
@@ -121,7 +119,8 @@ impl Editor {
             gc: self.graphics_context.clone(),
         });
 
-        let editor_ui = ui::build_editor_ui(self, &mut world, metrics);
+        let editor_ui =
+            ui::build_editor_ui(self, &mut world, self.resource_manager.clone(), metrics);
 
         let mut new_focused = None;
         if old_focused == Some(self.tileset_path_input_id) {
@@ -300,10 +299,16 @@ impl Editor {
                     self.tile_width_text.parse::<u32>().ok()
                 };
                 if let Some(val) = val {
-                    let old_val = self.map_spec.layers.get(self.selected_layer_index).map(|l| l.tile_dimensions.0);
+                    let old_val = self
+                        .map_spec
+                        .layers
+                        .get(self.selected_layer_index)
+                        .map(|l| l.tile_dimensions.0);
                     if let Some(old_val) = old_val {
                         if val != old_val {
-                            let h = self.map_spec.layers[self.selected_layer_index].tile_dimensions.1;
+                            let h = self.map_spec.layers[self.selected_layer_index]
+                                .tile_dimensions
+                                .1;
                             let ev = EditorEvent::ChangeTileDimensions(val, h);
                             self.handle_event(ev);
                         }
@@ -321,10 +326,16 @@ impl Editor {
                     self.tile_height_text.parse::<u32>().ok()
                 };
                 if let Some(val) = val {
-                    let old_val = self.map_spec.layers.get(self.selected_layer_index).map(|l| l.tile_dimensions.1);
+                    let old_val = self
+                        .map_spec
+                        .layers
+                        .get(self.selected_layer_index)
+                        .map(|l| l.tile_dimensions.1);
                     if let Some(old_val) = old_val {
                         if val != old_val {
-                            let w = self.map_spec.layers[self.selected_layer_index].tile_dimensions.0;
+                            let w = self.map_spec.layers[self.selected_layer_index]
+                                .tile_dimensions
+                                .0;
                             let ev = EditorEvent::ChangeTileDimensions(w, val);
                             self.handle_event(ev);
                         }
@@ -342,10 +353,16 @@ impl Editor {
                     self.tileset_cols_text.parse::<u32>().ok()
                 };
                 if let Some(val) = val {
-                    let old_val = self.map_spec.layers.get(self.selected_layer_index).map(|l| l.tile_set_dimensions.0);
+                    let old_val = self
+                        .map_spec
+                        .layers
+                        .get(self.selected_layer_index)
+                        .map(|l| l.tile_set_dimensions.0);
                     if let Some(old_val) = old_val {
                         if val != old_val {
-                            let h = self.map_spec.layers[self.selected_layer_index].tile_set_dimensions.1;
+                            let h = self.map_spec.layers[self.selected_layer_index]
+                                .tile_set_dimensions
+                                .1;
                             let ev = EditorEvent::ChangeTileSetDimensions(val, h);
                             self.handle_event(ev);
                         }
@@ -363,10 +380,16 @@ impl Editor {
                     self.tileset_rows_text.parse::<u32>().ok()
                 };
                 if let Some(val) = val {
-                    let old_val = self.map_spec.layers.get(self.selected_layer_index).map(|l| l.tile_set_dimensions.1);
+                    let old_val = self
+                        .map_spec
+                        .layers
+                        .get(self.selected_layer_index)
+                        .map(|l| l.tile_set_dimensions.1);
                     if let Some(old_val) = old_val {
                         if val != old_val {
-                            let w = self.map_spec.layers[self.selected_layer_index].tile_set_dimensions.0;
+                            let w = self.map_spec.layers[self.selected_layer_index]
+                                .tile_set_dimensions
+                                .0;
                             let ev = EditorEvent::ChangeTileSetDimensions(w, val);
                             self.handle_event(ev);
                         }
@@ -502,7 +525,12 @@ impl GameStateEx for Editor {
     fn handle_mouse_position(&mut self, x: f32, y: f32) {
         self.event_manager
             .borrow_mut()
-            .queue_event(InteractionEventKind::MouseMove { x, y, local_x: x, local_y: y });
+            .queue_event(InteractionEventKind::MouseMove {
+                x,
+                y,
+                local_x: x,
+                local_y: y,
+            });
     }
 
     fn handle_mouse_button(

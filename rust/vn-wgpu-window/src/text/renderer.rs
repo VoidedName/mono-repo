@@ -195,7 +195,8 @@ impl TextRenderer {
     pub fn render_glyph(
         &mut self,
         graphics_context: &GraphicsContext,
-        resource_manager: &ResourceManager,
+        _resource_manager: &ResourceManager,
+        texture_atlas: &mut crate::texture::TextureAtlas,
         font: &Font,
         glyph_id: ttf_parser::GlyphId,
         font_size: f32,
@@ -245,18 +246,27 @@ impl TextRenderer {
         let offset_x = -min_x + 1.0;
         let offset_y = 1.0;
 
+        let uv_rect = texture_atlas
+            .allocate(width, height)
+            .ok_or_else(|| anyhow::anyhow!("Texture atlas full"))?;
+
+        let atlas_pixel_pos = [
+            uv_rect.position[0] * texture_atlas.texture.size.0 as f32,
+            uv_rect.position[1] * texture_atlas.texture.size.1 as f32,
+        ];
+
         if !glyph_instances.is_empty() {
             for glyph in &mut glyph_instances {
-                glyph.rect_min[0] += offset_x;
-                glyph.rect_min[1] += offset_y;
-                glyph.rect_max[0] += offset_x;
-                glyph.rect_max[1] += offset_y;
+                glyph.rect_min[0] += offset_x + atlas_pixel_pos[0];
+                glyph.rect_min[1] += offset_y + atlas_pixel_pos[1];
+                glyph.rect_max[0] += offset_x + atlas_pixel_pos[0];
+                glyph.rect_max[1] += offset_y + atlas_pixel_pos[1];
             }
             for seg in &mut all_segments {
-                seg.p0[0] += offset_x;
-                seg.p0[1] += offset_y;
-                seg.p1[0] += offset_x;
-                seg.p1[1] += offset_y;
+                seg.p0[0] += offset_x + atlas_pixel_pos[0];
+                seg.p0[1] += offset_y + atlas_pixel_pos[1];
+                seg.p1[0] += offset_x + atlas_pixel_pos[0];
+                seg.p1[1] += offset_y + atlas_pixel_pos[1];
             }
         }
 
@@ -308,12 +318,12 @@ impl TextRenderer {
         queue.write_buffer(&self.segment_buffer, 0, bytemuck::cast_slice(&all_segments));
 
         let globals = Globals {
-            resolution: [width as f32, height as f32],
+            resolution: [
+                texture_atlas.texture.size.0 as f32,
+                texture_atlas.texture.size.1 as f32,
+            ],
         };
         queue.write_buffer(&self.globals_buffer, 0, bytemuck::cast_slice(&[globals]));
-
-        let target_texture =
-            Texture::create_render_target(device, (width, height), Some("Glyph Texture"));
 
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Glyph Render Encoder"),
@@ -323,10 +333,10 @@ impl TextRenderer {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Glyph Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &target_texture.view,
+                    view: &texture_atlas.texture.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                        load: wgpu::LoadOp::Load,
                         store: wgpu::StoreOp::Store,
                     },
                     depth_slice: None,
@@ -347,16 +357,13 @@ impl TextRenderer {
 
         queue.submit(std::iter::once(encoder.finish()));
 
-        let target_texture = Rc::new(target_texture);
-
-        resource_manager.add_texture(target_texture.clone());
-
         Ok(crate::text::Glyph {
-            texture: target_texture.id.clone(),
+            texture: texture_atlas.texture.id.clone(),
             advance,
             x_bearing: min_x,
             y_offset: 0.0,
             size: (width as f32, height as f32),
+            uv_rect,
         })
     }
 }

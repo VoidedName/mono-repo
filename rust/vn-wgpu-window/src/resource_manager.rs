@@ -1,6 +1,6 @@
 use crate::graphics::WgpuContext;
 use crate::text::{Font, FontFaceTrueScale, TextRenderer};
-use crate::texture::{Texture, TextureId};
+use crate::texture::{Texture, TextureAtlas, TextureId};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::fmt;
@@ -20,6 +20,7 @@ pub struct ResourceManager {
     text_renderer: RefCell<TextRenderer>,
     glyph_size_increment: Cell<f32>,
     glyph_cache: RefCell<TimedLRUCache<GlyphKey, Glyph>>,
+    texture_atlas: RefCell<TextureAtlas>,
 }
 
 use crate::text::Glyph;
@@ -48,15 +49,19 @@ pub enum Sampling {
 impl ResourceManager {
     pub fn new(wgpu: Rc<WgpuContext>, fallback_font: &[u8]) -> Self {
         let fallback_font = Rc::new(Font::new(fallback_font.to_vec()));
+        let texture_atlas = TextureAtlas::new(&wgpu.device, 2048, 2048);
+        let textures = RefCell::new(HashMap::new());
+        textures.borrow_mut().insert(texture_atlas.texture.id.clone(), texture_atlas.texture.clone());
 
         Self {
             text_renderer: RefCell::new(TextRenderer::new(&wgpu.device)),
             wgpu,
-            textures: RefCell::new(HashMap::new()),
+            textures,
             fonts: RefCell::new(HashMap::new()),
             fallback_font,
             glyph_size_increment: Cell::new(4.0),
             glyph_cache: RefCell::new(TimedLRUCache::new()),
+            texture_atlas: RefCell::new(texture_atlas),
         }
     }
 
@@ -200,6 +205,7 @@ impl ResourceManager {
             match self.text_renderer.borrow_mut().render_glyph(
                 graphics_context,
                 self,
+                &mut *self.texture_atlas.borrow_mut(),
                 &font,
                 glyph_id,
                 quantized_size,
@@ -231,11 +237,14 @@ impl ResourceManager {
     pub fn cleanup(&self, max_age: u64, max_entries: usize) {
         let mut glyph_cache = self.glyph_cache.borrow_mut();
 
+        
+        // todo: glyphs live in a text atlas now. consider cleaning it up / rescaling / repacking
+        //  etc...
         // Prune glyph cache
-        let _ = glyph_cache.cleanup(TimedLRUCacheCleanupParams {
-            max_age: Some(max_age),
-            max_entries: Some(max_entries),
-        });
+        // let _ = glyph_cache.cleanup(TimedLRUCacheCleanupParams {
+        //     max_age: Some(max_age),
+        //     max_entries: Some(max_entries),
+        // });
 
         // 2. Prune textures
         // probably a better way to do this... but works for now

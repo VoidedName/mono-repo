@@ -176,7 +176,7 @@ impl<State, Message: Clone> ElementImpl for TextField<State, Message> {
         state: &Self::State,
         origin: (f32, f32),
         size: ElementSize,
-        canvas: &mut dyn Scene,
+        scene: &mut dyn Scene,
     ) {
         let params = (self.params)(crate::StateToParamsArgs {
             state,
@@ -198,7 +198,7 @@ impl<State, Message: Clone> ElementImpl for TextField<State, Message> {
 
         ctx.with_hitbox_hierarchy(
             self.id,
-            canvas.current_layer_id(),
+            scene.current_layer_id(),
             Rect {
                 position: origin.to_array(),
                 size: size.to_array(),
@@ -221,7 +221,7 @@ impl<State, Message: Clone> ElementImpl for TextField<State, Message> {
                             current_x += glyph.advance;
                         }
 
-                        canvas.add_text(TextPrimitiveData {
+                        scene.add_text(TextPrimitiveData {
                             transform: Transform {
                                 translation: [
                                     origin.0 + caret_space / 2.0,
@@ -237,7 +237,7 @@ impl<State, Message: Clone> ElementImpl for TextField<State, Message> {
 
                     if self.show_caret {
                         if let Some(caret_position) = visuals.caret_position {
-                            canvas.with_next_layer(&mut |canvas| {
+                            scene.with_next_layer(&mut |canvas| {
                                 let (caret_x_offset, caret_y_offset) =
                                     layout.get_caret_pos(caret_position);
 

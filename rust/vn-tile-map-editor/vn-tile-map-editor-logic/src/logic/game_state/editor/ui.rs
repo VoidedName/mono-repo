@@ -1,17 +1,12 @@
 use crate::logic::game_state::editor::grid::GridParams;
 use crate::logic::game_state::editor::{Editor, EditorEvent, Grid};
 use std::rc::Rc;
-use vn_scene::{Color, Rect};
-use vn_ui::{
-    Anchor, AnchorExt, AnchorLocation, AnchorParams, ButtonExt, ButtonParams, CardExt, CardParams,
-    Element, ElementId, ElementWorld, EventHandler, FitStrategy, Flex, FlexChild,
-    InteractionEventKind, InteractionState, InteractiveExt, PaddingExt, PaddingParams,
-    ScrollAreaExt, ScrollAreaParams, Stack, StateToParamsArgs, TextField, TextFieldAction,
-    TextFieldParams, TextMetrics, TextVisuals, Texture, TextureParams,
-};
+use vn_scene::{Color, Rect, TextureId};
+use vn_ui::{Anchor, AnchorExt, AnchorLocation, AnchorParams, ButtonExt, ButtonParams, CardExt, CardParams, Element, ElementId, ElementSize, ElementWorld, EventHandler, FitStrategy, Flex, FlexChild, InteractionEventKind, InteractionState, InteractiveExt, PaddingExt, PaddingParams, ScrollAreaExt, ScrollAreaParams, Stack, StateToParamsArgs, TextField, TextFieldAction, TextFieldParams, TextMetrics, TextVisuals, Texture, TextureParams};
 use winit::event::{ElementState, KeyEvent};
 use winit::keyboard;
 use winit::keyboard::NamedKey;
+use vn_wgpu_window::resource_manager::ResourceManager;
 
 pub const UI_FONT: &str = "jetbrains-bold";
 pub const UI_FONT_SIZE: f32 = 16.0;
@@ -29,6 +24,7 @@ pub struct EditorUi {
 pub fn build_editor_ui(
     editor: &Editor,
     world: &mut ElementWorld,
+    rm: Rc<ResourceManager>,
     metrics: Rc<dyn TextMetrics>,
 ) -> EditorUi {
     let title = build_title(world, metrics.clone());
@@ -57,6 +53,22 @@ pub fn build_editor_ui(
     )
     .padding(Box::new(|_| PaddingParams::uniform(40.0)), world);
 
+    let text_atlas = Texture::new(Box::new(|_| {
+        TextureParams {
+            texture_id: TextureId(Rc::new(1)),
+            preferred_size: ElementSize {
+                height: 256.0,
+                width: 256.0,
+            },
+            uv_rect: Rect {
+                position: [0.0, 0.0],
+                size: [1.0, 1.0],
+            },
+            tint: Color::WHITE.with_alpha(0.5),
+            fit_strategy: FitStrategy::PreserveAspectRatio { rotation: 0.0 },
+        }
+    }), world);
+
     let ui = Flex::new_column(
         vec![
             FlexChild::new(title),
@@ -76,6 +88,8 @@ pub fn build_editor_ui(
                 }),
                 world,
             )),
+            Box::new(text_atlas),
+            // Box::new(text_atlas_letter),
         ],
         world,
     );

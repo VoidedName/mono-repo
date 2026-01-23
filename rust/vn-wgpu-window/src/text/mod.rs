@@ -10,6 +10,7 @@ use crate::texture::TextureId;
 pub struct Glyph {
     pub texture: TextureId,
     pub size: (f32, f32),
+    pub uv_rect: vn_scene::Rect,
     pub advance: f32,
     pub x_bearing: f32,
     pub y_offset: f32,

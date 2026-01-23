@@ -51,10 +51,7 @@ impl TextMetrics for TextMetric {
                 x_bearing: g.x_bearing,
                 y_offset: g.y_offset,
                 size: [g.size.0, g.size.1],
-                uv_rect: Rect {
-                    position: [0.0, 0.0],
-                    size: [1.0, 1.0],
-                },
+                uv_rect: g.uv_rect,
             })
             .collect()
     }

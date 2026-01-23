@@ -5,6 +5,7 @@ use crate::resource_manager::ResourceManager;
 use crate::scene::WgpuScene;
 use crate::texture::TextureId;
 use crate::{Renderer, Texture};
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 use wgpu::include_wgsl;
@@ -33,6 +34,13 @@ pub struct SceneRenderer {
     globals: GlobalResources,
     box_pipeline: Pipeline,
     texture_pipeline: Pipeline,
+    instance_buffer: RefCell<wgpu::Buffer>,
+    instance_buffer_capacity: Cell<usize>,
+    instance_buffer_offset: Cell<usize>,
+    box_instance_buffer: RefCell<wgpu::Buffer>,
+    box_instance_buffer_capacity: Cell<usize>,
+    box_instance_buffer_offset: Cell<usize>,
+    batch: RefCell<Vec<_TexturePrimitive>>,
 }
 
 impl SceneRenderer {
@@ -186,6 +194,22 @@ impl SceneRenderer {
                     usage: wgpu::BufferUsages::VERTEX,
                 });
 
+        let instance_buffer_capacity = 1024;
+        let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Instance Buffer"),
+            size: (instance_buffer_capacity * std::mem::size_of::<_TexturePrimitive>()) as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let box_instance_buffer_capacity = 1024;
+        let box_instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Box Instance Buffer"),
+            size: (box_instance_buffer_capacity * std::mem::size_of::<BoxPrimitive>()) as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
         Self {
             resource_manager,
             globals: GlobalResources {
@@ -201,6 +225,13 @@ impl SceneRenderer {
                 pipeline: texture_pipeline,
                 bind_group_layouts: vec![globals_bind_group_layout, texture_bind_group_layout],
             },
+            instance_buffer: RefCell::new(instance_buffer),
+            instance_buffer_capacity: Cell::new(instance_buffer_capacity),
+            instance_buffer_offset: Cell::new(0),
+            box_instance_buffer: RefCell::new(box_instance_buffer),
+            box_instance_buffer_capacity: Cell::new(box_instance_buffer_capacity),
+            box_instance_buffer_offset: Cell::new(0),
+            batch: RefCell::new(Vec::new()),
         }
     }
 
@@ -231,16 +262,37 @@ impl SceneRenderer {
         render_pass.set_pipeline(&self.box_pipeline.pipeline);
         self.globals.set(render_pass);
 
-        let instance_buffer =
-            graphics_context
-                .device()
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Box Instance Buffer"),
-                    contents: bytemuck::cast_slice(boxes),
-                    usage: wgpu::BufferUsages::VERTEX,
-                });
-        render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
+        let current_offset = self.box_instance_buffer_offset.get();
+        let needed_capacity = current_offset + boxes.len();
+
+        if needed_capacity > self.box_instance_buffer_capacity.get() {
+            self.box_instance_buffer_capacity
+                .set(needed_capacity.next_power_of_two());
+            *self.box_instance_buffer.borrow_mut() =
+                graphics_context
+                    .device()
+                    .create_buffer(&wgpu::BufferDescriptor {
+                        label: Some("Box Instance Buffer"),
+                        size: (self.box_instance_buffer_capacity.get()
+                            * std::mem::size_of::<BoxPrimitive>()) as u64,
+                        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                        mapped_at_creation: false,
+                    });
+            self.box_instance_buffer_offset.set(0);
+        }
+
+        let offset_bytes = (self.box_instance_buffer_offset.get() * std::mem::size_of::<BoxPrimitive>()) as u64;
+
+        graphics_context.queue().write_buffer(
+            &self.box_instance_buffer.borrow(),
+            offset_bytes,
+            bytemuck::cast_slice(boxes),
+        );
+
+        render_pass.set_vertex_buffer(1, self.box_instance_buffer.borrow().slice(offset_bytes..));
         render_pass.draw(0..6, 0..boxes.len() as u32);
+
+        self.box_instance_buffer_offset.set(self.box_instance_buffer_offset.get() + boxes.len());
     }
 
     fn render_images<'a>(
@@ -258,7 +310,8 @@ impl SceneRenderer {
 
         // Group by texture to minimize bind group changes and buffer creation
         let mut current_texture: Option<Rc<Texture>> = None;
-        let mut batch = Vec::new();
+        let mut batch = self.batch.borrow_mut();
+        batch.clear();
 
         // todo: use the same batching as in text rendering
 
@@ -335,7 +388,10 @@ impl SceneRenderer {
             }
         }
 
-        for (_, (texture, mut batch)) in batches.into_iter() {
+        let mut batch = self.batch.borrow_mut();
+        for (_, (texture, mut b)) in batches.into_iter() {
+            batch.clear();
+            batch.append(&mut b);
             self.draw_texture_batch(graphics_context, render_pass, &texture, &mut batch);
         }
     }
@@ -355,6 +411,32 @@ impl SceneRenderer {
             return;
         }
 
+        let current_offset = self.instance_buffer_offset.get();
+        let needed_capacity = current_offset + batch.len();
+
+        if needed_capacity > self.instance_buffer_capacity.get() {
+            self.instance_buffer_capacity.set(needed_capacity.next_power_of_two());
+            *self.instance_buffer.borrow_mut() =
+                graphics_context
+                    .device()
+                    .create_buffer(&wgpu::BufferDescriptor {
+                        label: Some("Instance Buffer"),
+                        size: (self.instance_buffer_capacity.get()
+                            * std::mem::size_of::<_TexturePrimitive>()) as u64,
+                        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                        mapped_at_creation: false,
+                    });
+            self.instance_buffer_offset.set(0);
+        }
+
+        let offset_bytes = (self.instance_buffer_offset.get() * std::mem::size_of::<_TexturePrimitive>()) as u64;
+
+        graphics_context.queue().write_buffer(
+            &self.instance_buffer.borrow(),
+            offset_bytes,
+            bytemuck::cast_slice(batch),
+        );
+
         let bind_group = graphics_context
             .device()
             .create_bind_group(&wgpu::BindGroupDescriptor {
@@ -372,18 +454,11 @@ impl SceneRenderer {
                 ],
             });
 
-        let instance_buffer =
-            graphics_context
-                .device()
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Texture Instance Buffer"),
-                    contents: bytemuck::cast_slice(batch),
-                    usage: wgpu::BufferUsages::VERTEX,
-                });
-
         render_pass.set_bind_group(1, &bind_group, &[]);
-        render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
+        render_pass.set_vertex_buffer(1, self.instance_buffer.borrow().slice(offset_bytes..));
         render_pass.draw(0..6, 0..batch.len() as u32);
+
+        self.instance_buffer_offset.set(self.instance_buffer_offset.get() + batch.len());
         batch.clear();
     }
 }
@@ -398,6 +473,9 @@ impl Renderer for SceneRenderer {
     ) -> Result<(), wgpu::SurfaceError> {
         let (output, view, mut encoder) = Self::begin_render_frame(graphics_context)?;
         self.update_globals(graphics_context);
+
+        self.instance_buffer_offset.set(0);
+        self.box_instance_buffer_offset.set(0);
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
