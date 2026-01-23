@@ -21,11 +21,36 @@ pub struct InteractionEvent {
 
 #[derive(Debug, Clone)]
 pub enum InteractionEventKind {
-    MouseMove { x: f32, y: f32 },
-    MouseDown { button: MouseButton, x: f32, y: f32 },
-    MouseUp { button: MouseButton, x: f32, y: f32 },
-    MouseScroll { y: f32 },
-    Click { button: MouseButton, x: f32, y: f32 },
+    MouseMove {
+        x: f32,
+        y: f32,
+        local_x: f32,
+        local_y: f32,
+    },
+    MouseDown {
+        button: MouseButton,
+        x: f32,
+        y: f32,
+        local_x: f32,
+        local_y: f32,
+    },
+    MouseUp {
+        button: MouseButton,
+        x: f32,
+        y: f32,
+        local_x: f32,
+        local_y: f32,
+    },
+    MouseScroll {
+        y: f32,
+    },
+    Click {
+        button: MouseButton,
+        x: f32,
+        y: f32,
+        local_x: f32,
+        local_y: f32,
+    },
     MouseEnter,
     MouseLeave,
     FocusGained,
@@ -66,13 +91,13 @@ impl EventManager {
 
         for event in queue {
             match event.kind {
-                InteractionEventKind::MouseMove { x, y } => {
+                InteractionEventKind::MouseMove { x, y, .. } => {
                     all_events.extend(self.handle_mouse_move(x, y));
                 }
-                InteractionEventKind::MouseDown { button, x, y } => {
+                InteractionEventKind::MouseDown { button, x, y, .. } => {
                     all_events.extend(self.handle_mouse_down(x, y, button));
                 }
-                InteractionEventKind::MouseUp { button, x, y } => {
+                InteractionEventKind::MouseUp { button, x, y, .. } => {
                     all_events.extend(self.handle_mouse_up(x, y, button));
                 }
                 InteractionEventKind::Keyboard(key_event) => {
@@ -163,8 +188,10 @@ impl EventManager {
             events.push(InteractionEvent {
                 target: Some(id),
                 kind: InteractionEventKind::MouseMove {
-                    x: x - bounds.position[0],
-                    y: y - bounds.position[1],
+                    local_x: x - bounds.position[0],
+                    local_y: y - bounds.position[1],
+                    x,
+                    y,
                 },
             });
         }
@@ -210,8 +237,10 @@ impl EventManager {
                 target: Some(id),
                 kind: InteractionEventKind::MouseDown {
                     button,
-                    x: x - bounds.position[0],
-                    y: y - bounds.position[1],
+                    local_x: x - bounds.position[0],
+                    local_y: y - bounds.position[1],
+                    x,
+                    y,
                 },
             });
             if self.focused_element != Some(id) {
@@ -264,8 +293,10 @@ impl EventManager {
                 target: Some(id),
                 kind: InteractionEventKind::MouseUp {
                     button,
-                    x: x - bounds.position[0],
-                    y: y - bounds.position[1],
+                    local_x: x - bounds.position[0],
+                    local_y: y - bounds.position[1],
+                    x,
+                    y,
                 },
             });
 
@@ -274,8 +305,10 @@ impl EventManager {
                     target: Some(id),
                     kind: InteractionEventKind::Click {
                         button,
-                        x: x - bounds.position[0],
-                        y: y - bounds.position[1],
+                        local_x: x - bounds.position[0],
+                        local_y: y - bounds.position[1],
+                        x,
+                        y,
                     },
                 });
             }

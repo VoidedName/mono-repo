@@ -92,8 +92,6 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
             .grow_by(grow_by)
             .clamp_to_constraints(constraints);
 
-        self.viewport_size = size.shrink_by(grow_by);
-
         size
     }
 
@@ -105,6 +103,8 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
         size: ElementSize,
         scene: &mut dyn Scene,
     ) {
+        self.viewport_size = size;
+
         ctx.with_hitbox_hierarchy(
             self.id,
             scene.current_layer_id(),
@@ -228,32 +228,47 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
             ctx,
         });
 
-        let mut messages = params.scroll_action_handler.handle(self.id, event, || match &event.kind {
-            crate::InteractionEventKind::MouseMove { x, y } => {
-                if let Some(drag) = self.drag_state.borrow().as_ref() {
-                    if drag.id == self.scroll_v_id {
-                        let delta_mouse = y - drag.initial_mouse;
-                        let scroll_ratio = self.child_size.height / self.viewport_size.height;
-                        let new_scroll = drag.initial_scroll + delta_mouse * scroll_ratio;
-                        return vec![ScrollAreaAction::ScrollY(new_scroll)];
-                    } else if drag.id == self.scroll_h_id {
-                        let delta_mouse = x - drag.initial_mouse;
-                        let scroll_ratio = self.child_size.width / self.viewport_size.width;
-                        let new_scroll = drag.initial_scroll + delta_mouse * scroll_ratio;
-                        return vec![ScrollAreaAction::ScrollX(new_scroll)];
+        let mut messages =
+            params
+                .scroll_action_handler
+                .handle(self.id, event, || match &event.kind {
+                    crate::InteractionEventKind::MouseMove { x, y, .. } => {
+                        if let Some(drag) = self.drag_state.borrow().as_ref() {
+                            if drag.id == self.scroll_v_id {
+                                let delta_mouse = y - drag.initial_mouse;
+                                let scroll_ratio =
+                                    self.child_size.height / self.viewport_size.height;
+                                let new_scroll = drag.initial_scroll + delta_mouse * scroll_ratio;
+                                return vec![ScrollAreaAction::ScrollY(new_scroll.clamp(
+                                    0.0,
+                                    self.child_size.height - self.viewport_size.height,
+                                ))];
+                            } else if drag.id == self.scroll_h_id {
+                                let delta_mouse = x - drag.initial_mouse;
+                                let scroll_ratio = self.child_size.width / self.viewport_size.width;
+                                let new_scroll = drag.initial_scroll + delta_mouse * scroll_ratio;
+                                return vec![ScrollAreaAction::ScrollX(new_scroll.clamp(
+                                    0.0,
+                                    self.child_size.height - self.viewport_size.height,
+                                ))];
+                            }
+                        }
+                        vec![]
                     }
-                }
-                vec![]
-            }
-            crate::InteractionEventKind::MouseScroll { y } => {
-                if ctx.event_manager.borrow().is_hovered(self.id) {
-                    let current = params.scroll_y.unwrap_or(0.0);
-                    return vec![ScrollAreaAction::ScrollY(current - y)];
-                }
-                vec![]
-            }
-            _ => vec![],
-        });
+                    crate::InteractionEventKind::MouseScroll { y } => {
+                        if ctx.event_manager.borrow().is_hovered(self.id) {
+                            let current = params.scroll_y.unwrap_or(0.0);
+                            let next = (current - y)
+                                .clamp(0.0, self.child_size.height - self.viewport_size.height);
+
+                            if current != next {
+                                return vec![ScrollAreaAction::ScrollY(next)];
+                            }
+                        }
+                        vec![]
+                    }
+                    _ => vec![],
+                });
 
         match &event.kind {
             crate::InteractionEventKind::MouseDown { x, y, .. } => {

@@ -60,7 +60,7 @@ impl TextMetrics for TextMetric {
     }
 }
 
-struct FpsStats {
+pub struct FpsStats {
     key_frame_time: RefCell<Option<Instant>>,
     frame_count: RefCell<u32>,
     current_fps: RefCell<Option<f32>>,
@@ -139,6 +139,7 @@ impl MainLogic {
                 platform.clone(),
                 graphics_context.clone(),
                 resource_manager.clone(),
+                fps_stats.clone(),
             )
             .await?,
         );

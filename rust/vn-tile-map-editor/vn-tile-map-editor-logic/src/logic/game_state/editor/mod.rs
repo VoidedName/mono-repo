@@ -6,7 +6,7 @@ pub use events::EditorEvent;
 pub use grid::{Grid};
 
 use crate::logic::game_state::GameStateEx;
-use crate::logic::{PlatformHooks, TextMetric};
+use crate::logic::{FpsStats, PlatformHooks, TextMetric};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -54,6 +54,7 @@ pub struct Editor {
     tileset_preview_scroll_area_id: ElementId,
     tileset_scroll_y: f32,
     tileset_scroll_x: f32,
+    fps: Rc<RefCell<FpsStats>>,
 }
 
 impl Editor {
@@ -61,6 +62,7 @@ impl Editor {
         platform: Rc<Box<dyn PlatformHooks>>,
         gc: Rc<GraphicsContext>,
         rm: Rc<ResourceManager>,
+        fps: Rc<RefCell<FpsStats>>,
     ) -> anyhow::Result<Self> {
         let mut world = ElementWorld::new();
         let tileset_path_input_id = world.next_id();
@@ -83,7 +85,7 @@ impl Editor {
             resource_manager: rm,
             platform,
             loaded_tilesets: HashMap::new(),
-            tileset_path: "[Base]BaseChip_pipo.png".to_string(),
+            tileset_path: "[Base]BaseChip_pipo.pngssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss\nssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss".to_string(),
             tileset_path_caret: 0,
             tile_width_text: "".to_string(),
             tile_width_caret: 0,
@@ -101,6 +103,7 @@ impl Editor {
             tileset_preview_scroll_area_id: ElementId(0),
             tileset_scroll_y: 0.0,
             tileset_scroll_x: 0.0,
+            fps,
         };
 
         editor.rebuild_ui();
@@ -499,7 +502,7 @@ impl GameStateEx for Editor {
     fn handle_mouse_position(&mut self, x: f32, y: f32) {
         self.event_manager
             .borrow_mut()
-            .queue_event(InteractionEventKind::MouseMove { x, y });
+            .queue_event(InteractionEventKind::MouseMove { x, y, local_x: x, local_y: y });
     }
 
     fn handle_mouse_button(
@@ -521,11 +524,15 @@ impl GameStateEx for Editor {
                 button,
                 x: mouse_position.0,
                 y: mouse_position.1,
+                local_x: mouse_position.0,
+                local_y: mouse_position.1,
             },
             ElementState::Released => InteractionEventKind::MouseUp {
                 button,
                 x: mouse_position.0,
                 y: mouse_position.1,
+                local_x: mouse_position.0,
+                local_y: mouse_position.1,
             },
         };
         self.event_manager.borrow_mut().queue_event(kind);

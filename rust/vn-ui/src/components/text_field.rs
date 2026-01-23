@@ -281,9 +281,9 @@ impl<State, Message: Clone> ElementImpl for TextField<State, Message> {
         }
 
         let messages = params.text_field_action_handler.handle(self.id, event, || match &event.kind {
-            crate::InteractionEventKind::Click { x, y, .. } => {
+            crate::InteractionEventKind::Click { local_x, local_y, .. } => {
                 if let Some(layout) = &self.layout {
-                    if let Some(c_pos) = layout.hit_test(*x, *y) {
+                    if let Some(c_pos) = layout.hit_test(*local_x, *local_y) {
                         return vec![TextFieldAction::CaretMove(c_pos)];
                     }
                 }

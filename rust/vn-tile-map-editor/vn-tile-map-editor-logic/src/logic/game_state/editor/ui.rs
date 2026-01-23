@@ -13,6 +13,9 @@ use winit::event::{ElementState, KeyEvent};
 use winit::keyboard;
 use winit::keyboard::NamedKey;
 
+pub const UI_FONT: &str = "jetbrains-bold";
+pub const UI_FONT_SIZE: f32 = 16.0;
+
 pub struct EditorUi {
     pub root: Box<dyn Element<State = Editor, Message = EditorEvent>>,
     pub tileset_path_input_id: ElementId,
@@ -32,6 +35,7 @@ pub fn build_editor_ui(
     let grid = build_grid(world);
     let sidebar_info = build_sidebar(editor, world, metrics.clone());
     let (preview, tileset_preview_scroll_area_id) = build_tileset_preview_panel(editor, world);
+    let fps_counter = build_fps_counter(metrics.clone(), world);
 
     let main_layout = Flex::new_row(
         vec![
@@ -53,15 +57,31 @@ pub fn build_editor_ui(
     )
     .padding(Box::new(|_| PaddingParams::uniform(40.0)), world);
 
+    let ui = Flex::new_column(
+        vec![
+            FlexChild::new(title),
+            FlexChild::weighted(Box::new(main_layout), 1.0),
+        ],
+        false,
+        world,
+    );
+
+    let ui = Stack::new(
+        vec![
+            Box::new(ui),
+            Box::new(Anchor::new(
+                fps_counter,
+                Box::new(|_| AnchorParams {
+                    location: AnchorLocation::TopRight,
+                }),
+                world,
+            )),
+        ],
+        world,
+    );
+
     EditorUi {
-        root: Box::new(Flex::new_column(
-            vec![
-                FlexChild::new(title),
-                FlexChild::weighted(Box::new(main_layout), 1.0),
-            ],
-            false,
-            world,
-        )),
+        root: Box::new(ui),
         tileset_path_input_id: sidebar_info.tileset_path_input_id,
         tile_width_input_id: sidebar_info.tile_width_input_id,
         tile_height_input_id: sidebar_info.tile_height_input_id,
@@ -83,8 +103,8 @@ fn build_title(
                     visuals: TextVisuals {
                         text: "Tile Map Editor".to_string(),
                         caret_position: None,
-                        font: "jetbrains-bold".to_string(),
-                        font_size: 24.0,
+                        font: UI_FONT.to_string(),
+                        font_size: UI_FONT_SIZE,
                         color: Color::WHITE,
                         caret_width: None,
                         caret_blink_duration: None,
@@ -161,8 +181,8 @@ fn build_sidebar(
                 visuals: TextVisuals {
                     text: "Layers".to_string(),
                     caret_position: None,
-                    font: "jetbrains-bold".to_string(),
-                    font_size: 18.0,
+                    font: UI_FONT.to_string(),
+                    font_size: UI_FONT_SIZE,
                     color: Color::WHITE,
                     caret_width: None,
                     caret_blink_duration: None,
@@ -235,8 +255,8 @@ fn build_layer_list(
                     visuals: TextVisuals {
                         text: format!("Layer {}", i),
                         caret_position: None,
-                        font: "jetbrains-bold".to_string(),
-                        font_size: 14.0,
+                        font: UI_FONT.to_string(),
+                        font_size: UI_FONT_SIZE,
                         color: if is_selected {
                             Color::RED
                         } else {
@@ -261,8 +281,8 @@ fn build_layer_list(
                     visuals: TextVisuals {
                         text: "X".to_string(),
                         caret_position: None,
-                        font: "jetbrains-bold".to_string(),
-                        font_size: 14.0,
+                        font: UI_FONT.to_string(),
+                        font_size: UI_FONT_SIZE,
                         color: Color::RED,
                         caret_width: None,
                         caret_blink_duration: None,
@@ -348,8 +368,8 @@ fn build_add_layer_button(
                 visuals: TextVisuals {
                     text: "Add Layer".to_string(),
                     caret_position: None,
-                    font: "jetbrains-bold".to_string(),
-                    font_size: 14.0,
+                    font: UI_FONT.to_string(),
+                    font_size: UI_FONT_SIZE,
                     color: Color::WHITE,
                     caret_width: None,
                     caret_blink_duration: None,
@@ -396,8 +416,8 @@ fn build_tileset_title(
                 visuals: TextVisuals {
                     text: "Tileset".to_string(),
                     caret_position: None,
-                    font: "jetbrains-bold".to_string(),
-                    font_size: 18.0,
+                    font: UI_FONT.to_string(),
+                    font_size: UI_FONT_SIZE,
                     color: Color::WHITE,
                     caret_width: None,
                     caret_blink_duration: None,
@@ -429,8 +449,8 @@ fn build_dimension_input(
                 visuals: TextVisuals {
                     text: label.clone(),
                     caret_position: None,
-                    font: "jetbrains-bold".to_string(),
-                    font_size: 12.0,
+                    font: UI_FONT.to_string(),
+                    font_size: UI_FONT_SIZE,
                     color: Color::WHITE.with_alpha(0.7),
                     caret_width: None,
                     caret_blink_duration: None,
@@ -458,8 +478,8 @@ fn build_dimension_input(
                         } else {
                             None
                         },
-                        font: "jetbrains-bold".to_string(),
-                        font_size: 14.0,
+                        font: UI_FONT.to_string(),
+                        font_size: UI_FONT_SIZE,
                         color: Color::WHITE,
                         caret_width: Some(2.0),
                         caret_blink_duration: Some(0.5),
@@ -534,8 +554,8 @@ fn build_tileset_view(
                 visuals: TextVisuals {
                     text: format!("Current: {}", current_tileset),
                     caret_position: None,
-                    font: "jetbrains-bold".to_string(),
-                    font_size: 12.0,
+                    font: UI_FONT.to_string(),
+                    font_size: UI_FONT_SIZE,
                     color: Color::WHITE.with_alpha(0.7),
                     caret_width: None,
                     caret_blink_duration: None,
@@ -563,8 +583,8 @@ fn build_tileset_view(
                         } else {
                             None
                         },
-                        font: "jetbrains-bold".to_string(),
-                        font_size: 14.0,
+                        font: UI_FONT.to_string(),
+                        font_size: UI_FONT_SIZE,
                         color: Color::WHITE,
                         caret_width: Some(2.0),
                         caret_blink_duration: Some(0.5),
@@ -606,8 +626,8 @@ fn build_tileset_view(
                 visuals: TextVisuals {
                     text: "Load Tileset".to_string(),
                     caret_position: None,
-                    font: "jetbrains-bold".to_string(),
-                    font_size: 14.0,
+                    font: UI_FONT.to_string(),
+                    font_size: UI_FONT_SIZE,
                     color: Color::WHITE,
                     caret_width: None,
                     caret_blink_duration: None,
@@ -700,8 +720,8 @@ fn build_tileset_view(
                     visuals: TextVisuals {
                         text: path.clone(),
                         caret_position: None,
-                        font: "jetbrains-bold".to_string(),
-                        font_size: 12.0,
+                        font: UI_FONT.to_string(),
+                        font_size: UI_FONT_SIZE,
                         color: if is_selected {
                             Color::RED
                         } else {
@@ -757,8 +777,8 @@ fn build_tileset_view(
                         visuals: TextVisuals {
                             text: "Recently Loaded:".to_string(),
                             caret_position: None,
-                            font: "jetbrains-bold".to_string(),
-                            font_size: 12.0,
+                            font: UI_FONT.to_string(),
+                            font_size: UI_FONT_SIZE,
                             color: Color::WHITE.with_alpha(0.7),
                             caret_width: None,
                             caret_blink_duration: None,
@@ -809,8 +829,8 @@ fn build_selection_info(
                         layer_count
                     ),
                     caret_position: None,
-                    font: "jetbrains-bold".to_string(),
-                    font_size: 12.0,
+                    font: UI_FONT.to_string(),
+                    font_size: UI_FONT_SIZE,
                     color: Color::WHITE.with_alpha(0.7),
                     caret_width: None,
                     caret_blink_duration: None,
@@ -846,8 +866,8 @@ fn build_footer(
                     visuals: TextVisuals {
                         text: btn_text.clone(),
                         caret_position: None,
-                        font: "jetbrains-bold".to_string(),
-                        font_size: 14.0,
+                        font: UI_FONT.to_string(),
+                        font_size: UI_FONT_SIZE,
                         color: Color::WHITE,
                         caret_width: None,
                         caret_blink_duration: None,
@@ -940,8 +960,8 @@ fn build_tileset_preview_panel(
                         scroll_action_handler: EventHandler::new(|id, action| {
                             EditorEvent::ScrollAction { id, action }
                         }),
-                        scrollbar_width: 6.0,
-                        scrollbar_margin: 2.0,
+                        scrollbar_width: 16.0,
+                        scrollbar_margin: 8.0,
                     },
                 ),
                 world,
@@ -979,4 +999,46 @@ fn build_tileset_preview_panel(
         ),
         scroll_area_id,
     )
+}
+
+pub fn build_fps_counter(
+    metrics: Rc<dyn TextMetrics>,
+    world: &mut ElementWorld,
+) -> Box<dyn Element<State = Editor, Message = EditorEvent>> {
+    let counter_text = TextField::new(
+        Box::new(move |args: StateToParamsArgs<Editor>| TextFieldParams {
+            visuals: TextVisuals {
+                text: format!(
+                    "FPS: {:7>.2}",
+                    args.state
+                        .fps
+                        .borrow()
+                        .current_fps
+                        .borrow()
+                        .as_ref()
+                        .unwrap_or(&0.0)
+                ),
+                caret_position: None,
+                font: UI_FONT.to_string(),
+                font_size: UI_FONT_SIZE,
+                color: Color::WHITE.with_alpha(0.3),
+                caret_width: None,
+                caret_blink_duration: None,
+            },
+            metrics: metrics.clone(),
+            interaction: Default::default(),
+            text_field_action_handler: EventHandler::none(),
+        }),
+        world,
+    )
+    .card(
+        Box::new(|_| CardParams {
+            background_color: Color::BLACK.with_alpha(0.3),
+            border_size: 2.0,
+            border_color: Color::WHITE.with_alpha(0.5),
+            corner_radius: 5.0,
+        }),
+        world,
+    );
+    Box::new(counter_text)
 }
