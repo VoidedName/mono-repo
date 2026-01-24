@@ -267,7 +267,7 @@ impl<K: Eq + std::hash::Hash + Clone, V> TimedLRUCache<K, V> {
         }
     }
 
-    pub fn update(&mut self) {
+    pub fn tick(&mut self) {
         self.generation = self.generation.wrapping_add(1);
     }
 

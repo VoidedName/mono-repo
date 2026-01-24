@@ -1,7 +1,9 @@
+use crate::text::Glyph;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Mutex;
 pub use vn_scene::TextureId;
+use vn_utils::{TimedLRUCache};
 
 /// Represents a loaded GPU texture with its view and sampler.
 pub struct Texture {
@@ -244,12 +246,34 @@ impl Texture {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TextureAtlasKey {
+    /// Font the Glyph is rendered in
+    pub font_name: String,
+    /// Id of the glyph in the font.
+    pub glyph_id: u32,
+    /// Font size the glyph is rendered in.
+    pub glyph_size: u32,
+}
+
 pub struct TextureAtlas {
     pub texture: Rc<Texture>,
     current_x: u32,
     current_y: u32,
     row_height: u32,
     padding: u32,
+}
+
+impl std::fmt::Debug for TextureAtlas {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TextureAtlas")
+            .field("texture", &self.texture)
+            .field("current_x", &self.current_x)
+            .field("current_y", &self.current_y)
+            .field("row_height", &self.row_height)
+            .field("padding", &self.padding)
+            .finish()
+    }
 }
 
 impl TextureAtlas {
@@ -290,5 +314,59 @@ impl TextureAtlas {
         self.row_height = self.row_height.max(height);
 
         Some(rect)
+    }
+}
+
+// todo: repacking
+pub struct TextureAtlasCatalog {
+    pub atlases: Vec<TextureAtlas>,
+    atlas_size: (u32, u32),
+    cache: RefCell<TimedLRUCache<TextureAtlasKey, Glyph>>,
+}
+
+impl std::fmt::Debug for TextureAtlasCatalog {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TextureAtlasCatalog")
+            .field("atlases", &self.atlases)
+            .field("atlas_size", &self.atlas_size)
+            .field("cache_size", &self.cache.borrow().len())
+            .finish()
+    }
+}
+
+impl TextureAtlasCatalog {
+    pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
+        let initial_atlas = TextureAtlas::new(device, width, height);
+        Self {
+            atlases: vec![initial_atlas],
+            atlas_size: (width, height),
+            cache: RefCell::new(TimedLRUCache::new()),
+        }
+    }
+
+    pub fn get_glyph(&self, key: &TextureAtlasKey) -> Option<Glyph> {
+        self.cache.borrow_mut().get(key).cloned()
+    }
+
+    pub fn insert_glyph(&self, key: TextureAtlasKey, glyph: Glyph) {
+        self.cache.borrow_mut().insert(key, glyph);
+    }
+
+    pub fn tick_cache(&self) {
+        self.cache.borrow_mut().tick();
+    }
+
+    pub fn allocate(&mut self, device: &wgpu::Device, width: u32, height: u32) -> (vn_scene::Rect, Rc<Texture>) {
+        if let Some(rect) = self.atlases.last_mut().unwrap().allocate(width, height) {
+            return (rect, self.atlases.last().unwrap().texture.clone());
+        }
+
+        // Current atlas is full, add a new one
+        let mut new_atlas = TextureAtlas::new(device, self.atlas_size.0, self.atlas_size.1);
+        let rect = new_atlas.allocate(width, height).expect("Failed to allocate in a fresh atlas");
+        let texture = new_atlas.texture.clone();
+        self.atlases.push(new_atlas);
+
+        (rect, texture)
     }
 }

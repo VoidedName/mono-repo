@@ -27,8 +27,8 @@ impl<State, Message> ElementImpl for Empty<State, Message> {
 
     fn layout_impl(
         &mut self,
-        ctx: &mut UiContext,
-        state: &Self::State,
+        _ctx: &mut UiContext,
+        _state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
         self.size.clamp_to_constraints(constraints)
@@ -36,19 +36,19 @@ impl<State, Message> ElementImpl for Empty<State, Message> {
 
     fn draw_impl(
         &mut self,
-        ctx: &mut UiContext,
-        state: &Self::State,
-        origin: (f32, f32),
-        size: ElementSize,
-        canvas: &mut dyn Scene,
+        _ctx: &mut UiContext,
+        _state: &Self::State,
+        _origin: (f32, f32),
+        _size: ElementSize,
+        _scene: &mut dyn Scene,
     ) {
     }
 
     fn handle_event_impl(
         &mut self,
-        ctx: &mut UiContext,
-        state: &Self::State,
-        event: &crate::InteractionEvent,
+        _ctx: &mut UiContext,
+        _state: &Self::State,
+        _event: &crate::InteractionEvent,
     ) -> Vec<Self::Message> {
         vec![]
     }

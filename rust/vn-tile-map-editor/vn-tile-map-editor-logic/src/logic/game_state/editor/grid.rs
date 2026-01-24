@@ -1,6 +1,8 @@
-use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
-use vn_ui::{Element, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionEvent, ScrollAreaParams, SizeConstraints, StateToParams, StateToParamsArgs, UiContext};
-use crate::logic::game_state::editor::Editor;
+use vn_scene::{BoxPrimitiveData, Color, Scene, Transform};
+use vn_ui::{
+    ElementId, ElementImpl, ElementSize, ElementWorld, InteractionEvent, SizeConstraints,
+    StateToParams, StateToParamsArgs, UiContext,
+};
 
 pub struct GridParams {
     pub rows: u32,
@@ -17,11 +19,7 @@ pub struct Grid<State, Message> {
 }
 
 impl<State, Message> Grid<State, Message> {
-
-    pub fn new(
-        params: StateToParams<State, GridParams>,
-        world: &mut ElementWorld,
-    ) -> Self {
+    pub fn new(params: StateToParams<State, GridParams>, world: &mut ElementWorld) -> Self {
         Self {
             id: world.next_id(),
             params,
@@ -53,7 +51,8 @@ impl<State, Message> ElementImpl for Grid<State, Message> {
         ElementSize {
             width: params.grid_size.0 * params.cols as f32,
             height: params.grid_size.1 * params.rows as f32,
-        }.clamp_to_constraints(constraints)
+        }
+        .clamp_to_constraints(constraints)
     }
 
     fn draw_impl(
@@ -74,7 +73,10 @@ impl<State, Message> ElementImpl for Grid<State, Message> {
             let px = origin.0 + y as f32 * params.grid_size.0 - params.grid_width / 2.0;
             scene.add_box(BoxPrimitiveData {
                 transform: Transform::builder().translation([px, origin.1]).build(),
-                size: [params.grid_width, size.height.min(params.grid_size.1 * params.rows as f32)],
+                size: [
+                    params.grid_width,
+                    size.height.min(params.grid_size.1 * params.rows as f32),
+                ],
                 color: params.grid_color,
                 border_radius: 0.0,
                 border_color: Color::TRANSPARENT,
@@ -87,7 +89,10 @@ impl<State, Message> ElementImpl for Grid<State, Message> {
             let px = origin.1 + x as f32 * params.grid_size.1 - params.grid_width / 2.0;
             scene.add_box(BoxPrimitiveData {
                 transform: Transform::builder().translation([origin.0, px]).build(),
-                size: [size.width.min(params.grid_size.0 * params.cols as f32), params.grid_width],
+                size: [
+                    size.width.min(params.grid_size.0 * params.cols as f32),
+                    params.grid_width,
+                ],
                 color: params.grid_color,
                 border_radius: 0.0,
                 border_color: Color::TRANSPARENT,
@@ -97,7 +102,12 @@ impl<State, Message> ElementImpl for Grid<State, Message> {
         }
     }
 
-    fn handle_event_impl(&mut self, _ctx: &mut UiContext, _state: &Self::State, _event: &InteractionEvent) -> Vec<Self::Message> {
+    fn handle_event_impl(
+        &mut self,
+        _ctx: &mut UiContext,
+        _state: &Self::State,
+        _event: &InteractionEvent,
+    ) -> Vec<Self::Message> {
         vec![]
     }
 }

@@ -4,7 +4,6 @@ use crate::{
 };
 use vn_scene::{BoxPrimitiveData, Color, Scene, Transform};
 use vn_ui_animation_macros::Interpolatable;
-use vn_utils::option::UpdateOption;
 
 #[derive(Clone, Copy, Interpolatable)]
 pub struct CardParams {

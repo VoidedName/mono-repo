@@ -112,6 +112,7 @@ pub struct MainLogic {
     fps_stats: Rc<RefCell<FpsStats>>,
     size: (u32, u32),
     mouse_position: (f32, f32),
+    #[allow(unused)]
     platform: Rc<Box<dyn PlatformHooks>>,
     game_state: GameState,
 }

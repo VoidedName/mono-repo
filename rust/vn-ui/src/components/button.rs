@@ -4,7 +4,6 @@ use crate::{
     StateToParams, UiContext,
 };
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
-use vn_ui_animation_macros::Interpolatable;
 
 pub struct ButtonParams<Message> {
     pub background: Color,

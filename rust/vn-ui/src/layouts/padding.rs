@@ -4,7 +4,6 @@ use crate::{
 };
 use vn_scene::Scene;
 use vn_ui_animation_macros::Interpolatable;
-use vn_utils::option::UpdateOption;
 
 #[derive(Clone, Copy, Debug, Interpolatable)]
 pub struct PaddingParams {
@@ -72,11 +71,11 @@ impl<State, Message> ElementImpl for Padding<State, Message> {
         child_constraints
             .max_size
             .width
-            .update(|w| (w.max(x_padding) - x_padding));
+            .update(|w| w.max(x_padding) - x_padding);
         child_constraints
             .max_size
             .height
-            .update(|h| (h.max(y_padding) - y_padding));
+            .update(|h| h.max(y_padding) - y_padding);
 
         child_constraints.min_size.width =
             child_constraints.min_size.width.max(x_padding) - x_padding;

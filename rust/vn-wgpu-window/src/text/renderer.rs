@@ -4,9 +4,7 @@ use crate::primitives::QUAD_VERTICES;
 use crate::primitives::{Globals, Vertex};
 use crate::resource_manager::ResourceManager;
 use crate::text::{Font, FontFaceTrueScale};
-use crate::texture::Texture;
 use bytemuck::{Pod, Zeroable};
-use std::rc::Rc;
 use ttf_parser::OutlineBuilder;
 use wgpu::util::DeviceExt;
 
@@ -196,7 +194,7 @@ impl TextRenderer {
         &mut self,
         graphics_context: &GraphicsContext,
         _resource_manager: &ResourceManager,
-        texture_atlas: &mut crate::texture::TextureAtlas,
+        texture_atlas: &mut crate::texture::TextureAtlasCatalog,
         font: &Font,
         glyph_id: ttf_parser::GlyphId,
         font_size: f32,
@@ -246,13 +244,12 @@ impl TextRenderer {
         let offset_x = -min_x + 1.0;
         let offset_y = 1.0;
 
-        let uv_rect = texture_atlas
-            .allocate(width, height)
-            .ok_or_else(|| anyhow::anyhow!("Texture atlas full"))?;
+        let (uv_rect, atlas_texture) = texture_atlas
+            .allocate(graphics_context.device(), width, height);
 
         let atlas_pixel_pos = [
-            uv_rect.position[0] * texture_atlas.texture.size.0 as f32,
-            uv_rect.position[1] * texture_atlas.texture.size.1 as f32,
+            uv_rect.position[0] * atlas_texture.size.0 as f32,
+            uv_rect.position[1] * atlas_texture.size.1 as f32,
         ];
 
         if !glyph_instances.is_empty() {
@@ -319,8 +316,8 @@ impl TextRenderer {
 
         let globals = Globals {
             resolution: [
-                texture_atlas.texture.size.0 as f32,
-                texture_atlas.texture.size.1 as f32,
+                atlas_texture.size.0 as f32,
+                atlas_texture.size.1 as f32,
             ],
         };
         queue.write_buffer(&self.globals_buffer, 0, bytemuck::cast_slice(&[globals]));
@@ -333,7 +330,7 @@ impl TextRenderer {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Glyph Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &texture_atlas.texture.view,
+                    view: &atlas_texture.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,
@@ -358,7 +355,7 @@ impl TextRenderer {
         queue.submit(std::iter::once(encoder.finish()));
 
         Ok(crate::text::Glyph {
-            texture: texture_atlas.texture.id.clone(),
+            texture: atlas_texture.id.clone(),
             advance,
             x_bearing: min_x,
             y_offset: 0.0,

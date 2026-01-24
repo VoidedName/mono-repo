@@ -67,7 +67,7 @@ pub trait ElementImpl {
         state: &Self::State,
         origin: (f32, f32),
         size: ElementSize,
-        canvas: &mut dyn Scene,
+        scene: &mut dyn Scene,
     );
 
     /// Handles an interaction event.
@@ -117,9 +117,9 @@ pub trait Element: ElementImpl {
         state: &Self::State,
         origin: (f32, f32),
         size: ElementSize,
-        canvas: &mut dyn Scene,
+        scene: &mut dyn Scene,
     ) {
-        self.draw_impl(ctx, state, origin, size, canvas);
+        self.draw_impl(ctx, state, origin, size, scene);
         #[cfg(feature = "debug_outlines")]
         {
             use rand::rngs::SmallRng;
@@ -137,8 +137,8 @@ pub trait Element: ElementImpl {
 
             const DEBUG_THICKNESS: f32 = 4.0;
 
-            canvas.with_next_layer(&mut |canvas| {
-                canvas.add_box(BoxPrimitiveData {
+            scene.with_next_layer(&mut |scene| {
+                scene.add_box(BoxPrimitiveData {
                     transform: Transform {
                         translation: [
                             origin.0 - DEBUG_THICKNESS / 2.0,

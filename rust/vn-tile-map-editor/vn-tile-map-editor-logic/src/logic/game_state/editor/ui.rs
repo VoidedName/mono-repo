@@ -1,8 +1,7 @@
-use std::f32::consts::PI;
 use crate::logic::game_state::editor::grid::GridParams;
 use crate::logic::game_state::editor::{Editor, EditorEvent, Grid};
 use std::rc::Rc;
-use vn_scene::{Color, Rect, TextureId};
+use vn_scene::{Color, Rect};
 use vn_ui::{Anchor, AnchorExt, AnchorLocation, AnchorParams, ButtonExt, ButtonParams, CardExt, CardParams, Element, ElementId, ElementSize, ElementWorld, EventHandler, FitStrategy, Flex, FlexChild, InteractionEventKind, InteractionState, InteractiveExt, PaddingExt, PaddingParams, ScrollAreaExt, ScrollAreaParams, Stack, StateToParamsArgs, TextField, TextFieldAction, TextFieldParams, TextMetrics, TextVisuals, Texture, TextureParams};
 use winit::event::{ElementState, KeyEvent};
 use winit::keyboard;
@@ -54,9 +53,10 @@ pub fn build_editor_ui(
     )
     .padding(Box::new(|_| PaddingParams::uniform(40.0)), world);
 
-    let text_atlas = Texture::new(Box::new(|_| {
+    let rm_ = rm.clone();
+    let text_atlas = Texture::new(Box::new(move |_| {
         TextureParams {
-            texture_id: TextureId(Rc::new(1)),
+            texture_id: rm_.texture_atlas.borrow().atlases.last().unwrap().texture.id.clone(),
             preferred_size: ElementSize {
                 height: 256.0 * 8.0,
                 width: 256.0 * 8.0,
@@ -322,7 +322,7 @@ fn build_layer_list(
                     },
                     border_width: 2.0,
                     corner_radius: 2.0,
-                    interaction: vn_ui::InteractionState {
+                    interaction: InteractionState {
                         is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
                         is_focused: false,
                     },
@@ -354,7 +354,7 @@ fn build_layer_list(
                     },
                     border_width: 2.0,
                     corner_radius: 3.0,
-                    interaction: vn_ui::InteractionState {
+                    interaction: InteractionState {
                         is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
                         is_focused: false,
                     },
@@ -371,7 +371,7 @@ fn build_layer_list(
 }
 
 fn build_add_layer_button(
-    editor: &Editor,
+    _editor: &Editor,
     world: &mut ElementWorld,
     metrics: Rc<dyn TextMetrics>,
 ) -> Box<dyn Element<State = Editor, Message = EditorEvent>> {
@@ -504,7 +504,7 @@ fn build_dimension_input(
                         is_focused,
                     },
                     text_field_action_handler: on_action.map_or(EventHandler::none(), |f| {
-                        EventHandler::new(f).with_overwrite(|a, b| match b.kind {
+                        EventHandler::new(f).with_overwrite(|_, b| match b.kind {
                             InteractionEventKind::Keyboard(KeyEvent {
                                 state: ElementState::Pressed,
                                 logical_key: keyboard::Key::Named(NamedKey::Enter),
@@ -859,7 +859,7 @@ fn build_selection_info(
 }
 
 fn build_footer(
-    editor: &Editor,
+    _editor: &Editor,
     world: &mut ElementWorld,
     metrics: Rc<dyn TextMetrics>,
 ) -> Box<dyn Element<State = Editor, Message = EditorEvent>> {
@@ -906,7 +906,7 @@ fn build_footer(
                     },
                     border_width: 2.0,
                     corner_radius: 3.0,
-                    interaction: vn_ui::InteractionState {
+                    interaction: InteractionState {
                         is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
                         is_focused: false,
                     },
@@ -937,7 +937,7 @@ fn build_tileset_preview_panel(
             let texture_preview = Texture::new(
                 Box::new(move |_: StateToParamsArgs<'_, Editor>| TextureParams {
                     texture_id: texture_id.clone(),
-                    preferred_size: vn_ui::ElementSize {
+                    preferred_size: ElementSize {
                         width: 256.0,
                         height: 4256.0,
                     },
