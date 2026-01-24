@@ -118,7 +118,7 @@ impl Editor {
             rm: self.resource_manager.clone(),
             gc: self.graphics_context.clone(),
         });
-
+        
         let editor_ui =
             ui::build_editor_ui(self, &mut world, self.resource_manager.clone(), metrics);
 

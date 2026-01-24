@@ -1,3 +1,4 @@
+use std::f32::consts::PI;
 use crate::logic::game_state::editor::grid::GridParams;
 use crate::logic::game_state::editor::{Editor, EditorEvent, Grid};
 use std::rc::Rc;
@@ -57,15 +58,15 @@ pub fn build_editor_ui(
         TextureParams {
             texture_id: TextureId(Rc::new(1)),
             preferred_size: ElementSize {
-                height: 256.0,
-                width: 256.0,
+                height: 256.0 * 8.0,
+                width: 256.0 * 8.0,
             },
             uv_rect: Rect {
                 position: [0.0, 0.0],
                 size: [1.0, 1.0],
             },
             tint: Color::WHITE.with_alpha(0.5),
-            fit_strategy: FitStrategy::PreserveAspectRatio { rotation: 0.0 },
+            fit_strategy: FitStrategy::Clip { rotation: 0.0 },
         }
     }), world);
 
@@ -89,7 +90,6 @@ pub fn build_editor_ui(
                 world,
             )),
             Box::new(text_atlas),
-            // Box::new(text_atlas_letter),
         ],
         world,
     );

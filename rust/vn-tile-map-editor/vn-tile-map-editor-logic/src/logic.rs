@@ -127,7 +127,7 @@ impl MainLogic {
             .await?;
 
         resource_manager.load_font_from_bytes("jetbrains-bold", &font_bytes)?;
-        resource_manager.set_glyph_size_increment(12.0);
+        resource_manager.set_glyph_size_increment(4.0);
 
         let fps_stats = Rc::new(RefCell::new(FpsStats::new()));
 

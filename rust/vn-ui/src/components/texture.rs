@@ -201,9 +201,14 @@ impl<State, Message> ElementImpl for Texture<State, Message> {
             }
         };
 
+        let rotated = ElementSize {
+            width: w,
+            height: h,
+        }.rotate(rotation);
+
         canvas.add_image(ImagePrimitiveData {
             transform: Transform {
-                translation: [origin.0 + size.width / 2.0, origin.1 + size.height / 2.0],
+                translation: [origin.0 + rotated.width / 2.0, origin.1 + rotated.height / 2.0],
                 origin: [0.5, 0.5],
                 rotation,
                 ..Transform::DEFAULT
