@@ -63,17 +63,20 @@ pub struct TextureParams {
     pub fit_strategy: FitStrategy,
 }
 
-pub struct Texture<State, Message> {
+pub struct Texture<State: 'static, Message: 'static> {
     id: ElementId,
     params: StateToParams<State, TextureParams>,
     _phantom: std::marker::PhantomData<Message>,
 }
 
 impl<State, Message> Texture<State, Message> {
-    pub fn new(params: StateToParams<State, TextureParams>, world: &mut ElementWorld) -> Self {
+    pub fn new<P: Into<StateToParams<State, TextureParams>>>(
+        params: P,
+        world: &mut ElementWorld,
+    ) -> Self {
         Self {
             id: world.next_id(),
-            params,
+            params: params.into(),
             _phantom: std::marker::PhantomData,
         }
     }
@@ -93,7 +96,7 @@ impl<State, Message> ElementImpl for Texture<State, Message> {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        let params = (self.params)(crate::StateToParamsArgs {
+        let params = self.params.call(crate::StateToParamsArgs {
             state,
             id: self.id,
             ctx,
@@ -177,7 +180,7 @@ impl<State, Message> ElementImpl for Texture<State, Message> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = (self.params)(crate::StateToParamsArgs {
+        let params = self.params.call(crate::StateToParamsArgs {
             state,
             id: self.id,
             ctx,
@@ -204,11 +207,15 @@ impl<State, Message> ElementImpl for Texture<State, Message> {
         let rotated = ElementSize {
             width: w,
             height: h,
-        }.rotate(rotation);
+        }
+        .rotate(rotation);
 
         canvas.add_image(ImagePrimitiveData {
             transform: Transform {
-                translation: [origin.0 + rotated.width / 2.0, origin.1 + rotated.height / 2.0],
+                translation: [
+                    origin.0 + rotated.width / 2.0,
+                    origin.1 + rotated.height / 2.0,
+                ],
                 origin: [0.5, 0.5],
                 rotation,
                 ..Transform::DEFAULT

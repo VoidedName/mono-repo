@@ -2,11 +2,17 @@ use crate::logic::game_state::editor::grid::GridParams;
 use crate::logic::game_state::editor::{Editor, EditorEvent, Grid};
 use std::rc::Rc;
 use vn_scene::{Color, Rect};
-use vn_ui::{Anchor, AnchorExt, AnchorLocation, AnchorParams, ButtonExt, ButtonParams, CardExt, CardParams, Element, ElementId, ElementSize, ElementWorld, EventHandler, FitStrategy, Flex, FlexChild, InteractionEventKind, InteractionState, InteractiveExt, PaddingExt, PaddingParams, ScrollAreaExt, ScrollAreaParams, Stack, StateToParamsArgs, TextField, TextFieldAction, TextFieldParams, TextMetrics, TextVisuals, Texture, TextureParams};
+use vn_ui::{
+    Anchor, AnchorExt, AnchorLocation, AnchorParams, ButtonExt, ButtonParams, Card, CardExt,
+    CardParams, Element, ElementId, ElementSize, ElementWorld, EventHandler, FitStrategy, Flex,
+    FlexChild, InteractionEventKind, InteractionState, InteractiveExt, PaddingExt, PaddingParams,
+    ScrollAreaExt, ScrollAreaParams, ScrollBarParams, Stack, StateToParamsArgs, TextField,
+    TextFieldAction, TextFieldParams, TextMetrics, TextVisuals, Texture, TextureParams, params,
+};
+use vn_wgpu_window::resource_manager::ResourceManager;
 use winit::event::{ElementState, KeyEvent};
 use winit::keyboard;
 use winit::keyboard::NamedKey;
-use vn_wgpu_window::resource_manager::ResourceManager;
 
 pub const UI_FONT: &str = "jetbrains-bold";
 pub const UI_FONT_SIZE: f32 = 16.0;
@@ -33,30 +39,18 @@ pub fn build_editor_ui(
     let (preview, tileset_preview_scroll_area_id) = build_tileset_preview_panel(editor, world);
     let fps_counter = build_fps_counter(metrics.clone(), world);
 
-    let main_layout = Flex::new_row(
-        vec![
-            FlexChild::new(sidebar_info.sidebar),
-            FlexChild::weighted(
-                Box::new(Anchor::new(
-                    grid,
-                    Box::new(|_| AnchorParams {
-                        location: AnchorLocation::CENTER,
-                    }),
-                    world,
-                )),
-                1.0,
-            ),
-            FlexChild::new(preview),
-        ],
-        false,
-        world,
-    )
-    .padding(Box::new(|_| PaddingParams::uniform(40.0)), world);
-
     let rm_ = rm.clone();
-    let text_atlas = Texture::new(Box::new(move |_| {
-        TextureParams {
-            texture_id: rm_.texture_atlas.borrow().atlases.last().unwrap().texture.id.clone(),
+    let text_atlas = Texture::new(
+        params! { TextureParams {
+            texture_id: rm_
+                .texture_atlas
+                .borrow()
+                .atlases
+                .last()
+                .unwrap()
+                .texture
+                .id
+                .clone(),
             preferred_size: ElementSize {
                 height: 256.0 * 8.0,
                 width: 256.0 * 8.0,
@@ -67,8 +61,29 @@ pub fn build_editor_ui(
             },
             tint: Color::WHITE.with_alpha(0.5),
             fit_strategy: FitStrategy::Clip { rotation: 0.0 },
-        }
-    }), world);
+        }},
+        world,
+    );
+
+    let main_layout = Flex::new_row(
+        vec![
+            FlexChild::new(sidebar_info.sidebar),
+            FlexChild::weighted(
+                Box::new(Anchor::new(
+                    grid,
+                    params! { AnchorParams {
+                        location: AnchorLocation::CENTER,
+                    }},
+                    world,
+                )),
+                1.0,
+            ),
+            FlexChild::new(preview),
+        ],
+        false,
+        world,
+    );
+    // .padding(move |_| PaddingParams::uniform(40.0), world);
 
     let ui = Flex::new_column(
         vec![
@@ -84,9 +99,9 @@ pub fn build_editor_ui(
             Box::new(ui),
             Box::new(Anchor::new(
                 fps_counter,
-                Box::new(|_| AnchorParams {
+                params! { AnchorParams {
                     location: AnchorLocation::TopRight,
-                }),
+                }},
                 world,
             )),
             Box::new(text_atlas),
@@ -111,9 +126,9 @@ fn build_title(
 ) -> Box<dyn Element<State = Editor, Message = EditorEvent>> {
     Box::new(
         TextField::new(
-            Box::new({
+            params! { {
                 let metrics = metrics.clone();
-                move |_: StateToParamsArgs<'_, Editor>| TextFieldParams {
+                 TextFieldParams {
                     visuals: TextVisuals {
                         text: "Tile Map Editor".to_string(),
                         caret_position: None,
@@ -127,14 +142,14 @@ fn build_title(
                     interaction: Default::default(),
                     text_field_action_handler: EventHandler::none(),
                 }
-            }),
+            }},
             world,
         )
-        .padding(Box::new(|_| PaddingParams::uniform(10.0)), world)
+        .padding(params! { PaddingParams::uniform(10.0) }, world)
         .anchor(
-            Box::new(|_| AnchorParams {
+            params! { AnchorParams {
                 location: AnchorLocation::TOP,
-            }),
+            } },
             world,
         ),
     )
@@ -143,23 +158,23 @@ fn build_title(
 fn build_grid(world: &mut ElementWorld) -> Box<dyn Element<State = Editor, Message = EditorEvent>> {
     Box::new(
         Grid::new(
-            Box::new(|_| GridParams {
+            params! { GridParams {
                 grid_size: (32.0, 32.0),
                 cols: 10,
                 rows: 10,
                 grid_width: 3.0,
                 grid_color: Color::WHITE.with_alpha(0.5),
-            }),
+            }},
             world,
         )
-        .padding(Box::new(|_| PaddingParams::uniform(10.0)), world)
+        .padding(params! { PaddingParams::uniform(10.0) }, world)
         .card(
-            Box::new(|_| CardParams {
+            params! { CardParams {
                 background_color: Color::BLACK.with_alpha(0.3),
                 border_size: 2.0,
                 border_color: Color::WHITE.with_alpha(0.5),
                 corner_radius: 5.0,
-            }),
+            }},
             world,
         ),
     )
@@ -188,10 +203,10 @@ fn build_sidebar(
     world: &mut ElementWorld,
     metrics: Rc<dyn TextMetrics>,
 ) -> SidebarInfo {
+    let metrics_ = metrics.clone();
     let sidebar_title = Box::new(TextField::new(
-        Box::new({
-            let metrics = metrics.clone();
-            move |_: StateToParamsArgs<'_, Editor>| TextFieldParams {
+        params! { {
+             TextFieldParams {
                 visuals: TextVisuals {
                     text: "Layers".to_string(),
                     caret_position: None,
@@ -201,11 +216,11 @@ fn build_sidebar(
                     caret_width: None,
                     caret_blink_duration: None,
                 },
-                metrics: metrics.clone(),
+                metrics: metrics_.clone(),
                 interaction: Default::default(),
                 text_field_action_handler: EventHandler::none(),
             }
-        }),
+        }},
         world,
     ));
 
@@ -230,14 +245,14 @@ fn build_sidebar(
             true,
             world,
         )
-        .padding(Box::new(|_| PaddingParams::uniform(10.0)), world)
+        .padding(params! { PaddingParams::uniform(10.0) }, world)
         .card(
-            Box::new(|_| CardParams {
+            params! {CardParams {
                 background_color: Color::BLACK.with_alpha(0.5),
                 border_size: 2.0,
                 border_color: Color::WHITE.with_alpha(0.5),
                 corner_radius: 5.0,
-            }),
+            }},
             world,
         ),
     );
@@ -263,72 +278,73 @@ fn build_layer_list(
         let is_selected = i == editor.selected_layer_index;
 
         let layer_label = TextField::new(
-            Box::new({
+            {
                 let metrics = metrics.clone();
-                move |_: StateToParamsArgs<'_, Editor>| TextFieldParams {
-                    visuals: TextVisuals {
-                        text: format!("Layer {}", i),
-                        caret_position: None,
-                        font: UI_FONT.to_string(),
-                        font_size: UI_FONT_SIZE,
-                        color: if is_selected {
-                            Color::RED
-                        } else {
-                            Color::WHITE
+                params! {
+                     TextFieldParams {
+                        visuals: TextVisuals {
+                            text: format!("Layer {}", i),
+                            caret_position: None,
+                            font: UI_FONT.to_string(),
+                            font_size: UI_FONT_SIZE,
+                            color: if is_selected {
+                                Color::RED
+                            } else {
+                                Color::WHITE
+                            },
+                            caret_width: None,
+                            caret_blink_duration: None,
                         },
-                        caret_width: None,
-                        caret_blink_duration: None,
-                    },
-                    metrics: metrics.clone(),
-                    interaction: Default::default(),
-                    text_field_action_handler: EventHandler::none(),
+                        metrics: metrics.clone(),
+                        interaction: Default::default(),
+                        text_field_action_handler: EventHandler::none(),
+                    }
                 }
-            }),
+            },
             world,
         )
         .interactive_set(false, world);
 
         let remove_button = TextField::new(
-            Box::new({
+            {
                 let metrics = metrics.clone();
-                move |_: StateToParamsArgs<'_, Editor>| TextFieldParams {
-                    visuals: TextVisuals {
-                        text: "X".to_string(),
-                        caret_position: None,
-                        font: UI_FONT.to_string(),
-                        font_size: UI_FONT_SIZE,
-                        color: Color::RED,
-                        caret_width: None,
-                        caret_blink_duration: None,
-                    },
-                    metrics: metrics.clone(),
-                    interaction: Default::default(),
-                    text_field_action_handler: EventHandler::none(),
+                params! {
+                     TextFieldParams {
+                        visuals: TextVisuals {
+                            text: "X".to_string(),
+                            caret_position: None,
+                            font: UI_FONT.to_string(),
+                            font_size: UI_FONT_SIZE,
+                            color: Color::RED,
+                            caret_width: None,
+                            caret_blink_duration: None,
+                        },
+                        metrics: metrics.clone(),
+                        interaction: Default::default(),
+                        text_field_action_handler: EventHandler::none(),
+                    }
                 }
-            }),
+            },
             world,
         )
         .interactive_set(false, world)
-        .padding(Box::new(|_| PaddingParams::uniform(2.0)), world)
+        .padding(params! {PaddingParams::uniform(2.0) }, world)
         .button(
-            Box::new({
-                let i = i;
-                move |args| ButtonParams {
-                    background: Color::BLACK.with_alpha(0.3),
-                    border_color: if args.ctx.event_manager.borrow().is_hovered(args.id) {
-                        Color::RED
-                    } else {
-                        Color::TRANSPARENT
-                    },
-                    border_width: 2.0,
-                    corner_radius: 2.0,
-                    interaction: InteractionState {
-                        is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
-                        is_focused: false,
-                    },
-                    on_click: Some(EditorEvent::RemoveLayer(i)),
-                }
-            }),
+            move |args: StateToParamsArgs<'_, Editor>| ButtonParams {
+                background: Color::BLACK.with_alpha(0.3),
+                border_color: if args.ctx.event_manager.borrow().is_hovered(args.id) {
+                    Color::RED
+                } else {
+                    Color::TRANSPARENT
+                },
+                border_width: 2.0,
+                corner_radius: 2.0,
+                interaction: InteractionState {
+                    is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
+                    is_focused: false,
+                },
+                on_click: Some(EditorEvent::RemoveLayer(i)),
+            },
             world,
         );
 
@@ -337,11 +353,11 @@ fn build_layer_list(
             false,
             world,
         )
-        .padding(Box::new(|_| PaddingParams::uniform(5.0)), world)
+        .padding(params! {PaddingParams::uniform(5.0) }, world)
         .button(
-            Box::new({
+            {
                 let i = i;
-                move |args| ButtonParams {
+                move |args: StateToParamsArgs<'_, Editor>| ButtonParams {
                     background: if is_selected {
                         Color::WHITE.with_alpha(0.2)
                     } else {
@@ -360,7 +376,7 @@ fn build_layer_list(
                     },
                     on_click: Some(EditorEvent::SelectLayer(i)),
                 }
-            }),
+            },
             world,
         );
 
@@ -376,9 +392,9 @@ fn build_add_layer_button(
     metrics: Rc<dyn TextMetrics>,
 ) -> Box<dyn Element<State = Editor, Message = EditorEvent>> {
     let button = TextField::new(
-        Box::new({
+        params! {{
             let metrics = metrics.clone();
-            move |_: StateToParamsArgs<'_, Editor>| TextFieldParams {
+             TextFieldParams {
                 visuals: TextVisuals {
                     text: "Add Layer".to_string(),
                     caret_position: None,
@@ -392,13 +408,13 @@ fn build_add_layer_button(
                 interaction: Default::default(),
                 text_field_action_handler: EventHandler::none(),
             }
-        }),
+        }},
         world,
     )
     .interactive_set(false, world)
-    .padding(Box::new(|_| PaddingParams::uniform(5.0)), world)
+    .padding(params! {PaddingParams::uniform(5.0)}, world)
     .button(
-        Box::new(|args| ButtonParams {
+        params! {args => ButtonParams {
             background: Color::WHITE.with_alpha(0.1),
             border_color: if args.ctx.event_manager.borrow().is_hovered(args.id) {
                 Color::WHITE
@@ -412,7 +428,7 @@ fn build_add_layer_button(
                 is_focused: false,
             },
             on_click: Some(EditorEvent::AddLayer),
-        }),
+        }},
         world,
     );
 
@@ -424,9 +440,9 @@ fn build_tileset_title(
     metrics: Rc<dyn TextMetrics>,
 ) -> Box<dyn Element<State = Editor, Message = EditorEvent>> {
     Box::new(TextField::new(
-        Box::new({
+        params! {{
             let metrics = metrics.clone();
-            move |_: StateToParamsArgs<'_, Editor>| TextFieldParams {
+             TextFieldParams {
                 visuals: TextVisuals {
                     text: "Tileset".to_string(),
                     caret_position: None,
@@ -440,7 +456,7 @@ fn build_tileset_title(
                 interaction: Default::default(),
                 text_field_action_handler: EventHandler::none(),
             }
-        }),
+        }},
         world,
     ))
 }
@@ -457,32 +473,34 @@ fn build_dimension_input(
     ElementId,
 ) {
     let label_el = TextField::new(
-        Box::new({
+        {
             let metrics = metrics.clone();
-            move |_: StateToParamsArgs<'_, Editor>| TextFieldParams {
-                visuals: TextVisuals {
-                    text: label.clone(),
-                    caret_position: None,
-                    font: UI_FONT.to_string(),
-                    font_size: UI_FONT_SIZE,
-                    color: Color::WHITE.with_alpha(0.7),
-                    caret_width: None,
-                    caret_blink_duration: None,
-                },
-                metrics: metrics.clone(),
-                interaction: Default::default(),
-                text_field_action_handler: EventHandler::none(),
+            params! {
+                 TextFieldParams {
+                    visuals: TextVisuals {
+                        text: label.clone(),
+                        caret_position: None,
+                        font: UI_FONT.to_string(),
+                        font_size: UI_FONT_SIZE,
+                        color: Color::WHITE.with_alpha(0.7),
+                        caret_width: None,
+                        caret_blink_duration: None,
+                    },
+                    metrics: metrics.clone(),
+                    interaction: Default::default(),
+                    text_field_action_handler: EventHandler::none(),
+                }
             }
-        }),
+        },
         world,
     )
-    .padding(Box::new(|_| PaddingParams::uniform(5.0)), world);
+    .padding(params! {PaddingParams::uniform(5.0) }, world);
 
     let input = TextField::new(
-        Box::new({
+        {
             let metrics = metrics.clone();
             let text = text.clone();
-            move |args: StateToParamsArgs<'_, Editor>| {
+            params! { args =>
                 let is_focused = args.ctx.event_manager.borrow().is_focused(args.id);
                 TextFieldParams {
                     visuals: TextVisuals {
@@ -517,22 +535,22 @@ fn build_dimension_input(
                     }),
                 }
             }
-        }),
+        },
         world,
     );
 
     let input_id = input.id();
 
     let input = input
-        .padding(Box::new(|_| PaddingParams::uniform(5.0)), world)
+        .padding(params! {PaddingParams::uniform(5.0) }, world)
         .interactive_set(true, world)
         .card(
-            Box::new(|_| CardParams {
+            params! {CardParams {
                 background_color: Color::BLACK.with_alpha(0.5),
                 border_size: 2.0,
                 border_color: Color::WHITE.with_alpha(0.3),
                 corner_radius: 3.0,
-            }),
+            } },
             world,
         );
 
@@ -561,34 +579,37 @@ fn build_tileset_view(
         .unwrap_or_else(|| "none".to_string());
 
     let current_ts_label = TextField::new(
-        Box::new({
+        {
             let metrics = metrics.clone();
             let current_tileset = current_tileset.clone();
-            move |_: StateToParamsArgs<'_, Editor>| TextFieldParams {
-                visuals: TextVisuals {
-                    text: format!("Current: {}", current_tileset),
-                    caret_position: None,
-                    font: UI_FONT.to_string(),
-                    font_size: UI_FONT_SIZE,
-                    color: Color::WHITE.with_alpha(0.7),
-                    caret_width: None,
-                    caret_blink_duration: None,
-                },
-                metrics: metrics.clone(),
-                interaction: Default::default(),
-                text_field_action_handler: EventHandler::none(),
+            params! {
+                 TextFieldParams {
+                    visuals: TextVisuals {
+                        text: format!("Current: {}", current_tileset),
+                        caret_position: None,
+                        font: UI_FONT.to_string(),
+                        font_size: UI_FONT_SIZE,
+                        color: Color::WHITE.with_alpha(0.7),
+                        caret_width: None,
+                        caret_blink_duration: None,
+                    },
+                    metrics: metrics.clone(),
+                    interaction: Default::default(),
+                    text_field_action_handler: EventHandler::none(),
+                }
             }
-        }),
+        },
         world,
     )
-    .padding(Box::new(|_| PaddingParams::uniform(5.0)), world);
+    .padding(params! {PaddingParams::uniform(5.0)}, world);
     tileset_elements.push(Box::new(current_ts_label));
 
-    let tileset_input = TextField::new(
-        Box::new({
+    let tileset_input: TextField<Editor, EditorEvent> = TextField::new(
+        {
             let metrics = metrics.clone();
-            move |args: StateToParamsArgs<'_, Editor>| {
+            params! { args<Editor> =>
                 let is_focused = args.ctx.event_manager.borrow().is_focused(args.id);
+
                 TextFieldParams {
                     visuals: TextVisuals {
                         text: args.state.tileset_path.clone(),
@@ -613,50 +634,49 @@ fn build_tileset_view(
                     }),
                 }
             }
-        }),
+        },
         world,
     );
 
     let path_input_id = tileset_input.id();
 
-    let tileset_input = tileset_input
-        .padding(Box::new(|_| PaddingParams::uniform(5.0)), world)
+    let tileset_input: Card<Editor, EditorEvent> = tileset_input
+        .padding(params!(PaddingParams::uniform(5.0)), world)
         .interactive_set(true, world)
         .card(
-            Box::new(|_| CardParams {
+            params! { CardParams {
                 background_color: Color::BLACK.with_alpha(0.5),
                 border_size: 2.0,
                 border_color: Color::WHITE.with_alpha(0.3),
                 corner_radius: 3.0,
-            }),
+            }},
             world,
         );
     tileset_elements.push(Box::new(tileset_input));
 
+    let metrics_ = metrics.clone();
+
     let load_button = TextField::new(
-        Box::new({
-            let metrics = metrics.clone();
-            move |_: StateToParamsArgs<'_, Editor>| TextFieldParams {
-                visuals: TextVisuals {
-                    text: "Load Tileset".to_string(),
-                    caret_position: None,
-                    font: UI_FONT.to_string(),
-                    font_size: UI_FONT_SIZE,
-                    color: Color::WHITE,
-                    caret_width: None,
-                    caret_blink_duration: None,
-                },
-                metrics: metrics.clone(),
-                interaction: Default::default(),
-                text_field_action_handler: EventHandler::none(),
-            }
-        }),
+        params! {TextFieldParams {
+            visuals: TextVisuals {
+                text: "Load Tileset".to_string(),
+                caret_position: None,
+                font: UI_FONT.to_string(),
+                font_size: UI_FONT_SIZE,
+                color: Color::WHITE,
+                caret_width: None,
+                caret_blink_duration: None,
+            },
+            metrics: metrics_.clone(),
+            interaction: Default::default(),
+            text_field_action_handler: EventHandler::none(),
+        }},
         world,
     )
     .interactive_set(false, world)
-    .padding(Box::new(|_| PaddingParams::uniform(5.0)), world)
+    .padding(params! {PaddingParams::uniform(5.0)}, world)
     .button(
-        Box::new(|args| ButtonParams {
+        params! {args => ButtonParams {
             background: Color::WHITE.with_alpha(0.1),
             border_color: if args.ctx.event_manager.borrow().is_hovered(args.id) {
                 Color::WHITE
@@ -665,12 +685,12 @@ fn build_tileset_view(
             },
             border_width: 2.0,
             corner_radius: 3.0,
-            interaction: vn_ui::InteractionState {
+            interaction: InteractionState {
                 is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
                 is_focused: false,
             },
             on_click: Some(EditorEvent::LoadTilesetFromInput),
-        }),
+        }},
         world,
     );
 
@@ -724,39 +744,41 @@ fn build_tileset_view(
     let mut recently_loaded_elements: Vec<Box<dyn Element<State = Editor, Message = EditorEvent>>> =
         Vec::new();
     for (path, _) in &editor.loaded_tilesets {
+        let metrics = metrics.clone();
         let path = path.clone();
         let is_selected = path == current_tileset;
         let ts_button = TextField::new(
-            Box::new({
-                let metrics = metrics.clone();
+            {
                 let path = path.clone();
-                move |_: StateToParamsArgs<'_, Editor>| TextFieldParams {
-                    visuals: TextVisuals {
-                        text: path.clone(),
-                        caret_position: None,
-                        font: UI_FONT.to_string(),
-                        font_size: UI_FONT_SIZE,
-                        color: if is_selected {
-                            Color::RED
-                        } else {
-                            Color::WHITE
+                params! {
+                     TextFieldParams {
+                        visuals: TextVisuals {
+                            text: path.clone(),
+                            caret_position: None,
+                            font: UI_FONT.to_string(),
+                            font_size: UI_FONT_SIZE,
+                            color: if is_selected {
+                                Color::RED
+                            } else {
+                                Color::WHITE
+                            },
+                            caret_width: None,
+                            caret_blink_duration: None,
                         },
-                        caret_width: None,
-                        caret_blink_duration: None,
-                    },
-                    metrics: metrics.clone(),
-                    interaction: Default::default(),
-                    text_field_action_handler: EventHandler::none(),
+                        metrics: metrics.clone(),
+                        interaction: Default::default(),
+                        text_field_action_handler: EventHandler::none(),
+                    }
                 }
-            }),
+            },
             world,
         )
         .interactive_set(false, world)
-        .padding(Box::new(|_| PaddingParams::uniform(3.0)), world)
+        .padding(params! {PaddingParams::uniform(3.0) }, world)
         .button(
-            Box::new({
+            {
                 let path = path.clone();
-                move |args| ButtonParams {
+                move |args: StateToParamsArgs<'_, Editor>| ButtonParams {
                     background: if is_selected {
                         Color::WHITE.with_alpha(0.2)
                     } else {
@@ -769,13 +791,13 @@ fn build_tileset_view(
                     },
                     border_width: 2.0,
                     corner_radius: 3.0,
-                    interaction: vn_ui::InteractionState {
+                    interaction: InteractionState {
                         is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
                         is_focused: false,
                     },
                     on_click: Some(EditorEvent::SelectTileset(path.clone())),
                 }
-            }),
+            },
             world,
         );
 
@@ -785,26 +807,23 @@ fn build_tileset_view(
     if !recently_loaded_elements.is_empty() {
         tileset_elements.push(Box::new(
             TextField::new(
-                Box::new({
-                    let metrics = metrics.clone();
-                    move |_: StateToParamsArgs<'_, Editor>| TextFieldParams {
-                        visuals: TextVisuals {
-                            text: "Recently Loaded:".to_string(),
-                            caret_position: None,
-                            font: UI_FONT.to_string(),
-                            font_size: UI_FONT_SIZE,
-                            color: Color::WHITE.with_alpha(0.7),
-                            caret_width: None,
-                            caret_blink_duration: None,
-                        },
-                        metrics: metrics.clone(),
-                        interaction: Default::default(),
-                        text_field_action_handler: EventHandler::none(),
-                    }
-                }),
+                params! {TextFieldParams {
+                    visuals: TextVisuals {
+                        text: "Recently Loaded:".to_string(),
+                        caret_position: None,
+                        font: UI_FONT.to_string(),
+                        font_size: UI_FONT_SIZE,
+                        color: Color::WHITE.with_alpha(0.7),
+                        caret_width: None,
+                        caret_blink_duration: None,
+                    },
+                    metrics: metrics.clone(),
+                    interaction: Default::default(),
+                    text_field_action_handler: EventHandler::none(),
+                }},
                 world,
             )
-            .padding(Box::new(|_| PaddingParams::uniform(5.0)), world),
+            .padding(params! {PaddingParams::uniform(5.0)}, world),
         ));
         tileset_elements.push(Box::new(Flex::new_column_unweighted(
             recently_loaded_elements,
@@ -826,16 +845,16 @@ fn build_tileset_view(
 }
 
 fn build_selection_info(
-    editor: &Editor,
+    _editor: &Editor,
     world: &mut ElementWorld,
     metrics: Rc<dyn TextMetrics>,
 ) -> Box<dyn Element<State = Editor, Message = EditorEvent>> {
+    let metrics = metrics.clone();
     Box::new(TextField::new(
-        Box::new({
-            let metrics = metrics.clone();
-            let layer_count = editor.map_spec.layers.len();
-            let selected = editor.selected_layer_index;
-            move |_: StateToParamsArgs<'_, Editor>| TextFieldParams {
+        move |args: StateToParamsArgs<'_, Editor>| {
+            let layer_count = args.state.map_spec.layers.len();
+            let selected = args.state.selected_layer_index;
+            TextFieldParams {
                 visuals: TextVisuals {
                     text: format!(
                         "Selected Layer: {} / {}",
@@ -853,7 +872,7 @@ fn build_selection_info(
                 interaction: Default::default(),
                 text_field_action_handler: EventHandler::none(),
             }
-        }),
+        },
         world,
     ))
 }
@@ -872,47 +891,42 @@ fn build_footer(
             "Settings" => EditorEvent::OpenSettings,
             _ => unreachable!(),
         };
+
+        let metrics = metrics.clone();
         let button = TextField::new(
-            Box::new({
-                let metrics = metrics.clone();
-                let btn_text = btn_text.to_string();
-                move |_: StateToParamsArgs<'_, Editor>| TextFieldParams {
-                    visuals: TextVisuals {
-                        text: btn_text.clone(),
-                        caret_position: None,
-                        font: UI_FONT.to_string(),
-                        font_size: UI_FONT_SIZE,
-                        color: Color::WHITE,
-                        caret_width: None,
-                        caret_blink_duration: None,
-                    },
-                    metrics: metrics.clone(),
-                    interaction: Default::default(),
-                    text_field_action_handler: EventHandler::none(),
-                }
-            }),
+            params! {TextFieldParams {
+                visuals: TextVisuals {
+                    text: btn_text.to_string(),
+                    caret_position: None,
+                    font: UI_FONT.to_string(),
+                    font_size: UI_FONT_SIZE,
+                    color: Color::WHITE,
+                    caret_width: None,
+                    caret_blink_duration: None,
+                },
+                metrics: metrics.clone(),
+                interaction: Default::default(),
+                text_field_action_handler: EventHandler::none(),
+            }},
             world,
         )
-        .padding(Box::new(|_| PaddingParams::uniform(5.0)), world)
+        .padding(params! {PaddingParams::uniform(5.0)}, world)
         .button(
-            Box::new({
-                let event = event.clone();
-                move |args| ButtonParams {
-                    background: Color::WHITE.with_alpha(0.1),
-                    border_color: if args.ctx.event_manager.borrow().is_hovered(args.id) {
-                        Color::WHITE
-                    } else {
-                        Color::WHITE.with_alpha(0.3)
-                    },
-                    border_width: 2.0,
-                    corner_radius: 3.0,
-                    interaction: InteractionState {
-                        is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
-                        is_focused: false,
-                    },
-                    on_click: Some(event.clone()),
-                }
-            }),
+            move |args: StateToParamsArgs<'_, Editor>| ButtonParams {
+                background: Color::WHITE.with_alpha(0.1),
+                border_color: if args.ctx.event_manager.borrow().is_hovered(args.id) {
+                    Color::WHITE
+                } else {
+                    Color::WHITE.with_alpha(0.3)
+                },
+                border_width: 2.0,
+                corner_radius: 3.0,
+                interaction: InteractionState {
+                    is_hovered: args.ctx.event_manager.borrow().is_hovered(args.id),
+                    is_focused: false,
+                },
+                on_click: Some(event.clone()),
+            },
             world,
         );
         footer_elements.push(Box::new(button));
@@ -935,7 +949,7 @@ fn build_tileset_preview_panel(
         if let Some(texture_id) = editor.loaded_tilesets.get(&layer.tile_set) {
             let texture_id = texture_id.clone();
             let texture_preview = Texture::new(
-                Box::new(move |_: StateToParamsArgs<'_, Editor>| TextureParams {
+                params! {TextureParams {
                     texture_id: texture_id.clone(),
                     preferred_size: ElementSize {
                         width: 256.0,
@@ -947,18 +961,18 @@ fn build_tileset_preview_panel(
                     },
                     tint: Color::WHITE,
                     fit_strategy: FitStrategy::PreserveAspectRatio { rotation: 0.0 },
-                }),
+                }},
                 world,
             );
 
             let grid_overlay = Grid::new(
-                Box::new(move |_: StateToParamsArgs<'_, Editor>| GridParams {
+                params! {GridParams {
                     rows: 133,
                     cols: 8,
                     grid_size: (32.0, 32.0),
                     grid_width: 3.0,
                     grid_color: Color::WHITE.with_alpha(0.5),
-                }),
+                }},
                 world,
             );
 
@@ -967,31 +981,37 @@ fn build_tileset_preview_panel(
                 world,
             )
             .scroll_area(
-                Box::new(
-                    move |args: StateToParamsArgs<'_, Editor>| ScrollAreaParams {
-                        scroll_x: Some(args.state.tileset_scroll_x),
-                        scroll_y: Some(args.state.tileset_scroll_y),
-                        scroll_action_handler: EventHandler::new(|id, action| {
-                            EditorEvent::ScrollAction { id, action }
-                        }),
-                        scrollbar_width: 16.0,
-                        scrollbar_margin: 8.0,
+                move |args: StateToParamsArgs<'_, Editor>| ScrollAreaParams {
+                    scroll_x: ScrollBarParams {
+                        width: 16.0,
+                        margin: 8.0,
+                        color: Color::WHITE.with_alpha(0.5),
+                        position: Some(args.state.tileset_scroll_x),
                     },
-                ),
+                    scroll_y: ScrollBarParams {
+                        width: 16.0,
+                        margin: 8.0,
+                        color: Color::WHITE.with_alpha(0.5),
+                        position: Some(args.state.tileset_scroll_y),
+                    },
+                    scroll_action_handler: EventHandler::new(|id, action| {
+                        EditorEvent::ScrollAction { id, action }
+                    }),
+                },
                 world,
             );
 
             scroll_area_id = scroll_area.id();
 
             let preview_card = Box::new(scroll_area)
-                .padding(Box::new(|_| PaddingParams::uniform(10.0)), world)
+                .padding(params! {PaddingParams::uniform(10.0)}, world)
                 .card(
-                    Box::new(|_| CardParams {
+                    params! {CardParams {
                         background_color: Color::BLACK.with_alpha(0.3),
                         border_size: 2.0,
                         border_color: Color::WHITE.with_alpha(0.5),
                         corner_radius: 5.0,
-                    }),
+                    }},
                     world,
                 );
             tileset_preview_elements.push(Box::new(preview_card));
@@ -1000,14 +1020,14 @@ fn build_tileset_preview_panel(
     (
         Box::new(
             Flex::new_column_unweighted(tileset_preview_elements, false, world)
-                .padding(Box::new(|_| PaddingParams::uniform(10.0)), world)
+                .padding(params! {PaddingParams::uniform(10.0) }, world)
                 .card(
-                    Box::new(|_| CardParams {
+                    params! {CardParams {
                         background_color: Color::BLACK.with_alpha(0.3),
                         border_size: 2.0,
                         border_color: Color::WHITE.with_alpha(0.5),
                         corner_radius: 5.0,
-                    }),
+                    }},
                     world,
                 ),
         ),
@@ -1020,7 +1040,7 @@ pub fn build_fps_counter(
     world: &mut ElementWorld,
 ) -> Box<dyn Element<State = Editor, Message = EditorEvent>> {
     let counter_text = TextField::new(
-        Box::new(move |args: StateToParamsArgs<Editor>| TextFieldParams {
+        move |args: StateToParamsArgs<'_, Editor>| TextFieldParams {
             visuals: TextVisuals {
                 text: format!(
                     "FPS: {:7>.2}",
@@ -1042,16 +1062,16 @@ pub fn build_fps_counter(
             metrics: metrics.clone(),
             interaction: Default::default(),
             text_field_action_handler: EventHandler::none(),
-        }),
+        },
         world,
     )
     .card(
-        Box::new(|_| CardParams {
+        params! {CardParams {
             background_color: Color::BLACK.with_alpha(0.3),
             border_size: 2.0,
             border_color: Color::WHITE.with_alpha(0.5),
             corner_radius: 5.0,
-        }),
+        }},
         world,
     );
     Box::new(counter_text)

@@ -6,13 +6,19 @@ use crate::{
 use std::cell::RefCell;
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
 
+#[derive(Copy, Clone, Debug)]
+pub struct ScrollBarParams {
+    pub position: Option<f32>,
+    pub width: f32,
+    pub margin: f32,
+    pub color: Color,
+}
+
 #[derive(Clone, Debug)]
-pub struct ScrollAreaParams<Message: Clone> {
-    pub scroll_x: Option<f32>,
-    pub scroll_y: Option<f32>,
+pub struct ScrollAreaParams<Message> {
+    pub scroll_x: ScrollBarParams,
+    pub scroll_y: ScrollBarParams,
     pub scroll_action_handler: EventHandler<ScrollAreaAction, Message>,
-    pub scrollbar_width: f32,
-    pub scrollbar_margin: f32,
 }
 
 struct DragState {
@@ -21,7 +27,7 @@ struct DragState {
     initial_mouse: f32,
 }
 
-pub struct ScrollArea<State, Message: Clone> {
+pub struct ScrollArea<State: 'static, Message: 'static> {
     id: ElementId,
     scroll_v_id: ElementId,
     scroll_h_id: ElementId,
@@ -33,9 +39,9 @@ pub struct ScrollArea<State, Message: Clone> {
 }
 
 impl<State, Message: Clone> ScrollArea<State, Message> {
-    pub fn new(
+    pub fn new<P: Into<StateToParams<State, ScrollAreaParams<Message>>>>(
         child: Box<dyn Element<State = State, Message = Message>>,
-        params: StateToParams<State, ScrollAreaParams<Message>>,
+        params: P,
         world: &mut ElementWorld,
     ) -> Self {
         Self {
@@ -43,7 +49,7 @@ impl<State, Message: Clone> ScrollArea<State, Message> {
             scroll_v_id: world.next_id(),
             scroll_h_id: world.next_id(),
             child,
-            params,
+            params: params.into(),
             child_size: ElementSize::ZERO,
             viewport_size: ElementSize::ZERO,
             drag_state: RefCell::new(None),
@@ -65,7 +71,7 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        let params = (self.params)(crate::StateToParamsArgs {
+        let params = self.params.call(crate::StateToParamsArgs {
             state,
             id: self.id,
             ctx,
@@ -73,14 +79,12 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
 
         let mut child_constraints = constraints;
         let mut grow_by = ElementSize::ZERO;
-        if params.scroll_x.is_some() {
-            child_constraints.max_size.width = DynamicDimension::Hint(0.0);
-            grow_by.height = params.scrollbar_width + params.scrollbar_margin;
-        }
-        if params.scroll_y.is_some() {
-            child_constraints.max_size.height = DynamicDimension::Hint(0.0);
-            grow_by.width = params.scrollbar_width + params.scrollbar_margin;
-        }
+
+        child_constraints.max_size.width = DynamicDimension::Hint(0.0);
+        grow_by.height = params.scroll_x.width + params.scroll_x.margin;
+
+        child_constraints.max_size.height = DynamicDimension::Hint(0.0);
+        grow_by.width = params.scroll_y.width + params.scroll_y.margin;
 
         let child_size = self
             .child
@@ -113,7 +117,7 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                 size: size.to_array(),
             },
             |ctx| {
-                let params = (self.params)(crate::StateToParamsArgs {
+                let params = self.params.call(crate::StateToParamsArgs {
                     state,
                     id: self.id,
                     ctx,
@@ -123,11 +127,13 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                     origin.0
                         - params
                             .scroll_x
+                            .position
                             .unwrap_or(0.0)
                             .min((self.child_size.width - size.width).max(0.0)),
                     origin.1
                         - params
                             .scroll_y
+                            .position
                             .unwrap_or(0.0)
                             .min((self.child_size.height - size.height).max(0.0)),
                 );
@@ -143,17 +149,21 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                 });
 
                 // Draw scroll bars
-                if let Some(scroll_y) = params.scroll_y {
+                {
                     if self.child_size.height > size.height {
                         let scrollbar_height = (size.height / self.child_size.height) * size.height;
-                        let scrollbar_y = (scroll_y / self.child_size.height) * size.height;
+                        let scrollbar_y = if let Some(scroll_y) = params.scroll_y.position {
+                            (scroll_y / self.child_size.height) * size.height
+                        } else {
+                            0.0
+                        };
 
                         let scrollbar_rect = Rect {
                             position: [
-                                origin.0 + size.width - params.scrollbar_width,
+                                origin.0 + size.width - params.scroll_y.width,
                                 origin.1 + scrollbar_y,
                             ],
-                            size: [params.scrollbar_width, scrollbar_height],
+                            size: [params.scroll_y.width, scrollbar_height],
                         };
 
                         ctx.with_hitbox_hierarchy(
@@ -169,26 +179,30 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                                 ..Transform::DEFAULT
                             },
                             size: scrollbar_rect.size,
-                            color: Color::WHITE.with_alpha(0.5),
+                            color: params.scroll_y.color,
                             border_color: Color::TRANSPARENT,
                             border_thickness: 0.0,
-                            border_radius: params.scrollbar_width / 2.0,
+                            border_radius: params.scroll_y.width / 2.0,
                             clip_rect: Rect::NO_CLIP,
                         });
                     }
                 }
 
-                if let Some(scroll_x) = params.scroll_x {
+                {
                     if self.child_size.width > size.width {
                         let scrollbar_width = (size.width / self.child_size.width) * size.width;
-                        let scrollbar_x = (scroll_x / self.child_size.width) * size.width;
+                        let scrollbar_x = if let Some(scroll_x) = params.scroll_x.position {
+                            (scroll_x / self.child_size.width) * size.width
+                        } else {
+                            0.0
+                        };
 
                         let scrollbar_rect = Rect {
                             position: [
                                 origin.0 + scrollbar_x,
-                                origin.1 + size.height - params.scrollbar_width,
+                                origin.1 + size.height - params.scroll_x.width,
                             ],
-                            size: [scrollbar_width, params.scrollbar_width],
+                            size: [scrollbar_width, params.scroll_x.width],
                         };
 
                         ctx.with_hitbox_hierarchy(
@@ -204,10 +218,10 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                                 ..Transform::DEFAULT
                             },
                             size: scrollbar_rect.size,
-                            color: Color::WHITE.with_alpha(0.5),
+                            color: params.scroll_x.color,
                             border_color: Color::TRANSPARENT,
                             border_thickness: 0.0,
-                            border_radius: params.scrollbar_width / 2.0,
+                            border_radius: params.scroll_x.width / 2.0,
                             clip_rect: Rect::NO_CLIP,
                         });
                     }
@@ -222,7 +236,7 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
         state: &Self::State,
         event: &crate::InteractionEvent,
     ) -> Vec<Self::Message> {
-        let params = (self.params)(crate::StateToParamsArgs {
+        let params = self.params.call(crate::StateToParamsArgs {
             state,
             id: self.id,
             ctx,
@@ -257,7 +271,7 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                     }
                     crate::InteractionEventKind::MouseScroll { y } => {
                         if ctx.event_manager.borrow().is_hovered(self.id) {
-                            let current = params.scroll_y.unwrap_or(0.0);
+                            let current = params.scroll_y.position.unwrap_or(0.0);
                             let next = (current - y)
                                 .clamp(0.0, self.child_size.height - self.viewport_size.height);
 
@@ -275,13 +289,13 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                 if event.target == Some(self.scroll_v_id) {
                     *self.drag_state.borrow_mut() = Some(DragState {
                         id: self.scroll_v_id,
-                        initial_scroll: params.scroll_y.unwrap_or(0.0),
+                        initial_scroll: params.scroll_y.position.unwrap_or(0.0),
                         initial_mouse: *y,
                     });
                 } else if event.target == Some(self.scroll_h_id) {
                     *self.drag_state.borrow_mut() = Some(DragState {
                         id: self.scroll_h_id,
-                        initial_scroll: params.scroll_x.unwrap_or(0.0),
+                        initial_scroll: params.scroll_x.position.unwrap_or(0.0),
                         initial_mouse: *x,
                     });
                 }
@@ -298,9 +312,9 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
 }
 
 pub trait ScrollAreaExt: Element {
-    fn scroll_area(
+    fn scroll_area<P: Into<StateToParams<Self::State, ScrollAreaParams<Self::Message>>>>(
         self,
-        params: StateToParams<Self::State, ScrollAreaParams<Self::Message>>,
+        params: P,
         world: &mut ElementWorld,
     ) -> ScrollArea<Self::State, Self::Message>
     where
@@ -312,9 +326,9 @@ impl<E: Element + 'static> ScrollAreaExt for E
 where
     E::Message: Clone,
 {
-    fn scroll_area(
+    fn scroll_area<P: Into<StateToParams<Self::State, ScrollAreaParams<Self::Message>>>>(
         self,
-        params: StateToParams<Self::State, ScrollAreaParams<Self::Message>>,
+        params: P,
         world: &mut ElementWorld,
     ) -> ScrollArea<Self::State, Self::Message> {
         ScrollArea::new(Box::new(self), params, world)

@@ -1,8 +1,5 @@
 use vn_scene::{BoxPrimitiveData, Color, Scene, Transform};
-use vn_ui::{
-    ElementId, ElementImpl, ElementSize, ElementWorld, InteractionEvent, SizeConstraints,
-    StateToParams, StateToParamsArgs, UiContext,
-};
+use vn_ui::{ElementId, ElementImpl, ElementSize, ElementWorld, InteractionEvent, SizeConstraints, StateToParams, StateToParamsArgs, UiContext};
 
 pub struct GridParams {
     pub rows: u32,
@@ -12,23 +9,23 @@ pub struct GridParams {
     pub grid_width: f32,
 }
 
-pub struct Grid<State, Message> {
+pub struct Grid<State: 'static, Message: 'static> {
     id: ElementId,
     params: StateToParams<State, GridParams>,
     _phantom: std::marker::PhantomData<Message>,
 }
 
-impl<State, Message> Grid<State, Message> {
-    pub fn new(params: StateToParams<State, GridParams>, world: &mut ElementWorld) -> Self {
+impl<State: 'static, Message: 'static> Grid<State, Message> {
+    pub fn new<P: Into<StateToParams<State, GridParams>>>(params: P, world: &mut ElementWorld) -> Self {
         Self {
             id: world.next_id(),
-            params,
+            params: params.into(),
             _phantom: std::marker::PhantomData,
         }
     }
 }
 
-impl<State, Message> ElementImpl for Grid<State, Message> {
+impl<State: 'static, Message: 'static> ElementImpl for Grid<State, Message> {
     type State = State;
     type Message = Message;
 
@@ -42,7 +39,7 @@ impl<State, Message> ElementImpl for Grid<State, Message> {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        let params = (self.params)(StateToParamsArgs {
+        let params = self.params.call(StateToParamsArgs {
             state,
             id: self.id,
             ctx,
@@ -63,7 +60,7 @@ impl<State, Message> ElementImpl for Grid<State, Message> {
         size: ElementSize,
         scene: &mut dyn Scene,
     ) {
-        let params = (self.params)(StateToParamsArgs {
+        let params = self.params.call(StateToParamsArgs {
             state,
             id: self.id,
             ctx,

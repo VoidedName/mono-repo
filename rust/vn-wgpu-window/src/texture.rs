@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Mutex;
 pub use vn_scene::TextureId;
-use vn_utils::{TimedLRUCache};
+use vn_utils::TimedLRUCache;
 
 /// Represents a loaded GPU texture with its view and sampler.
 pub struct Texture {
@@ -306,8 +306,14 @@ impl TextureAtlas {
         }
 
         let rect = vn_scene::Rect {
-            position: [self.current_x as f32 / self.texture.size.0 as f32, self.current_y as f32 / self.texture.size.1 as f32],
-            size: [width as f32 / self.texture.size.0 as f32, height as f32 / self.texture.size.1 as f32],
+            position: [
+                self.current_x as f32 / self.texture.size.0 as f32,
+                self.current_y as f32 / self.texture.size.1 as f32,
+            ],
+            size: [
+                width as f32 / self.texture.size.0 as f32,
+                height as f32 / self.texture.size.1 as f32,
+            ],
         };
 
         self.current_x += width + self.padding;
@@ -356,14 +362,21 @@ impl TextureAtlasCatalog {
         self.cache.borrow_mut().tick();
     }
 
-    pub fn allocate(&mut self, device: &wgpu::Device, width: u32, height: u32) -> (vn_scene::Rect, Rc<Texture>) {
+    pub fn allocate(
+        &mut self,
+        device: &wgpu::Device,
+        width: u32,
+        height: u32,
+    ) -> (vn_scene::Rect, Rc<Texture>) {
         if let Some(rect) = self.atlases.last_mut().unwrap().allocate(width, height) {
             return (rect, self.atlases.last().unwrap().texture.clone());
         }
 
         // Current atlas is full, add a new one
         let mut new_atlas = TextureAtlas::new(device, self.atlas_size.0, self.atlas_size.1);
-        let rect = new_atlas.allocate(width, height).expect("Failed to allocate in a fresh atlas");
+        let rect = new_atlas
+            .allocate(width, height)
+            .expect("Failed to allocate in a fresh atlas");
         let texture = new_atlas.texture.clone();
         self.atlases.push(new_atlas);
 

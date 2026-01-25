@@ -244,8 +244,8 @@ impl TextRenderer {
         let offset_x = -min_x + 1.0;
         let offset_y = 1.0;
 
-        let (uv_rect, atlas_texture) = texture_atlas
-            .allocate(graphics_context.device(), width, height);
+        let (uv_rect, atlas_texture) =
+            texture_atlas.allocate(graphics_context.device(), width, height);
 
         let atlas_pixel_pos = [
             uv_rect.position[0] * atlas_texture.size.0 as f32,
@@ -315,10 +315,7 @@ impl TextRenderer {
         queue.write_buffer(&self.segment_buffer, 0, bytemuck::cast_slice(&all_segments));
 
         let globals = Globals {
-            resolution: [
-                atlas_texture.size.0 as f32,
-                atlas_texture.size.1 as f32,
-            ],
+            resolution: [atlas_texture.size.0 as f32, atlas_texture.size.1 as f32],
         };
         queue.write_buffer(&self.globals_buffer, 0, bytemuck::cast_slice(&[globals]));
 

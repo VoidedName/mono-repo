@@ -180,4 +180,7 @@ pub trait Element: ElementImpl {
     }
 }
 
-impl<State, Message, T: ElementImpl<State = State, Message = Message>> Element for T {}
+impl<State: 'static, Message: 'static, T: ElementImpl<State = State, Message = Message>> Element
+    for T
+{
+}

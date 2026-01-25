@@ -24,7 +24,7 @@ pub struct AnchorParams {
     pub location: AnchorLocation,
 }
 
-pub struct Anchor<State, Message> {
+pub struct Anchor<State: 'static, Message: 'static> {
     id: ElementId,
     child: Box<dyn Element<State = State, Message = Message>>,
     child_size: ElementSize,
@@ -32,16 +32,16 @@ pub struct Anchor<State, Message> {
 }
 
 impl<State, Message> Anchor<State, Message> {
-    pub fn new(
+    pub fn new<P: Into<StateToParams<State, AnchorParams>>>(
         child: Box<dyn Element<State = State, Message = Message>>,
-        params: StateToParams<State, AnchorParams>,
+        params: P,
         world: &mut ElementWorld,
     ) -> Self {
         Self {
             id: world.next_id(),
             child,
             child_size: ElementSize::ZERO,
-            params,
+            params: params.into(),
         }
     }
 }
@@ -60,7 +60,7 @@ impl<State, Message> ElementImpl for Anchor<State, Message> {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        let _params = (self.params)(crate::StateToParamsArgs {
+        let _params = self.params.call(crate::StateToParamsArgs {
             state,
             id: self.id,
             ctx,
@@ -89,7 +89,7 @@ impl<State, Message> ElementImpl for Anchor<State, Message> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = (self.params)(crate::StateToParamsArgs {
+        let params = self.params.call(crate::StateToParamsArgs {
             state,
             id: self.id,
             ctx,
@@ -184,17 +184,17 @@ impl<State, Message> ElementImpl for Anchor<State, Message> {
 }
 
 pub trait AnchorExt: Element {
-    fn anchor(
+    fn anchor<P: Into<StateToParams<Self::State, AnchorParams>>>(
         self,
-        params: StateToParams<Self::State, AnchorParams>,
+        params: P,
         world: &mut ElementWorld,
     ) -> Anchor<Self::State, Self::Message>;
 }
 
 impl<E: Element + 'static> AnchorExt for E {
-    fn anchor(
+    fn anchor<P: Into<StateToParams<Self::State, AnchorParams>>>(
         self,
-        params: StateToParams<Self::State, AnchorParams>,
+        params: P,
         world: &mut ElementWorld,
     ) -> Anchor<Self::State, Self::Message> {
         Anchor::new(Box::new(self), params, world)

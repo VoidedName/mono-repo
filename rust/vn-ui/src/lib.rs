@@ -50,7 +50,7 @@ pub trait TextMetrics {
     fn get_glyphs(&self, text: &str, font: &str, font_size: f32) -> Vec<vn_scene::GlyphData>;
 }
 
-pub struct StateToParamsArgs<'a, State> {
+pub struct StateToParamsArgs<'a, State: 'static> {
     pub state: &'a State,
     pub id: ElementId,
     pub ctx: &'a UiContext,
@@ -69,7 +69,7 @@ pub enum ScrollAreaAction {
 }
 
 #[derive(Clone, Debug)]
-pub struct EventHandler<Action: Clone, Message: Clone> {
+pub struct EventHandler<Action, Message> {
     pub on_action: Option<fn(ElementId, Action) -> Message>,
     pub on_event: Option<fn(ElementId, &InteractionEvent) -> (Vec<Message>, bool)>,
 }
@@ -146,4 +146,32 @@ impl<Action: Clone, Message: Clone> From<fn(ElementId, Action) -> Message>
     }
 }
 
-pub type StateToParams<State, Params> = Box<dyn Fn(StateToParamsArgs<State>) -> Params>;
+pub struct StateToParams<State: 'static, Params: 'static>(
+    Box<dyn Fn(StateToParamsArgs<State>) -> Params>,
+);
+
+impl<State: 'static, Params: 'static> StateToParams<State, Params> {
+    pub fn new<F: Fn(StateToParamsArgs<State>) -> Params + 'static>(f: F) -> Self {
+        Self(Box::new(f))
+    }
+
+    pub fn call(&self, args: StateToParamsArgs<State>) -> Params {
+        self.0(args)
+    }
+}
+
+impl<State: 'static, Params: 'static, F> From<F> for StateToParams<State, Params>
+where
+    F: Fn(StateToParamsArgs<State>) -> Params + 'static,
+{
+    fn from(f: F) -> Self {
+        Self(Box::new(f))
+    }
+}
+
+#[macro_export]
+macro_rules! params {
+    {$args:ident<$ty:ty> => $($expr:tt)*} => (move |$args: vn_ui::StateToParamsArgs<$ty>| { $($expr)* });
+    {$args:ident => $($expr:tt)*} => (move |$args: vn_ui::StateToParamsArgs<_>| { $($expr)* });
+    {$($expr:tt)*} => (move |args: vn_ui::StateToParamsArgs<_>| $($expr)*);
+}

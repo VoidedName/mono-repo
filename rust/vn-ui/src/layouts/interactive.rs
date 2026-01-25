@@ -4,7 +4,7 @@ use crate::{
 };
 use vn_scene::Scene;
 
-pub struct Interactive<State, Message> {
+pub struct Interactive<State: 'static, Message: 'static> {
     id: ElementId,
     child: Box<dyn Element<State = State, Message = Message>>,
     params: StateToParams<State, InteractiveParams>,
@@ -15,15 +15,15 @@ pub struct InteractiveParams {
 }
 
 impl<State, Message> Interactive<State, Message> {
-    pub fn new(
+    pub fn new<P: Into<StateToParams<State, InteractiveParams>>>(
         child: Box<dyn Element<State = State, Message = Message>>,
-        params: StateToParams<State, InteractiveParams>,
+        params: P,
         world: &mut ElementWorld,
     ) -> Self {
         Self {
             id: world.next_id(),
             child,
-            params,
+            params: params.into(),
         }
     }
 }
@@ -42,7 +42,7 @@ impl<State, Message> ElementImpl for Interactive<State, Message> {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        let _params = (self.params)(crate::StateToParamsArgs {
+        let _params = self.params.call(crate::StateToParamsArgs {
             state,
             id: self.id,
             ctx,
@@ -58,7 +58,7 @@ impl<State, Message> ElementImpl for Interactive<State, Message> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = (self.params)(crate::StateToParamsArgs {
+        let params = self.params.call(crate::StateToParamsArgs {
             state,
             id: self.id,
             ctx,
@@ -79,9 +79,9 @@ impl<State, Message> ElementImpl for Interactive<State, Message> {
 }
 
 pub trait InteractiveExt: Element {
-    fn interactive(
+    fn interactive<P: Into<StateToParams<Self::State, InteractiveParams>>>(
         self,
-        params: StateToParams<Self::State, InteractiveParams>,
+        params: P,
         world: &mut ElementWorld,
     ) -> Interactive<Self::State, Self::Message>;
 
@@ -93,9 +93,9 @@ pub trait InteractiveExt: Element {
 }
 
 impl<E: Element + 'static> InteractiveExt for E {
-    fn interactive(
+    fn interactive<P: Into<StateToParams<Self::State, InteractiveParams>>>(
         self,
-        params: StateToParams<Self::State, InteractiveParams>,
+        params: P,
         world: &mut ElementWorld,
     ) -> Interactive<Self::State, Self::Message> {
         Interactive::new(Box::new(self), params, world)
@@ -106,12 +106,10 @@ impl<E: Element + 'static> InteractiveExt for E {
         interactive: bool,
         world: &mut ElementWorld,
     ) -> Interactive<Self::State, Self::Message> {
-        Interactive::new(
-            Box::new(self),
-            Box::new(move |_| InteractiveParams {
-                is_interactive: interactive,
-            }),
-            world,
-        )
+        let params = StateToParams(Box::new(move |_| InteractiveParams {
+            is_interactive: interactive,
+        }));
+
+        Interactive::new(Box::new(self), params, world)
     }
 }

@@ -1,7 +1,7 @@
 use crate::{ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, UiContext};
 use vn_scene::Scene;
 
-pub struct Empty<State, Message> {
+pub struct Empty<State: 'static, Message: 'static> {
     id: ElementId,
     size: ElementSize,
     _ph: std::marker::PhantomData<(State, Message)>,

@@ -29,17 +29,17 @@ pub struct ToolTip<State: 'static, Message: 'static> {
 }
 
 impl<State: 'static, Message: 'static> ToolTip<State, Message> {
-    pub fn new(
+    pub fn new<P: Into<StateToParams<State, TooltipParams>>>(
         element: Box<dyn Element<State = State, Message = Message>>,
         tooltip: Box<dyn Element<State = State, Message = Message>>,
-        params: StateToParams<State, TooltipParams>,
+        params: P,
         world: &mut ElementWorld,
     ) -> Self {
         Self {
             tooltip: Box::new(ExtendedHitbox::new(tooltip, world)),
             id: world.next_id(),
             element,
-            params,
+            params: params.into(),
             show_tooltip: false,
             tool_tip_size: ElementSize::ZERO,
             hovered_last_at: Instant::now(),
@@ -62,7 +62,7 @@ impl<State: 'static, Message: 'static> ElementImpl for ToolTip<State, Message> {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        let params = (self.params)(crate::StateToParamsArgs {
+        let params = self.params.call(crate::StateToParamsArgs {
             state,
             id: self.id,
             ctx,
@@ -123,7 +123,7 @@ impl<State: 'static, Message: 'static> ElementImpl for ToolTip<State, Message> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let _params = (self.params)(crate::StateToParamsArgs {
+        let _params = self.params.call(crate::StateToParamsArgs {
             state,
             id: self.id,
             ctx,
@@ -165,19 +165,19 @@ impl<State: 'static, Message: 'static> ElementImpl for ToolTip<State, Message> {
 }
 
 pub trait ToolTipExt: Element {
-    fn tooltip(
+    fn tooltip<P: Into<StateToParams<Self::State, TooltipParams>>>(
         self,
         tooltip: Box<dyn Element<State = Self::State, Message = Self::Message>>,
-        params: StateToParams<Self::State, TooltipParams>,
+        params: P,
         world: &mut ElementWorld,
     ) -> ToolTip<Self::State, Self::Message>;
 }
 
 impl<E: Element + 'static> ToolTipExt for E {
-    fn tooltip(
+    fn tooltip<P: Into<StateToParams<Self::State, TooltipParams>>>(
         self,
         tooltip: Box<dyn Element<State = Self::State, Message = Self::Message>>,
-        params: StateToParams<Self::State, TooltipParams>,
+        params: P,
         world: &mut ElementWorld,
     ) -> ToolTip<Self::State, Self::Message> {
         ToolTip::new(Box::new(self), tooltip, params, world)

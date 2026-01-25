@@ -13,22 +13,22 @@ pub struct CardParams {
     pub corner_radius: f32,
 }
 
-pub struct Card<State, Message> {
+pub struct Card<State: 'static, Message: 'static> {
     id: ElementId,
     child: Box<dyn Element<State = State, Message = Message>>,
     params: StateToParams<State, CardParams>,
 }
 
 impl<State, Message> Card<State, Message> {
-    pub fn new(
+    pub fn new<P: Into<StateToParams<State, CardParams>>>(
         child: Box<dyn Element<State = State, Message = Message>>,
-        params: StateToParams<State, CardParams>,
+        params: P,
         world: &mut ElementWorld,
     ) -> Self {
         Self {
             id: world.next_id(),
             child,
-            params,
+            params: params.into(),
         }
     }
 }
@@ -50,7 +50,7 @@ impl<State, Message> ElementImpl for Card<State, Message> {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        let params = (self.params)(crate::StateToParamsArgs {
+        let params = self.params.call(crate::StateToParamsArgs {
             state,
             id: self.id,
             ctx,
@@ -92,7 +92,7 @@ impl<State, Message> ElementImpl for Card<State, Message> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = (self.params)(crate::StateToParamsArgs {
+        let params = self.params.call(crate::StateToParamsArgs {
             state,
             id: self.id,
             ctx,
@@ -135,17 +135,17 @@ impl<State, Message> ElementImpl for Card<State, Message> {
 }
 
 pub trait CardExt: Element {
-    fn card(
+    fn card<P: Into<StateToParams<Self::State, CardParams>>>(
         self,
-        params: StateToParams<Self::State, CardParams>,
+        params: P,
         world: &mut ElementWorld,
     ) -> Card<Self::State, Self::Message>;
 }
 
 impl<E: Element + 'static> CardExt for E {
-    fn card(
+    fn card<P: Into<StateToParams<Self::State, CardParams>>>(
         self,
-        params: StateToParams<Self::State, CardParams>,
+        params: P,
         world: &mut ElementWorld,
     ) -> Card<Self::State, Self::Message> {
         Card::new(Box::new(self), params, world)

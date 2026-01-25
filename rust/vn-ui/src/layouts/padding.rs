@@ -24,22 +24,22 @@ impl PaddingParams {
     }
 }
 
-pub struct Padding<State, Message> {
+pub struct Padding<State: 'static, Message: 'static> {
     id: ElementId,
     child: Box<dyn Element<State = State, Message = Message>>,
     params: StateToParams<State, PaddingParams>,
 }
 
 impl<State, Message> Padding<State, Message> {
-    pub fn new(
+    pub fn new<P: Into<StateToParams<State, PaddingParams>>>(
         child: Box<dyn Element<State = State, Message = Message>>,
-        params: StateToParams<State, PaddingParams>,
+        params: P,
         world: &mut ElementWorld,
     ) -> Self {
         Self {
             id: world.next_id(),
             child,
-            params,
+            params: params.into(),
         }
     }
 }
@@ -58,7 +58,7 @@ impl<State, Message> ElementImpl for Padding<State, Message> {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        let params = (self.params)(crate::StateToParamsArgs {
+        let params = self.params.call(crate::StateToParamsArgs {
             state,
             id: self.id,
             ctx,
@@ -99,7 +99,7 @@ impl<State, Message> ElementImpl for Padding<State, Message> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = (self.params)(crate::StateToParamsArgs {
+        let params = self.params.call(crate::StateToParamsArgs {
             state,
             id: self.id,
             ctx,
@@ -131,17 +131,17 @@ impl<State, Message> ElementImpl for Padding<State, Message> {
 }
 
 pub trait PaddingExt: Element {
-    fn padding(
+    fn padding<P: Into<StateToParams<Self::State, PaddingParams>>>(
         self,
-        params: StateToParams<Self::State, PaddingParams>,
+        params: P,
         world: &mut ElementWorld,
     ) -> Padding<Self::State, Self::Message>;
 }
 
 impl<E: Element + 'static> PaddingExt for E {
-    fn padding(
+    fn padding<P: Into<StateToParams<Self::State, PaddingParams>>>(
         self,
-        params: StateToParams<Self::State, PaddingParams>,
+        params: P,
         world: &mut ElementWorld,
     ) -> Padding<Self::State, Self::Message> {
         Padding::new(Box::new(self), params, world)

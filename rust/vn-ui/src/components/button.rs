@@ -1,7 +1,7 @@
 use crate::utils::ToArray;
 use crate::{
-    Element, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionState, SizeConstraints,
-    StateToParams, UiContext,
+    Element, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionState,
+    SizeConstraints, StateToParams, UiContext,
 };
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
 
@@ -14,27 +14,27 @@ pub struct ButtonParams<Message> {
     pub on_click: Option<Message>,
 }
 
-pub struct Button<State, Message> {
+pub struct Button<State: 'static, Message: 'static> {
     id: ElementId,
     child: Box<dyn Element<State = State, Message = Message>>,
     params: StateToParams<State, ButtonParams<Message>>,
 }
 
 impl<State, Message> Button<State, Message> {
-    pub fn new(
+    pub fn new<P: Into<StateToParams<State, ButtonParams<Message>>>>(
         child: Box<dyn Element<State = State, Message = Message>>,
-        params: StateToParams<State, ButtonParams<Message>>,
+        params: P,
         world: &mut ElementWorld,
     ) -> Self {
         Self {
             id: world.next_id(),
-            child,
-            params,
+            child: child.into(),
+            params: params.into(),
         }
     }
 }
 
-impl<State, Message: Clone> ElementImpl for Button<State, Message> {
+impl<State, Message> ElementImpl for Button<State, Message> {
     type State = State;
     type Message = Message;
 
@@ -48,7 +48,7 @@ impl<State, Message: Clone> ElementImpl for Button<State, Message> {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        let params = (self.params)(crate::StateToParamsArgs {
+        let params = self.params.call(crate::StateToParamsArgs {
             state,
             id: self.id,
             ctx,
@@ -76,7 +76,7 @@ impl<State, Message: Clone> ElementImpl for Button<State, Message> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = (self.params)(crate::StateToParamsArgs {
+        let params = self.params.call(crate::StateToParamsArgs {
             state,
             id: self.id,
             ctx,
@@ -134,7 +134,7 @@ impl<State, Message: Clone> ElementImpl for Button<State, Message> {
 
         if event.target == Some(self.id) {
             if let crate::InteractionEventKind::Click { .. } = event.kind {
-                let params = (self.params)(crate::StateToParamsArgs {
+                let params = self.params.call(crate::StateToParamsArgs {
                     state,
                     id: self.id,
                     ctx,
@@ -150,17 +150,17 @@ impl<State, Message: Clone> ElementImpl for Button<State, Message> {
 }
 
 pub trait ButtonExt: Element {
-    fn button(
+    fn button<P: Into<StateToParams<Self::State, ButtonParams<Self::Message>>>>(
         self,
-        params: StateToParams<Self::State, ButtonParams<Self::Message>>,
+        params: P,
         world: &mut ElementWorld,
     ) -> Button<Self::State, Self::Message>;
 }
 
 impl<E: Element + 'static> ButtonExt for E {
-    fn button(
+    fn button<P: Into<StateToParams<Self::State, ButtonParams<Self::Message>>>>(
         self,
-        params: StateToParams<Self::State, ButtonParams<Self::Message>>,
+        params: P,
         world: &mut ElementWorld,
     ) -> Button<Self::State, Self::Message> {
         Button::new(Box::new(self), params, world)

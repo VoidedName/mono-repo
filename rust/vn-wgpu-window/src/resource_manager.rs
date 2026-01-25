@@ -274,12 +274,12 @@ impl ResourceManager {
                     // But wait, the cache also holds Glyphs that reference this texture.
                     // The cache in the catalog holds TextureAtlasKey -> Glyph.
                     // Glyph holds TextureId which holds Rc<InternalTextureId>.
-                    
+
                     // For now, let's keep it simple: if the texture is not used by anyone else
                     // (strong count is 1), and no glyph in the cache points to it.
                     // This is hard to check without iterating the cache.
-                    
-                    // Given the instruction says "we will worry about repacking later", 
+
+                    // Given the instruction says "we will worry about repacking later",
                     // maybe we should also worry about cleanup later.
                     i += 1;
                 }
