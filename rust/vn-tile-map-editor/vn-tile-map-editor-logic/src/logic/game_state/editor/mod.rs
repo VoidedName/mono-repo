@@ -24,6 +24,26 @@ use vn_wgpu_window::{GraphicsContext, WgpuScene};
 use web_time::Instant;
 use winit::event::{ElementState, KeyEvent, MouseButton};
 
+pub struct TextInputState {
+    pub element_id: ElementId,
+    pub text: String,
+    pub cursor_position: usize,
+}
+
+pub struct LoadedTileset {
+    pub texture_id: TextureId,
+    pub name: String,
+    /// in tiles
+    pub dimension: (u32, u32),
+    /// in px
+    pub tile_dimension: (u32, u32),
+    pub fit_strategy: TileFitStrategy,
+}
+
+pub struct State {
+    loaded_tilesets: HashMap<String, LoadedTileset>
+}
+
 pub struct Editor {
     ui: RefCell<Box<dyn Element<State = Editor, Message = EditorEvent>>>,
     event_manager: Rc<RefCell<EventManager>>,
@@ -279,10 +299,12 @@ impl Editor {
                 self.rebuild_ui();
             }
             EditorEvent::LoadTilesetFromInput => {
-                let path = self.tileset_path.clone();
-                if !path.is_empty() {
-                    let ev = EditorEvent::SelectTileset(path);
-                    self.handle_event(ev);
+                match self.platform.pick_file(&["png"]) {
+                    Some(path) => {
+                        let ev = EditorEvent::SelectTileset(path);
+                        self.handle_event(ev);
+                    }
+                    _ => {}
                 }
             }
             EditorEvent::UpdateTilesetPath(text) => {
@@ -467,6 +489,7 @@ impl GameStateEx for Editor {
     }
 
     fn render_target(&self, size: (f32, f32)) -> WgpuScene {
+
         // We need to rebuild the UI if the layers changed.
         // For now, let's just assume the UI is static, but in a real app
         // we might want to rebuild it or use a more dynamic approach.

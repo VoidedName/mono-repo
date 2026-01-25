@@ -12,3 +12,5 @@ vn-tile-map-editor-logic = { path = "../vn-tile-map-editor-logic" }
 anyhow = { workspace = true }
 env_logger = { workspace = true }
 log = { workspace = true }
+rfd = { workspace = true, features = [] }
+pollster = { workspace = true }

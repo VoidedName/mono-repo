@@ -98,12 +98,19 @@ pub enum FileLoadingError {
 }
 
 pub trait PlatformHooks {
+    fn load_asset(
+        &self,
+        path: String,
+    ) -> Pin<Box<dyn Future<Output = anyhow::Result<Vec<u8>, FileLoadingError>>>>;
+    
     fn load_file(
         &self,
         path: String,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<Vec<u8>, FileLoadingError>>>>;
 
     fn exit(&self);
+
+    fn pick_file(&self, extensions: &[&str]) -> Option<String>;
 }
 
 pub struct MainLogic {
@@ -124,7 +131,7 @@ impl MainLogic {
         resource_manager: Rc<ResourceManager>,
     ) -> anyhow::Result<Self> {
         let font_bytes = platform
-            .load_file("fonts/JetBrainsMono-Bold.ttf".to_string())
+            .load_asset("fonts/JetBrainsMono-Bold.ttf".to_string())
             .await?;
 
         resource_manager.load_font_from_bytes("jetbrains-bold", &font_bytes)?;

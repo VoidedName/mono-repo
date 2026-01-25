@@ -1,31 +1,4 @@
-use crate::primitives::{BoxPrimitive, GlyphInstance, ImagePrimitive, TextPrimitive};
-use vn_scene::{BoxPrimitiveData, ImagePrimitiveData, Scene, TextPrimitiveData};
-
-/// A collection of primitives to be rendered together.
-#[derive(Debug, Clone, Default)]
-pub struct Layer {
-    pub boxes: Vec<BoxPrimitive>,
-    pub images: Vec<ImagePrimitive>,
-    pub texts: Vec<TextPrimitive>,
-}
-
-impl Layer {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn add_box(&mut self, b: BoxPrimitive) {
-        self.boxes.push(b);
-    }
-
-    pub fn add_image(&mut self, i: ImagePrimitive) {
-        self.images.push(i);
-    }
-
-    pub fn add_text(&mut self, t: TextPrimitive) {
-        self.texts.push(t);
-    }
-}
+use vn_scene::{BoxPrimitiveData, ImagePrimitiveData, Layer, Scene, TextPrimitiveData};
 
 pub type SceneSize = (f32, f32);
 
@@ -53,10 +26,6 @@ impl WgpuScene {
 
     pub fn scene_size(&self) -> SceneSize {
         self.scene_size
-    }
-
-    pub fn layers(&self) -> &[Layer] {
-        &self.layers
     }
 
     pub fn current_layer_id(&self) -> u32 {
@@ -94,7 +63,7 @@ impl WgpuScene {
     where
         F: FnOnce(&mut Self),
     {
-        self.push_layer();
+        self.push_layer_on_top();
         f(self);
         self.pop_layer();
     }
@@ -108,65 +77,30 @@ impl WgpuScene {
         self.pop_layer();
     }
 
-    pub fn add_box(&mut self, b: BoxPrimitive) {
+    pub fn add_box(&mut self, b: BoxPrimitiveData) {
         self.active_layer().add_box(b);
     }
 
-    pub fn add_image(&mut self, i: ImagePrimitive) {
+    pub fn add_image(&mut self, i: ImagePrimitiveData) {
         self.active_layer().add_image(i);
     }
 
-    pub fn add_text(&mut self, t: TextPrimitive) {
+    pub fn add_text(&mut self, t: TextPrimitiveData) {
         self.active_layer().add_text(t);
     }
 }
 
 impl Scene for WgpuScene {
     fn add_box(&mut self, b: BoxPrimitiveData) {
-        self.add_box(BoxPrimitive {
-            common: crate::primitives::PrimitiveProperties {
-                transform: b.transform,
-                clip_area: b.clip_rect,
-            },
-            size: b.size,
-            color: b.color,
-            border_color: b.border_color,
-            border_thickness: b.border_thickness,
-            corner_radius: b.border_radius,
-        });
+        self.add_box(b);
     }
 
     fn add_image(&mut self, i: ImagePrimitiveData) {
-        self.add_image(ImagePrimitive {
-            common: crate::primitives::PrimitiveProperties {
-                transform: i.transform,
-                clip_area: i.clip_rect,
-            },
-            uv_rect: i.uv_rect,
-            size: i.size,
-            texture: i.texture_id.clone(),
-            tint: i.tint,
-        });
+        self.add_image(i);
     }
 
     fn add_text(&mut self, t: TextPrimitiveData) {
-        self.add_text(TextPrimitive {
-            common: crate::primitives::PrimitiveProperties {
-                transform: t.transform,
-                clip_area: t.clip_rect,
-            },
-            glyphs: t
-                .glyphs
-                .into_iter()
-                .map(|g| GlyphInstance {
-                    texture: g.texture_id.clone(),
-                    position: g.position,
-                    size: g.size,
-                    uv_rect: g.uv_rect,
-                })
-                .collect(),
-            tint: t.tint,
-        });
+        self.add_text(t);
     }
 
     fn with_next_layer(&mut self, f: &mut dyn FnMut(&mut dyn Scene)) {
@@ -175,7 +109,36 @@ impl Scene for WgpuScene {
         self.pop_layer();
     }
 
+    fn with_top_layer(&mut self, f: &mut dyn FnMut(&mut dyn Scene)) {
+        self.push_layer_on_top();
+        f(self);
+        self.pop_layer();
+    }
+
     fn current_layer_id(&self) -> u32 {
         self.current_layer_id()
+    }
+
+    fn layers(&self) -> &[Layer] {
+        &self.layers
+    }
+
+    fn extend(
+        &mut self,
+        other: &mut dyn Scene,
+    ) {
+        for layer in other.layers() {
+            self.with_top_layer(|s| {
+                for b in &layer.boxes {
+                    Scene::add_box(s, b.clone());
+                }
+                for i in &layer.images {
+                    Scene::add_image(s, i.clone());
+                }
+                for t in &layer.texts {
+                    Scene::add_text(s, t.clone());
+                }
+            })
+        }
     }
 }

@@ -256,7 +256,39 @@ pub trait Scene {
     fn add_image(&mut self, i: ImagePrimitiveData);
     fn add_text(&mut self, t: TextPrimitiveData);
     fn with_next_layer(&mut self, f: &mut dyn FnMut(&mut dyn Scene));
+    fn with_top_layer(&mut self, f: &mut dyn FnMut(&mut dyn Scene));
     fn current_layer_id(&self) -> u32;
+    fn layers(&self) -> &[Layer];
+    fn extend(
+        &mut self,
+        other: &mut dyn Scene
+    );
+}
+
+/// A collection of primitives to be rendered together.
+#[derive(Debug, Clone, Default)]
+pub struct Layer {
+    pub boxes: Vec<BoxPrimitiveData>,
+    pub images: Vec<ImagePrimitiveData>,
+    pub texts: Vec<TextPrimitiveData>,
+}
+
+impl Layer {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn add_box(&mut self, b: BoxPrimitiveData) {
+        self.boxes.push(b);
+    }
+
+    pub fn add_image(&mut self, i: ImagePrimitiveData) {
+        self.images.push(i);
+    }
+
+    pub fn add_text(&mut self, t: TextPrimitiveData) {
+        self.texts.push(t);
+    }
 }
 
 // These are data-only versions of primitives to be used in the trait

@@ -1,13 +1,16 @@
 use crate::graphics::{GraphicsContext, VertexDescription};
 use crate::pipeline_builder::PipelineBuilder;
-use crate::primitives::{_TexturePrimitive, BoxPrimitive, Globals, QUAD_VERTICES, Vertex};
+use crate::primitives::{
+    _TexturePrimitive, BoxPrimitive, Globals, PrimitiveProperties, QUAD_VERTICES, Vertex,
+};
 use crate::resource_manager::ResourceManager;
 use crate::scene::WgpuScene;
 use crate::texture::TextureId;
-use crate::{Renderer, Texture};
+use crate::{GlyphInstance, ImagePrimitive, Renderer, TextPrimitive, Texture};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
+use vn_scene::Scene;
 use wgpu::include_wgsl;
 use wgpu::util::DeviceExt;
 
@@ -508,9 +511,68 @@ impl Renderer for SceneRenderer {
             });
 
             for layer in scene.layers() {
-                self.render_boxes(graphics_context, &mut render_pass, &layer.boxes);
-                self.render_images(graphics_context, &mut render_pass, &layer.images);
-                self.render_texts(graphics_context, &mut render_pass, &layer.texts);
+                self.render_boxes(
+                    graphics_context,
+                    &mut render_pass,
+                    &layer
+                        .boxes
+                        .iter()
+                        .map(|b| BoxPrimitive {
+                            common: PrimitiveProperties {
+                                transform: b.transform,
+                                clip_area: b.clip_rect,
+                            },
+                            size: b.size,
+                            color: b.color,
+                            border_color: b.border_color,
+                            border_thickness: b.border_thickness,
+                            corner_radius: b.border_radius,
+                        })
+                        .collect::<Vec<_>>(),
+                );
+                self.render_images(
+                    graphics_context,
+                    &mut render_pass,
+                    &layer
+                        .images
+                        .iter()
+                        .map(|i| ImagePrimitive {
+                            common: PrimitiveProperties {
+                                transform: i.transform,
+                                clip_area: i.clip_rect,
+                            },
+                            size: i.size,
+                            uv_rect: i.uv_rect,
+                            texture: i.texture_id.clone(),
+                            tint: i.tint,
+                        })
+                        .collect::<Vec<_>>(),
+                );
+                self.render_texts(
+                    graphics_context,
+                    &mut render_pass,
+                    &layer
+                        .texts
+                        .iter()
+                        .map(|t| TextPrimitive {
+                            common: PrimitiveProperties {
+                                transform: t.transform,
+                                clip_area: t.clip_rect,
+                            },
+                            glyphs: t
+                                .glyphs
+                                .iter()
+                                .map(|g| GlyphInstance {
+                                    texture: g.texture_id.clone(),
+                                    position: g.position,
+                                    size: g.size,
+                                    uv_rect: g.uv_rect,
+                                })
+                                .collect(),
+                            tint: t.tint,
+                        })
+                        .collect::<Vec<_>>(),
+                );
             }
         }
 

@@ -1,6 +1,8 @@
 use env_logger::Env;
+use rfd::{AsyncFileDialog, FileDialog};
 use std::future::Future;
 use std::io::Read;
+use std::path::PathBuf;
 use std::pin::Pin;
 use vn_tile_map_editor_logic::logic::{FileLoadingError, PlatformHooks};
 
@@ -15,15 +17,32 @@ pub async fn load_file(path: String) -> anyhow::Result<Vec<u8>, FileLoadingError
 
 struct NativePlatformHooks;
 impl PlatformHooks for NativePlatformHooks {
-    fn load_file(
+    fn load_asset(
         &self,
         path: String,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<Vec<u8>, FileLoadingError>>>> {
         Box::pin(load_file(format!("assets/{}", path)))
     }
 
+    fn load_file(
+        &self,
+        path: String,
+    ) -> Pin<Box<dyn Future<Output = anyhow::Result<Vec<u8>, FileLoadingError>>>> {
+        Box::pin(load_file(format!("{}", path)))
+    }
+
     fn exit(&self) {
         std::process::exit(0);
+    }
+
+    fn pick_file(&self, extensions: &[&str]) -> Option<String> {
+        pollster::block_on(async {
+            AsyncFileDialog::new()
+                .add_filter("filter", extensions)
+                .pick_file().await
+                .map(|path| path.path().to_str().map(String::from))
+                .flatten()
+        })
     }
 }
 
