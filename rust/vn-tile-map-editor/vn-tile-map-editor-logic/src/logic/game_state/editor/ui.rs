@@ -494,7 +494,7 @@ fn build_dimension_input(
         },
         world,
     )
-    .padding(params! {PaddingParams::uniform(5.0) }, world);
+    .padding(params! { PaddingParams::uniform(5.0) }, world);
 
     let input = TextField::new(
         {
