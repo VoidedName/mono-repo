@@ -38,6 +38,8 @@ pub use event_manager::*;
 pub use interaction::*;
 pub use layouts::*;
 pub use sizes::*;
+use std::fmt::Debug;
+use std::rc::Rc;
 pub use vn_ui_animation::*;
 pub use vn_ui_animation_macros::*;
 
@@ -68,10 +70,16 @@ pub enum ScrollAreaAction {
     ScrollY(f32),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct EventHandler<Action, Message> {
-    pub on_action: Option<fn(ElementId, Action) -> Message>,
-    pub on_event: Option<fn(ElementId, &InteractionEvent) -> (Vec<Message>, bool)>,
+    pub on_action: Option<Rc<dyn Fn(ElementId, Action) -> Vec<Message>>>,
+    pub on_event: Option<Rc<dyn Fn(ElementId, &InteractionEvent) -> (Vec<Message>, bool)>>,
+}
+
+impl<A, B> Debug for EventHandler<A, B> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EventHandler").finish_non_exhaustive()
+    }
 }
 
 impl<Action: Clone, Message: Clone> EventHandler<Action, Message> {
@@ -82,18 +90,21 @@ impl<Action: Clone, Message: Clone> EventHandler<Action, Message> {
         }
     }
 
-    pub fn new(on_action: fn(ElementId, Action) -> Message) -> Self {
+    pub fn new<F: 'static>(on_action: F) -> Self
+    where
+        F: Fn(ElementId, Action) -> Vec<Message>,
+    {
         Self {
-            on_action: Some(on_action),
+            on_action: Some(Rc::new(on_action)),
             on_event: None,
         }
     }
 
-    pub fn with_overwrite(
-        mut self,
-        on_event: fn(ElementId, &InteractionEvent) -> (Vec<Message>, bool),
-    ) -> Self {
-        self.on_event = Some(on_event);
+    pub fn with_overwrite<F: 'static>(mut self, on_event: F) -> Self
+    where
+        F: Fn(ElementId, &InteractionEvent) -> (Vec<Message>, bool),
+    {
+        self.on_event = Some(Rc::new(on_event));
         self
     }
 
@@ -106,16 +117,16 @@ impl<Action: Clone, Message: Clone> EventHandler<Action, Message> {
         let mut messages = Vec::new();
         let mut continue_processing = true;
 
-        if let Some(on_event) = self.on_event {
+        if let Some(on_event) = &self.on_event {
             let (custom_messages, cont) = on_event(id, event);
             messages.extend(custom_messages);
             continue_processing = cont;
         }
 
         if continue_processing {
-            if let Some(on_action) = self.on_action {
+            if let Some(on_action) = &self.on_action {
                 for action in action_provider() {
-                    messages.push(on_action(id, action));
+                    messages.extend(on_action(id, action));
                 }
             }
         }
@@ -124,25 +135,23 @@ impl<Action: Clone, Message: Clone> EventHandler<Action, Message> {
     }
 }
 
-impl<Action: Clone, Message: Clone> From<Option<fn(ElementId, Action) -> Message>>
+impl<Action: Clone, Message: Clone + 'static> From<Option<Message>>
     for EventHandler<Action, Message>
 {
-    fn from(on_action: Option<fn(ElementId, Action) -> Message>) -> Self {
-        Self {
-            on_action,
-            on_event: None,
-        }
+    fn from(message: Option<Message>) -> Self {
+        Self::new(move |_, _| {
+            if let Some(msg) = message.clone() {
+                vec![msg]
+            } else {
+                vec![]
+            }
+        })
     }
 }
 
-impl<Action: Clone, Message: Clone> From<fn(ElementId, Action) -> Message>
-    for EventHandler<Action, Message>
-{
-    fn from(on_action: fn(ElementId, Action) -> Message) -> Self {
-        Self {
-            on_action: Some(on_action),
-            on_event: None,
-        }
+impl<Action: Clone, Message: Clone + 'static> From<Message> for EventHandler<Action, Message> {
+    fn from(message: Message) -> Self {
+        Self::new(move |_, _| vec![message.clone()])
     }
 }
 

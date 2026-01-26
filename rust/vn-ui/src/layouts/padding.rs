@@ -22,6 +22,24 @@ impl PaddingParams {
             pad_bottom: value,
         }
     }
+
+    pub fn horizontal(value: f32) -> Self {
+        Self {
+            pad_left: value / 2.0,
+            pad_top: 0.0,
+            pad_right: value / 2.0,
+            pad_bottom: 0.0,
+        }
+    }
+
+    pub fn vertical(value: f32) -> Self {
+        Self {
+            pad_top: value / 2.0,
+            pad_left: 0.0,
+            pad_bottom: value / 2.0,
+            pad_right: 0.0,
+        }
+    }
 }
 
 pub struct Padding<State: 'static, Message: 'static> {

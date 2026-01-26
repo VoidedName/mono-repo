@@ -1,9 +1,14 @@
 use crate::utils::ToArray;
 use crate::{
-    Element, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionState, SizeConstraints,
-    StateToParams, UiContext,
+    Element, ElementId, ElementImpl, ElementSize, ElementWorld, EventHandler, InteractionEventKind,
+    InteractionState, SizeConstraints, StateToParams, UiContext,
 };
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
+
+#[derive(Debug, Copy, Clone)]
+pub enum ButtonAction {
+    Clicked,
+}
 
 pub struct ButtonParams<Message> {
     pub background: Color,
@@ -11,7 +16,7 @@ pub struct ButtonParams<Message> {
     pub border_width: f32,
     pub corner_radius: f32,
     pub interaction: InteractionState,
-    pub on_click: Option<Message>,
+    pub on_click: EventHandler<ButtonAction, Message>,
 }
 
 pub struct Button<State: 'static, Message: 'static> {
@@ -34,7 +39,7 @@ impl<State, Message> Button<State, Message> {
     }
 }
 
-impl<State, Message> ElementImpl for Button<State, Message> {
+impl<State, Message: Clone> ElementImpl for Button<State, Message> {
     type State = State;
     type Message = Message;
 
@@ -54,13 +59,13 @@ impl<State, Message> ElementImpl for Button<State, Message> {
             ctx,
         });
 
-        let constraints = constraints.shrink_by(ElementSize {
+        let child_constraints = constraints.shrink_by(ElementSize {
             width: params.border_width * 2.0,
             height: params.border_width * 2.0,
         });
 
         self.child
-            .layout(ctx, state, constraints)
+            .layout(ctx, state, child_constraints)
             .grow_by(ElementSize {
                 width: params.border_width * 2.0,
                 height: params.border_width * 2.0,
@@ -133,16 +138,17 @@ impl<State, Message> ElementImpl for Button<State, Message> {
         let mut messages = self.child.handle_event(ctx, state, event);
 
         if event.target == Some(self.id) {
-            if let crate::InteractionEventKind::Click { .. } = event.kind {
-                let params = self.params.call(crate::StateToParamsArgs {
-                    state,
-                    id: self.id,
-                    ctx,
-                });
-                if let Some(msg) = params.on_click {
-                    messages.push(msg);
+            let params = self.params.call(crate::StateToParamsArgs {
+                state,
+                id: self.id,
+                ctx,
+            });
+            messages.extend(params.on_click.handle(self.id, event, || match event.kind {
+                InteractionEventKind::Click { .. } => {
+                    vec![ButtonAction::Clicked]
                 }
-            }
+                _ => vec![],
+            }));
         }
 
         messages

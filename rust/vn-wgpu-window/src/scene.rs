@@ -123,10 +123,7 @@ impl Scene for WgpuScene {
         &self.layers
     }
 
-    fn extend(
-        &mut self,
-        other: &mut dyn Scene,
-    ) {
+    fn extend(&mut self, other: &mut dyn Scene) {
         for layer in other.layers() {
             self.with_top_layer(|s| {
                 for b in &layer.boxes {

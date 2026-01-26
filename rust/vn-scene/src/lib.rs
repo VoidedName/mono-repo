@@ -259,10 +259,7 @@ pub trait Scene {
     fn with_top_layer(&mut self, f: &mut dyn FnMut(&mut dyn Scene));
     fn current_layer_id(&self) -> u32;
     fn layers(&self) -> &[Layer];
-    fn extend(
-        &mut self,
-        other: &mut dyn Scene
-    );
+    fn extend(&mut self, other: &mut dyn Scene);
 }
 
 /// A collection of primitives to be rendered together.

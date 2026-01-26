@@ -73,9 +73,9 @@ pub trait ElementImpl {
     /// Handles an interaction event.
     fn handle_event_impl(
         &mut self,
-        _ctx: &mut UiContext,
-        _state: &Self::State,
-        _event: &InteractionEvent,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        event: &InteractionEvent,
     ) -> Vec<Self::Message>;
 }
 

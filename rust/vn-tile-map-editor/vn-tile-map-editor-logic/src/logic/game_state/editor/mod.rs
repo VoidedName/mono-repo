@@ -5,30 +5,22 @@ mod ui;
 pub use events::EditorEvent;
 pub use grid::Grid;
 
-use crate::logic::game_state::GameStateEx;
+use crate::logic::game_state::ApplicationStateEx;
 use crate::logic::{FpsStats, PlatformHooks, TextMetric};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::rc::Rc;
 use vn_scene::TextureId;
 use vn_tilemap::{
     TileFitStrategy, TileMapLayerMapSpecification, TileMapLayerSpecification, TileMapSpecification,
 };
-use vn_ui::InteractionEventKind::MouseScroll;
 use vn_ui::{
-    DynamicDimension, DynamicSize, Element, ElementId, ElementSize, ElementWorld, EventManager,
-    InteractionEventKind, SimpleLayoutCache, SizeConstraints, Stack, UiContext,
+     Element, ElementId,  ElementWorld, EventManager,
+    Stack,
 };
 use vn_wgpu_window::resource_manager::{ResourceManager, Sampling};
-use vn_wgpu_window::{GraphicsContext, WgpuScene};
-use web_time::Instant;
-use winit::event::{ElementState, KeyEvent, MouseButton};
-
-pub struct TextInputState {
-    pub element_id: ElementId,
-    pub text: String,
-    pub cursor_position: usize,
-}
+use vn_wgpu_window::{GraphicsContext };
 
 pub struct LoadedTileset {
     pub texture_id: TextureId,
@@ -44,8 +36,9 @@ pub struct State {
     loaded_tilesets: HashMap<String, LoadedTileset>
 }
 
-pub struct Editor {
-    ui: RefCell<Box<dyn Element<State = Editor, Message = EditorEvent>>>,
+pub struct Editor<ApplicationEvent> {
+    _phantom: PhantomData<ApplicationEvent>,
+    ui: RefCell<Box<dyn Element<State = Editor<ApplicationEvent>, Message = EditorEvent>>>,
     event_manager: Rc<RefCell<EventManager>>,
     map_spec: TileMapSpecification,
     selected_layer_index: usize,
@@ -75,7 +68,7 @@ pub struct Editor {
     fps: Rc<RefCell<FpsStats>>,
 }
 
-impl Editor {
+impl<ApplicationEvent: 'static> Editor<ApplicationEvent> {
     pub async fn new(
         platform: Rc<Box<dyn PlatformHooks>>,
         gc: Rc<GraphicsContext>,
@@ -90,6 +83,7 @@ impl Editor {
         let tileset_rows_input_id = world.next_id();
 
         let mut editor = Self {
+            _phantom: Default::default(),
             ui: RefCell::new(Box::new(Stack::new(vec![], &mut world))),
             event_manager: Rc::new(RefCell::new(EventManager::new())),
             map_spec: TileMapSpecification {
@@ -176,7 +170,7 @@ impl Editor {
         *self.ui.borrow_mut() = editor_ui.root;
     }
 
-    fn handle_event(&mut self, event: EditorEvent) {
+    fn handle_event(&mut self, event: EditorEvent) -> Option<ApplicationEvent> {
         match event {
             EditorEvent::ScrollTileset(delta_y) => {
                 self.tileset_scroll_y -= delta_y;
@@ -459,139 +453,30 @@ impl Editor {
                     }
                 }
             }
-        }
-    }
-}
-
-impl GameStateEx for Editor {
-    type Event = EditorEvent;
-
-    fn process_events(&mut self) -> Option<Self::Event> {
-        let events = self.event_manager.borrow_mut().process_events();
-
-        let mut ctx = UiContext {
-            event_manager: self.event_manager.clone(),
-            parent_id: None,
-            layout_cache: Box::new(SimpleLayoutCache::new()),
-            interactive: true,
-            clip_rect: vn_scene::Rect::NO_CLIP,
-            now: Instant::now(),
         };
-
-        for event in &events {
-            let messages = self.ui.borrow_mut().handle_event(&mut ctx, self, event);
-            for msg in messages {
-                self.handle_event(msg);
-            }
-        }
 
         None
     }
+}
 
-    fn render_target(&self, size: (f32, f32)) -> WgpuScene {
+impl<ApplicationEvent: 'static> ApplicationStateEx for Editor<ApplicationEvent> {
+    type StateEvent = EditorEvent;
+    type State = Editor<ApplicationEvent>;
+    type ApplicationEvent = ApplicationEvent;
 
-        // We need to rebuild the UI if the layers changed.
-        // For now, let's just assume the UI is static, but in a real app
-        // we might want to rebuild it or use a more dynamic approach.
-        // Actually, let's try to rebuild the layer list part if needed.
-
-        let mut scene = WgpuScene::new((size.0, size.1));
-
-        let event_manager = self.event_manager.clone();
-        event_manager.borrow_mut().clear_hitboxes();
-
-        let mut ctx = UiContext {
-            event_manager,
-            parent_id: None,
-            layout_cache: Box::new(SimpleLayoutCache::new()),
-            interactive: true,
-            clip_rect: vn_scene::Rect::NO_CLIP,
-            now: Instant::now(),
-        };
-
-        self.ui.borrow_mut().layout(
-            &mut ctx,
-            self,
-            SizeConstraints {
-                min_size: ElementSize {
-                    width: 0.0,
-                    height: 0.0,
-                },
-                max_size: DynamicSize {
-                    width: DynamicDimension::Limit(size.0),
-                    height: DynamicDimension::Limit(size.1),
-                },
-                scene_size: (size.0, size.1),
-            },
-        );
-
-        self.ui.borrow_mut().draw(
-            &mut ctx,
-            self,
-            (0.0, 0.0),
-            ElementSize {
-                width: size.0,
-                height: size.1,
-            },
-            &mut scene,
-        );
-
-        scene
+    fn ui(&self) -> &RefCell<Box<dyn Element<State=Self::State, Message=Self::StateEvent>>> {
+        &self.ui
     }
 
-    fn handle_key(&mut self, event: &KeyEvent) {
-        self.event_manager
-            .borrow_mut()
-            .queue_event(InteractionEventKind::Keyboard(event.clone()));
+    fn state(&self) -> &Self::State {
+        self
     }
 
-    fn handle_mouse_position(&mut self, x: f32, y: f32) {
-        self.event_manager
-            .borrow_mut()
-            .queue_event(InteractionEventKind::MouseMove {
-                x,
-                y,
-                local_x: x,
-                local_y: y,
-            });
+    fn event_manager(&self) -> Rc<RefCell<EventManager>> {
+        self.event_manager.clone()
     }
 
-    fn handle_mouse_button(
-        &mut self,
-        mouse_position: (f32, f32),
-        button: MouseButton,
-        state: ElementState,
-    ) {
-        use vn_ui::MouseButton as UiMouseButton;
-        let button = match button {
-            MouseButton::Left => UiMouseButton::Left,
-            MouseButton::Right => UiMouseButton::Right,
-            MouseButton::Middle => UiMouseButton::Middle,
-            _ => return,
-        };
-
-        let kind = match state {
-            ElementState::Pressed => InteractionEventKind::MouseDown {
-                button,
-                x: mouse_position.0,
-                y: mouse_position.1,
-                local_x: mouse_position.0,
-                local_y: mouse_position.1,
-            },
-            ElementState::Released => InteractionEventKind::MouseUp {
-                button,
-                x: mouse_position.0,
-                y: mouse_position.1,
-                local_x: mouse_position.0,
-                local_y: mouse_position.1,
-            },
-        };
-        self.event_manager.borrow_mut().queue_event(kind);
-    }
-
-    fn handle_mouse_wheel(&mut self, _delta_x: f32, delta_y: f32) {
-        self.event_manager
-            .borrow_mut()
-            .queue_event(MouseScroll { y: delta_y })
+    fn handle_event(&mut self, event: EditorEvent) -> Option<Self::ApplicationEvent> {
+        self.handle_event(event)
     }
 }

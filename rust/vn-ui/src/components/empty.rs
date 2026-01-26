@@ -3,15 +3,13 @@ use vn_scene::Scene;
 
 pub struct Empty<State: 'static, Message: 'static> {
     id: ElementId,
-    size: ElementSize,
     _ph: std::marker::PhantomData<(State, Message)>,
 }
 
 impl<State, Message> Empty<State, Message> {
-    pub fn new(size: ElementSize, world: &mut ElementWorld) -> Self {
+    pub fn new(world: &mut ElementWorld) -> Self {
         Self {
             id: world.next_id(),
-            size,
             _ph: Default::default(),
         }
     }
@@ -31,7 +29,7 @@ impl<State, Message> ElementImpl for Empty<State, Message> {
         _state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        self.size.clamp_to_constraints(constraints)
+        constraints.min_size
     }
 
     fn draw_impl(

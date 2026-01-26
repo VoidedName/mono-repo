@@ -5,6 +5,7 @@ mod interactive;
 mod padding;
 mod scroll_area;
 mod stack;
+mod prefer_size;
 
 pub use anchor::*;
 pub use fill::*;
@@ -13,3 +14,4 @@ pub use interactive::*;
 pub use padding::*;
 pub use scroll_area::*;
 pub use stack::*;
+pub use prefer_size::*;

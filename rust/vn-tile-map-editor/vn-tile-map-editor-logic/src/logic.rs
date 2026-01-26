@@ -1,4 +1,4 @@
-use crate::logic::game_state::{GameState, GameStateEx, Editor};
+use crate::logic::game_state::{ApplicationState, LoadTileSetMenu, LoadedTexture};
 use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
@@ -7,7 +7,7 @@ use thiserror::Error;
 use vn_ui::*;
 use vn_wgpu_window::StateLogic;
 use vn_wgpu_window::graphics::GraphicsContext;
-use vn_wgpu_window::resource_manager::ResourceManager;
+use vn_wgpu_window::resource_manager::{ResourceManager, Sampling};
 use vn_wgpu_window::scene_renderer::SceneRenderer;
 use web_time::Instant;
 use winit::event::KeyEvent;
@@ -113,6 +113,8 @@ pub trait PlatformHooks {
     fn pick_file(&self, extensions: &[&str]) -> Option<String>;
 }
 
+pub enum ApplicationEvent {}
+
 pub struct MainLogic {
     pub resource_manager: Rc<ResourceManager>,
     pub graphics_context: Rc<GraphicsContext>,
@@ -121,7 +123,15 @@ pub struct MainLogic {
     mouse_position: (f32, f32),
     #[allow(unused)]
     platform: Rc<Box<dyn PlatformHooks>>,
-    game_state: GameState,
+    game_state: ApplicationState<ApplicationEvent>,
+}
+
+pub struct ApplicationContext {
+    platform: Rc<Box<dyn PlatformHooks>>,
+    gv: Rc<GraphicsContext>,
+    rm: Rc<ResourceManager>,
+    text_metrics: Rc<TextMetric>,
+    stats: Rc<RefCell<FpsStats>>,
 }
 
 impl MainLogic {
@@ -137,15 +147,25 @@ impl MainLogic {
         resource_manager.load_font_from_bytes("jetbrains-bold", &font_bytes)?;
         resource_manager.set_glyph_size_increment(4.0);
 
+        let example_tileset = platform.load_asset("[Base]BaseChip_pipo.png".to_string()).await?;
+        let example_tileset = resource_manager.load_texture_from_bytes(&example_tileset, Sampling::Nearest)?;
+
         let fps_stats = Rc::new(RefCell::new(FpsStats::new()));
 
-        let game_state = GameState::Editor(
-            Editor::new(
-                platform.clone(),
-                graphics_context.clone(),
-                resource_manager.clone(),
-                fps_stats.clone(),
-            )
+        let game_state = ApplicationState::LoadTileSetMenu(
+            LoadTileSetMenu::new(ApplicationContext {
+                platform: platform.clone(),
+                gv: graphics_context.clone(),
+                rm: resource_manager.clone(),
+                text_metrics: Rc::new(TextMetric {
+                    rm: resource_manager.clone(),
+                    gc: graphics_context.clone(),
+                }),
+                stats: fps_stats.clone(),
+            }, LoadedTexture {
+                id: example_tileset.id.clone(),
+                dimensions: example_tileset.size,
+            })
             .await?,
         );
 
@@ -163,9 +183,7 @@ impl MainLogic {
 
 impl StateLogic<SceneRenderer> for MainLogic {
     fn process_events(&mut self) {
-        let _ = match &mut self.game_state {
-            GameState::Editor(editor) => editor.process_events(),
-        };
+        self.game_state.process_events();
     }
 
     fn handle_key(&mut self, _event_loop: &ActiveEventLoop, event: &KeyEvent) {

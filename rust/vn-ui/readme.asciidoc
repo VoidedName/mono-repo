@@ -62,7 +62,9 @@ The UI is represented as a tree of objects implementing the `Element` trait.
 == TODO
 
 - [ ] Focus Management: Better handling of keyboard focus and tab navigation.
-- [ ] Scroll Containers: Implementation of scrollable areas.
+- [x] Scroll Containers: Implementation of scrollable areas.
 - [x] Tooltips: Support for hover-based information popups.
 - [ ] Style Sheets: A more centralized way to manage UI styles (colors, margins, etc.).
 - [ ] (Optional) Accessibility: Basic support for screen readers and high-contrast modes.
+- [ ] Figure out how to deal with grid layouts? (A Flex is greedy, there is no way to arrange things in a grid)
+- [ ] Dropbox

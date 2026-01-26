@@ -107,7 +107,39 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
         size: ElementSize,
         scene: &mut dyn Scene,
     ) {
-        self.viewport_size = size;
+        let params = self.params.call(crate::StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
+
+        self.viewport_size = {
+            let mut shrink_by = ElementSize::ZERO;
+            // if content doesn't fit, we need scroll bars
+            if self.child_size.width > size.width {
+                shrink_by.height = params.scroll_x.width + params.scroll_x.margin;
+            }
+
+            if self.child_size.height > size.height {
+                shrink_by.width = params.scroll_y.width + params.scroll_y.margin;
+            }
+
+            // since viewport size changes, we may need to also shrink along the other directions
+            if shrink_by.width != 0.0 && shrink_by.height == 0.0 {
+                // y scrolling
+                if self.child_size.width > size.width - shrink_by.width {
+                    shrink_by.height = params.scroll_x.width + params.scroll_x.margin;
+                }
+            }
+            if shrink_by.width == 0.0 && shrink_by.height != 0.0 {
+                // y scrolling
+                if self.child_size.height > size.height - shrink_by.height {
+                    shrink_by.width = params.scroll_y.width + params.scroll_y.margin;
+                }
+            }
+
+            size.shrink_by(shrink_by)
+        };
 
         ctx.with_hitbox_hierarchy(
             self.id,
@@ -117,30 +149,27 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                 size: size.to_array(),
             },
             |ctx| {
-                let params = self.params.call(crate::StateToParamsArgs {
-                    state,
-                    id: self.id,
-                    ctx,
-                });
-
                 let child_origin = (
                     origin.0
                         - params
                             .scroll_x
                             .position
                             .unwrap_or(0.0)
-                            .min((self.child_size.width - size.width).max(0.0)),
+                            .min((self.child_size.width - self.viewport_size.width).max(0.0)),
                     origin.1
                         - params
                             .scroll_y
                             .position
                             .unwrap_or(0.0)
-                            .min((self.child_size.height - size.height).max(0.0)),
+                            .min((self.child_size.height - self.viewport_size.height).max(0.0)),
                 );
 
                 let clip_rect = Rect {
                     position: [origin.0, origin.1],
-                    size: [size.width, size.height],
+                    size: [
+                        self.viewport_size.width,
+                        self.viewport_size.height,
+                    ],
                 };
 
                 ctx.with_clipping(clip_rect, |ctx| {
@@ -148,6 +177,7 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                         .draw(ctx, state, child_origin, self.child_size, scene);
                 });
 
+                let size = self.viewport_size;
                 // Draw scroll bars
                 {
                     if self.child_size.height > size.height {
@@ -160,7 +190,7 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
 
                         let scrollbar_rect = Rect {
                             position: [
-                                origin.0 + size.width - params.scroll_y.width,
+                                origin.0 + size.width + params.scroll_y.margin,
                                 origin.1 + scrollbar_y,
                             ],
                             size: [params.scroll_y.width, scrollbar_height],
@@ -200,7 +230,7 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                         let scrollbar_rect = Rect {
                             position: [
                                 origin.0 + scrollbar_x,
-                                origin.1 + size.height - params.scroll_x.width,
+                                origin.1 + size.height + params.scroll_x.margin,
                             ],
                             size: [scrollbar_width, params.scroll_x.width],
                         };
@@ -263,7 +293,7 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                                 let new_scroll = drag.initial_scroll + delta_mouse * scroll_ratio;
                                 return vec![ScrollAreaAction::ScrollX(new_scroll.clamp(
                                     0.0,
-                                    self.child_size.height - self.viewport_size.height,
+                                    self.child_size.width - self.viewport_size.width,
                                 ))];
                             }
                         }
