@@ -259,11 +259,6 @@ impl<ApplicationEvent> LoadTileSetMenu<ApplicationEvent> {
             world,
         );
 
-        // BUG: clipping for text
-        // BUG: clipping for scroll area
-        // BUG: text box "grows" beyond what it is allowed to
-
-
         let ui = PreferSize::new(
             Box::new(Flex::new_column(
                 vec![
@@ -279,7 +274,7 @@ impl<ApplicationEvent> LoadTileSetMenu<ApplicationEvent> {
                                     true,
                                     world,
                                 ))),
-                                FlexChild::weighted(Box::new(Empty::new(world)), 1.0),
+                                // FlexChild::weighted(Box::new(Empty::new(world)), 1.0),
                                 FlexChild::new(Box::new(Flex::new_column_unweighted(
                                     vec![Box::new(texture)],
                                     true,

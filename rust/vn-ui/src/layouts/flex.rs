@@ -2,7 +2,7 @@ use crate::{
     DynamicDimension, Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints,
     StateToParams, UiContext,
 };
-use vn_scene::Scene;
+use vn_scene::{Rect, Scene};
 
 #[derive(Clone, Copy)]
 pub enum FlexDirection {
@@ -309,36 +309,46 @@ impl<State, Message> ElementImpl for Flex<State, Message> {
             ctx,
         });
 
-        let mut offset = match params.direction {
-            FlexDirection::Row => origin.0,
-            FlexDirection::Column => origin.1,
-        };
-        for (idx, child) in self.children.iter_mut().enumerate() {
-            let mut child_size = self.layout[idx];
+        ctx.with_clipping(
+            Rect {
+                position: [origin.0, origin.1],
+                size: [size.width, size.height],
+            },
+            |ctx| {
+                let mut offset = match params.direction {
+                    FlexDirection::Row => origin.0,
+                    FlexDirection::Column => origin.1,
+                };
+                for (idx, child) in self.children.iter_mut().enumerate() {
+                    let mut child_size = self.layout[idx];
 
-            match params.direction {
-                FlexDirection::Row => {
-                    // making sure we are not drawing out of bounds for some reason
-                    child_size.width = child_size.width.min(size.width - (offset - origin.0));
-                    child_size.height = child_size.height.min(size.height);
+                    match params.direction {
+                        FlexDirection::Row => {
+                            // making sure we are not drawing out of bounds for some reason
+                            child_size.width =
+                                child_size.width.min(size.width - (offset - origin.0));
+                            child_size.height = child_size.height.min(size.height);
 
-                    child
-                        .element
-                        .draw(ctx, state, (offset, origin.1), child_size, canvas);
-                    offset += self.layout[idx].width;
+                            child
+                                .element
+                                .draw(ctx, state, (offset, origin.1), child_size, canvas);
+                            offset += self.layout[idx].width;
+                        }
+                        FlexDirection::Column => {
+                            // making sure we are not drawing out of bounds for some reason
+                            child_size.width = child_size.width.min(size.width);
+                            child_size.height =
+                                child_size.height.min(size.height - (offset - origin.1));
+
+                            child
+                                .element
+                                .draw(ctx, state, (origin.0, offset), child_size, canvas);
+                            offset += self.layout[idx].height;
+                        }
+                    }
                 }
-                FlexDirection::Column => {
-                    // making sure we are not drawing out of bounds for some reason
-                    child_size.width = child_size.width.min(size.width);
-                    child_size.height = child_size.height.min(size.height - (offset - origin.1));
-
-                    child
-                        .element
-                        .draw(ctx, state, (origin.0, offset), child_size, canvas);
-                    offset += self.layout[idx].height;
-                }
-            }
-        }
+            },
+        )
     }
 
     fn handle_event_impl(

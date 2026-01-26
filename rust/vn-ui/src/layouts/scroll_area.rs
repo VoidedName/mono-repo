@@ -177,6 +177,7 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                         .draw(ctx, state, child_origin, self.child_size, scene);
                 });
 
+                let clip_rect = ctx.clip_rect;
                 let size = self.viewport_size;
                 // Draw scroll bars
                 {
@@ -213,7 +214,7 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                             border_color: Color::TRANSPARENT,
                             border_thickness: 0.0,
                             border_radius: params.scroll_y.width / 2.0,
-                            clip_rect: Rect::NO_CLIP,
+                            clip_rect,
                         });
                     }
                 }
@@ -252,7 +253,7 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                             border_color: Color::TRANSPARENT,
                             border_thickness: 0.0,
                             border_radius: params.scroll_x.width / 2.0,
-                            clip_rect: Rect::NO_CLIP,
+                            clip_rect,
                         });
                     }
                 }
