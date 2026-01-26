@@ -1,11 +1,13 @@
-use crate::logic::ApplicationContext;
 use crate::logic::game_state::LoadTileMenuStateErrors::{
-    TilesHeighIsZero, TilesWideIsZero, TilesetNameIsEmpty,
+    TilesHeighIsZero, TilesHighMustDivideTexture, TilesWideIsZero, TilesWideMustDivideTexture,
+    TilesetNameIsEmpty,
 };
+use crate::logic::game_state::editor::{Grid, GridParams};
 use crate::logic::game_state::{
-    ApplicationStateEx, Input, TextFieldState, btn, empty_texture, input, label, labelled_input,
-    suppress_enter_key,
+    ApplicationStateEx, Input, LoadedTileSet, TextFieldState, btn, empty_texture, input, label,
+    labelled_input, suppress_enter_key,
 };
+use crate::logic::{ApplicationContext, ApplicationEvent};
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::marker::PhantomData;
@@ -16,6 +18,7 @@ use vn_ui::*;
 
 #[derive(Debug)]
 pub struct LoadedTexture {
+    pub suggested_name: String,
     pub id: TextureId,
     pub dimensions: (u32, u32),
 }
@@ -29,7 +32,7 @@ pub struct LoadTileMenuState {
     tiles_wide_input: TextFieldState,
     tiles_wide: u32,
     tiles_heigh_input: TextFieldState,
-    tiles_heigh: u32,
+    tiles_high: u32,
     errors: HashSet<LoadTileMenuStateErrors>,
 }
 
@@ -43,6 +46,8 @@ pub enum LoadTileMenuStateErrors {
     TilesWideIsZero,
     #[error("Tiles wide must divide textures width")]
     TilesWideMustDivideTexture,
+    #[error("Tiles high must divide textures height")]
+    TilesHighMustDivideTexture,
     #[error("Tileset name must not be empty")]
     TilesetNameIsEmpty,
 }
@@ -62,7 +67,6 @@ pub enum LoadTileSetMenuEvent {
     TilesWideChanged(u32),
     TileHeighInputChanged(LoadTileSetMenuInputEvent),
     TilesHighChanged(u32),
-    FocusTilesetNameInput,
     TexturePreviewScrollX(f32),
     TexturePreviewScrollY(f32),
 }
@@ -215,25 +219,53 @@ impl<ApplicationEvent> LoadTileSetMenu<ApplicationEvent> {
             world,
         );
 
+        let tex_description = label(
+            |state: &LoadTileMenuState| {
+                format!("Dimension:\n {:?}", state.loaded_texture.dimensions)
+            },
+            UI_FONT,
+            UI_FONT_SIZE,
+            Color::WHITE.with_alpha(0.5),
+            ctx.text_metrics.clone(),
+            world,
+        );
+
+        let grid = Grid::new(
+            params!(args<LoadTileMenuState> => GridParams {
+                cols: args.state.tiles_wide,
+                rows: args.state.tiles_high,
+                grid_size: (args.state.loaded_texture.dimensions.0 as f32 / args.state.tiles_wide as f32, args.state.loaded_texture.dimensions.1 as f32 / args.state.tiles_high as f32),
+                grid_color: Color::WHITE,
+                grid_width: 3.0,
+            }),
+            world,
+        );
+
         // make this scrollable
         // put text with meta information below (specifically the dimensions)
         let texture = PreferSize::new(
             Box::new(ScrollArea::new(
-                Box::new(Texture::new(
-                    params!(args<LoadTileMenuState> =>
-                        TextureParams {
-                            texture_id: args.state.loaded_texture.id.clone(),
-                            tint: Color::WHITE,
-                            fit_strategy: FitStrategy::Clip {rotation: 0.0},
-                            uv_rect: Rect {
-                                position: [0.0, 0.0],
-                                size: [1.0, 1.0],
-                            },
-                            preferred_size: ElementSize {
-                                width: args.state.loaded_texture.dimensions.0 as f32,
-                                height: args.state.loaded_texture.dimensions.1 as f32,
-                            }
-                    }),
+                Box::new(Stack::new(
+                    vec![
+                        Box::new(Texture::new(
+                            params!(args<LoadTileMenuState> =>
+                                TextureParams {
+                                    texture_id: args.state.loaded_texture.id.clone(),
+                                    tint: Color::WHITE,
+                                    fit_strategy: FitStrategy::Clip {rotation: 0.0},
+                                    uv_rect: Rect {
+                                        position: [0.0, 0.0],
+                                        size: [1.0, 1.0],
+                                    },
+                                    preferred_size: ElementSize {
+                                        width: args.state.loaded_texture.dimensions.0 as f32,
+                                        height: args.state.loaded_texture.dimensions.1 as f32,
+                                    }
+                            }),
+                            world,
+                        )),
+                        Box::new(grid),
+                    ],
                     world,
                 )),
                 params!(args<LoadTileMenuState> =>
@@ -259,30 +291,55 @@ impl<ApplicationEvent> LoadTileSetMenu<ApplicationEvent> {
             world,
         );
 
+        let title = Padding::new(
+            label(
+                |_| "Configure Tileset".to_string(),
+                UI_FONT,
+                UI_FONT_SIZE,
+                Color::WHITE,
+                ctx.text_metrics.clone(),
+                world,
+            ),
+            params!(PaddingParams {
+                pad_bottom: 25.0,
+                ..Default::default()
+            }),
+            world,
+        )
+        .anchor(
+            params!(AnchorParams {
+                location: AnchorLocation::TOP
+            }),
+            world,
+        );
+
         let ui = PreferSize::new(
             Box::new(Flex::new_column(
                 vec![
+                    FlexChild::new(Box::new(title)),
                     FlexChild::weighted(
                         Box::new(Flex::new_row(
                             vec![
-                                FlexChild::new(Box::new(Flex::new_column(
-                                    vec![
-                                        FlexChild::new(tileset_name_input),
-                                        FlexChild::new(tiles_wide),
-                                        FlexChild::new(tiles_high),
-                                    ],
-                                    true,
-                                    world,
-                                ))),
-                                // FlexChild::weighted(Box::new(Empty::new(world)), 1.0),
-                                FlexChild::new(Box::new(Flex::new_column_unweighted(
-                                    vec![Box::new(texture)],
-                                    true,
-                                    world,
-                                ))),
-                                // preview
-                                // text
-                                // meta data (dimensions)
+                                FlexChild::weighted(
+                                    Box::new(Flex::new_column(
+                                        vec![
+                                            FlexChild::new(tileset_name_input),
+                                            FlexChild::new(tiles_wide),
+                                            FlexChild::new(tiles_high),
+                                        ],
+                                        true,
+                                        world,
+                                    )),
+                                    1.0,
+                                ),
+                                FlexChild::weighted(
+                                    Box::new(Flex::new_column_unweighted(
+                                        vec![Box::new(texture), tex_description],
+                                        true,
+                                        world,
+                                    )),
+                                    1.0,
+                                ),
                             ],
                             true,
                             world,
@@ -299,7 +356,7 @@ impl<ApplicationEvent> LoadTileSetMenu<ApplicationEvent> {
             params!(PreferSizeParams {
                 size: ElementSize {
                     width: 256.0 * 2.0 + 50.0,
-                    height: 500.0,
+                    height: 256.0 * 2.0,
                 }
             }),
             world,
@@ -322,7 +379,11 @@ impl<ApplicationEvent> LoadTileSetMenu<ApplicationEvent> {
         );
 
         let mut errors = HashSet::new();
-        errors.insert(TilesetNameIsEmpty);
+        if loaded_texture.suggested_name.trim().is_empty() {
+            errors.insert(TilesetNameIsEmpty);
+        }
+        errors.insert(TilesHeighIsZero);
+        errors.insert(TilesWideIsZero);
 
         Ok(Self {
             ctx,
@@ -330,20 +391,20 @@ impl<ApplicationEvent> LoadTileSetMenu<ApplicationEvent> {
             state: LoadTileMenuState {
                 tileset_name_input_state: TextFieldState {
                     id: tileset_name_input_id,
-                    text: "".to_string(),
+                    text: loaded_texture.suggested_name.clone(),
                     caret: None,
                 },
                 loaded_texture,
-                tiles_heigh: 1,
+                tiles_high: 1,
                 tiles_heigh_input: TextFieldState {
                     id: tiles_heigh_id,
-                    text: "1".to_string(),
+                    text: "".to_string(),
                     caret: None,
                 },
                 tiles_wide: 1,
                 tiles_wide_input: TextFieldState {
                     id: tiles_wide_id,
-                    text: "1".to_string(),
+                    text: "".to_string(),
                     caret: None,
                 },
                 loaded_texture_scroll_x: ScrollBarParams {
@@ -366,10 +427,10 @@ impl<ApplicationEvent> LoadTileSetMenu<ApplicationEvent> {
     }
 }
 
-impl<AppEvent: 'static> ApplicationStateEx for LoadTileSetMenu<AppEvent> {
+impl ApplicationStateEx for LoadTileSetMenu<ApplicationEvent> {
     type StateEvent = LoadTileSetMenuEvent;
     type State = LoadTileMenuState;
-    type ApplicationEvent = AppEvent;
+    type ApplicationEvent = ApplicationEvent;
 
     fn ui(&self) -> &RefCell<Box<dyn Element<State = Self::State, Message = Self::StateEvent>>> {
         &self.ui
@@ -440,14 +501,14 @@ impl<AppEvent: 'static> ApplicationStateEx for LoadTileSetMenu<AppEvent> {
                 LoadTileSetMenuInputEvent::TextChanged(new_text) => {
                     let new_text = new_text.trim().to_string();
                     if new_text.is_empty() {
-                        self.state.tiles_heigh = 0;
+                        self.state.tiles_high = 0;
                         self.state.tiles_heigh_input.text = new_text;
                         self.handle_event(LoadTileSetMenuEvent::TilesHighChanged(0));
                     } else {
                         let heigh = new_text.parse::<u32>();
                         match heigh {
                             Ok(heigh) => {
-                                self.state.tiles_heigh = heigh;
+                                self.state.tiles_high = heigh;
                                 self.state.tiles_heigh_input.text = new_text;
                                 self.handle_event(LoadTileSetMenuEvent::TilesHighChanged(heigh));
                             }
@@ -461,6 +522,11 @@ impl<AppEvent: 'static> ApplicationStateEx for LoadTileSetMenu<AppEvent> {
                     self.state.errors.insert(TilesWideIsZero);
                 } else {
                     self.state.errors.remove(&TilesWideIsZero);
+                    if self.state.loaded_texture.dimensions.0.is_multiple_of(wide) {
+                        self.state.errors.remove(&TilesWideMustDivideTexture);
+                    } else {
+                        self.state.errors.insert(TilesWideMustDivideTexture);
+                    }
                 }
             }
             LoadTileSetMenuEvent::TilesHighChanged(high) => {
@@ -468,6 +534,11 @@ impl<AppEvent: 'static> ApplicationStateEx for LoadTileSetMenu<AppEvent> {
                     self.state.errors.insert(TilesHeighIsZero);
                 } else {
                     self.state.errors.remove(&TilesHeighIsZero);
+                    if self.state.loaded_texture.dimensions.1.is_multiple_of(high) {
+                        self.state.errors.remove(&TilesHighMustDivideTexture);
+                    } else {
+                        self.state.errors.insert(TilesHighMustDivideTexture);
+                    }
                 }
             }
             LoadTileSetMenuEvent::TexturePreviewScrollX(v) => {
@@ -476,10 +547,20 @@ impl<AppEvent: 'static> ApplicationStateEx for LoadTileSetMenu<AppEvent> {
             LoadTileSetMenuEvent::TexturePreviewScrollY(v) => {
                 self.state.loaded_texture_scroll_y.position = Some(v);
             }
-            _ => {}
-        }
 
-        // log::info!("new state: {:#?}", self.state);
+            LoadTileSetMenuEvent::Save => {
+                return Some(ApplicationEvent::TileSetLoaded(LoadedTileSet {
+                    texture_id: self.state.loaded_texture.id.clone(),
+                    name: self.state.tileset_name_input_state.text.clone(),
+                    texture_dimensions: self.state.loaded_texture.dimensions,
+                    tile_dimensions: (
+                        self.state.loaded_texture.dimensions.0 / self.state.tiles_wide,
+                        self.state.loaded_texture.dimensions.1 / self.state.tiles_high,
+                    ),
+                }));
+            }
+            LoadTileSetMenuEvent::Cancel => return Some(ApplicationEvent::TileSetLoadCanceled),
+        }
 
         None
     }

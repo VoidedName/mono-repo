@@ -13,10 +13,11 @@ pub use load_tile_set_menu::*;
 
 pub mod ui_helper;
 pub use ui_helper::*;
-
+use vn_scene::TextureId;
 use vn_ui::{DynamicDimension, DynamicSize, Element, ElementSize, EventManager, InteractionEventKind, SimpleLayoutCache, SizeConstraints, UiContext};
 use vn_ui::InteractionEventKind::MouseScroll;
 use vn_wgpu_window::WgpuScene;
+use crate::logic::ApplicationEvent;
 
 pub trait ApplicationStateEx {
     type StateEvent;
@@ -154,6 +155,14 @@ pub trait ApplicationStateEx {
     }
 }
 
+#[derive(Debug)]
+pub struct LoadedTileSet {
+    name: String,
+    texture_id: TextureId,
+    texture_dimensions: (u32, u32),
+    tile_dimensions: (u32, u32),
+}
+
 pub enum ApplicationState<ApplicationEvent> {
     Editor(Editor<ApplicationEvent>),
     LoadTileSetMenu(LoadTileSetMenu<ApplicationEvent>),
@@ -168,7 +177,7 @@ macro_rules! dispatch {
     };
 }
 
-impl<ApplicationEvent: 'static> ApplicationState<ApplicationEvent> {
+impl ApplicationState<ApplicationEvent> {
     pub fn process_events(&mut self) -> Option<ApplicationEvent> {
         dispatch!(self, inner, inner.process_events())
     }

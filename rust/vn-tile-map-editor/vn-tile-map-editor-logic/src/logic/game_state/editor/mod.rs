@@ -3,7 +3,7 @@ mod grid;
 mod ui;
 
 pub use events::EditorEvent;
-pub use grid::Grid;
+pub use grid::*;
 
 use crate::logic::game_state::ApplicationStateEx;
 use crate::logic::{FpsStats, PlatformHooks, TextMetric};

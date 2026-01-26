@@ -5,7 +5,7 @@ use crate::{
 use vn_scene::Scene;
 use vn_ui_animation_macros::Interpolatable;
 
-#[derive(Clone, Copy, Debug, Interpolatable)]
+#[derive(Clone, Copy, Debug, Interpolatable, Default)]
 pub struct PaddingParams {
     pub pad_left: f32,
     pub pad_right: f32,

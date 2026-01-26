@@ -1,4 +1,4 @@
-use crate::logic::game_state::{ApplicationState, LoadTileSetMenu, LoadedTexture};
+use crate::logic::game_state::{ApplicationState, LoadTileSetMenu, LoadedTexture, LoadedTileSet};
 use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
@@ -12,6 +12,7 @@ use vn_wgpu_window::scene_renderer::SceneRenderer;
 use web_time::Instant;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
+use vn_tilemap::TileMapSpecification;
 
 pub mod game_state;
 
@@ -113,7 +114,14 @@ pub trait PlatformHooks {
     fn pick_file(&self, extensions: &[&str]) -> Option<String>;
 }
 
-pub enum ApplicationEvent {}
+pub struct T {
+    t: TileMapSpecification
+}
+
+pub enum ApplicationEvent {
+    TileSetLoaded(LoadedTileSet),
+    TileSetLoadCanceled,
+}
 
 pub struct MainLogic {
     pub resource_manager: Rc<ResourceManager>,
@@ -123,7 +131,7 @@ pub struct MainLogic {
     mouse_position: (f32, f32),
     #[allow(unused)]
     platform: Rc<Box<dyn PlatformHooks>>,
-    game_state: ApplicationState<ApplicationEvent>,
+    app_state: ApplicationState<ApplicationEvent>,
 }
 
 pub struct ApplicationContext {
@@ -163,6 +171,7 @@ impl MainLogic {
                 }),
                 stats: fps_stats.clone(),
             }, LoadedTexture {
+                suggested_name: "[Base]BaseChip_pipo".to_string(),
                 id: example_tileset.id.clone(),
                 dimensions: example_tileset.size,
             })
@@ -176,23 +185,32 @@ impl MainLogic {
             graphics_context,
             fps_stats,
             platform,
-            game_state,
+            app_state: game_state,
         })
     }
 }
 
 impl StateLogic<SceneRenderer> for MainLogic {
     fn process_events(&mut self) {
-        self.game_state.process_events();
+        if let Some(event) = self.app_state.process_events() {
+            match event {
+                ApplicationEvent::TileSetLoaded(tiles) => {
+                    log::info!("Loaded tiles {:?}", tiles);
+                }
+                ApplicationEvent::TileSetLoadCanceled => {
+                    log::info!("Load canceled");
+                }
+            }
+        }
     }
 
     fn handle_key(&mut self, _event_loop: &ActiveEventLoop, event: &KeyEvent) {
-        self.game_state.handle_key(event);
+        self.app_state.handle_key(event);
     }
 
     fn handle_mouse_position(&mut self, x: f32, y: f32) {
         self.mouse_position = (x, y);
-        self.game_state.handle_mouse_position(x, y);
+        self.app_state.handle_mouse_position(x, y);
     }
 
     fn handle_mouse_button(
@@ -200,12 +218,12 @@ impl StateLogic<SceneRenderer> for MainLogic {
         button: winit::event::MouseButton,
         state: winit::event::ElementState,
     ) {
-        self.game_state
+        self.app_state
             .handle_mouse_button(self.mouse_position, button, state);
     }
 
     fn handle_mouse_wheel(&mut self, delta_x: f32, delta_y: f32) {
-        self.game_state.handle_mouse_wheel(delta_x, delta_y);
+        self.app_state.handle_mouse_wheel(delta_x, delta_y);
     }
 
     fn resized(&mut self, width: u32, height: u32) {
@@ -217,7 +235,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
         self.fps_stats.borrow_mut().tick();
 
         let scene = self
-            .game_state
+            .app_state
             .render_target((self.size.0 as f32, self.size.1 as f32));
 
         self.resource_manager.cleanup(60, 10000);
