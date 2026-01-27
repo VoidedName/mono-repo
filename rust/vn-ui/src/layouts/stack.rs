@@ -1,4 +1,9 @@
-use crate::{into_box_impl, DynamicDimension, DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, UiContext};
+use crate::{
+    DynamicDimension, DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld,
+    SizeConstraints, UiContext, into_box_impl,
+};
+use std::cell::RefCell;
+use std::rc::Rc;
 use vn_scene::Scene;
 
 pub struct Stack<State, Message> {
@@ -10,10 +15,10 @@ pub struct Stack<State, Message> {
 impl<State, Message> Stack<State, Message> {
     pub fn new(
         children: Vec<Box<dyn Element<State = State, Message = Message>>>,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> Self {
         Stack {
-            id: world.next_id(),
+            id: world.borrow_mut().next_id(),
             children_size: vec![ElementSize::ZERO; children.len()],
             children,
         }

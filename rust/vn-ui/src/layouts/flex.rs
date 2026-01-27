@@ -42,7 +42,7 @@ impl<State: 'static, Message: 'static> FlexChild<State, Message> {
             weight: Some(weight),
         }
     }
-    
+
     pub fn into_rc_refcell(self) -> Rc<RefCell<FlexChild<State, Message>>> {
         Rc::new(RefCell::new(self))
     }
@@ -65,20 +65,13 @@ pub struct Flex<State: 'static, Message: 'static> {
 impl<State: 'static, Message: 'static> Flex<State, Message> {
     pub fn new<P: Into<StateToParams<State, FlexParams<State, Message>>>>(
         params: P,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> Self {
         Self {
-            id: world.next_id(),
+            id: world.borrow_mut().next_id(),
             layout: Vec::new(),
             params: params.into(),
         }
-    }
-
-    pub fn new_unweighted<P: Into<StateToParams<State, FlexParams<State, Message>>>>(
-        params: P,
-        world: &mut ElementWorld,
-    ) -> Self {
-        Self::new(params, world)
     }
 }
 

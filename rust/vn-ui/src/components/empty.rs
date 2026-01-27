@@ -1,4 +1,8 @@
-use crate::{into_box_impl, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, UiContext};
+use crate::{
+    ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, UiContext, into_box_impl,
+};
+use std::cell::RefCell;
+use std::rc::Rc;
 use vn_scene::Scene;
 
 pub struct Empty<State: 'static, Message: 'static> {
@@ -7,9 +11,9 @@ pub struct Empty<State: 'static, Message: 'static> {
 }
 
 impl<State, Message> Empty<State, Message> {
-    pub fn new(world: &mut ElementWorld) -> Self {
+    pub fn new(world: Rc<RefCell<ElementWorld>>) -> Self {
         Self {
-            id: world.next_id(),
+            id: world.borrow_mut().next_id(),
             _ph: Default::default(),
         }
     }

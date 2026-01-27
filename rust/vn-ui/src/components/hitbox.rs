@@ -1,5 +1,10 @@
 use crate::utils::ToArray;
-use crate::{into_box_impl, Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, UiContext};
+use crate::{
+    Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, UiContext,
+    into_box_impl,
+};
+use std::cell::RefCell;
+use std::rc::Rc;
 use vn_scene::{Rect, Scene};
 
 pub struct ExtendedHitbox<State, Message> {
@@ -10,10 +15,13 @@ pub struct ExtendedHitbox<State, Message> {
 impl<State, Message> ExtendedHitbox<State, Message> {
     pub fn new(
         element: impl Into<Box<dyn Element<State = State, Message = Message>>>,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> Self {
-        let ui_id = world.next_id();
-        Self { id: ui_id, element: element.into() }
+        let ui_id = world.borrow_mut().next_id();
+        Self {
+            id: ui_id,
+            element: element.into(),
+        }
     }
 }
 

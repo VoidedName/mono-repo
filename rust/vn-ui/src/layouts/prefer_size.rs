@@ -1,8 +1,15 @@
-use crate::{into_box_impl, DynamicDimension, DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionEvent, SizeConstraints, StateToParams, StateToParamsArgs, UiContext};
+use crate::{
+    DynamicDimension, DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld,
+    InteractionEvent, SizeConstraints, StateToParams, StateToParamsArgs,
+    UiContext, into_box_impl,
+};
+use std::cell::RefCell;
+use std::rc::Rc;
 use vn_scene::Scene;
 
 pub struct PreferSizeParams {
-    pub size: ElementSize,
+    pub width: Option<f32>,
+    pub height: Option<f32>,
 }
 
 pub struct PreferSize<State: 'static, Message> {
@@ -15,10 +22,10 @@ impl<State: 'static, Message> PreferSize<State, Message> {
     pub fn new<P: Into<StateToParams<State, PreferSizeParams>>>(
         child: impl Into<Box<dyn Element<State = State, Message = Message>>>,
         params: P,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> Self {
         Self {
-            id: world.next_id(),
+            id: world.borrow_mut().next_id(),
             child: child.into(),
             params: params.into(),
         }
@@ -45,15 +52,30 @@ impl<State, Message> ElementImpl for PreferSize<State, Message> {
             ctx,
         });
 
-        let size = params.size.clamp_to_constraints(constraints);
+        constraints.min_size = ElementSize {
+            width: params.width.unwrap_or(0.0),
+            height: params.height.unwrap_or(0.0),
+        }
+        .clamp_to_constraints(constraints);
 
-        constraints.min_size = size;
         constraints.max_size = DynamicSize {
-            width: DynamicDimension::Limit(size.width),
-            height: DynamicDimension::Limit(size.height),
+            width: match params.width {
+                Some(width) => match constraints.max_size.width {
+                    DynamicDimension::Hint(_) => DynamicDimension::Limit(width),
+                    DynamicDimension::Limit(limit) => DynamicDimension::Limit(width.min(limit)),
+                },
+                None => constraints.max_size.width,
+            },
+            height: match params.width {
+                Some(height) => match constraints.max_size.height {
+                    DynamicDimension::Hint(_) => DynamicDimension::Limit(height),
+                    DynamicDimension::Limit(limit) => DynamicDimension::Limit(height.min(limit)),
+                },
+                None => constraints.max_size.height,
+            },
         };
 
-        self.child.layout(ctx, &state, constraints);
+        let size = self.child.layout(ctx, &state, constraints);
 
         size
     }
@@ -76,6 +98,26 @@ impl<State, Message> ElementImpl for PreferSize<State, Message> {
         event: &InteractionEvent,
     ) -> Vec<Self::Message> {
         self.child.handle_event(ctx, state, event)
+    }
+}
+
+pub trait PreferSizeExt<State, Message> {
+    fn prefer_size<P: Into<StateToParams<State, PreferSizeParams>>>(
+        self,
+        params: P,
+        world: Rc<RefCell<ElementWorld>>,
+    ) -> PreferSize<State, Message>;
+}
+
+impl<State, Message, E: Into<Box<dyn Element<State = State, Message = Message>>> + 'static>
+    PreferSizeExt<State, Message> for E
+{
+    fn prefer_size<P: Into<StateToParams<State, PreferSizeParams>>>(
+        self,
+        params: P,
+        world: Rc<RefCell<ElementWorld>>,
+    ) -> PreferSize<State, Message> {
+        PreferSize::new(self, params, world)
     }
 }
 

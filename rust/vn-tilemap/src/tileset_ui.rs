@@ -1,6 +1,7 @@
 use crate::TileMapSpecification;
+use std::cell::RefCell;
 use std::marker::PhantomData;
-use serde::Deserialize;
+use std::rc::Rc;
 use vn_scene::{Color, ImagePrimitiveData, Rect, Scene, TextureId, Transform};
 use vn_ui::{
     ElementId, ElementImpl, ElementSize, ElementWorld, InteractionEvent, SizeConstraints,
@@ -23,10 +24,10 @@ pub struct TileMap<State: 'static, Message> {
 impl<State, Message> TileMap<State, Message> {
     pub fn new<P: Into<StateToParams<State, TileMapParams>>>(
         params: P,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> Self {
         Self {
-            id: world.next_id(),
+            id: world.borrow_mut().next_id(),
             params: params.into(),
             _phantom: PhantomData,
         }
@@ -75,15 +76,15 @@ impl<State, Message> ElementImpl for TileMap<State, Message> {
 
         for (layer, tex) in params.specification.layers.iter().zip(&params.texture) {
             let tile_width_in_tex =
-                layer.tile_dimensions.0 as f32 / layer.tile_set_dimensions.0 as f32;
+                layer.tile_dimensions.0 as f32 / layer.tileset_dimensions.0 as f32;
             let tile_height_in_tex =
-                layer.tile_dimensions.1 as f32 / layer.tile_set_dimensions.1 as f32;
+                layer.tile_dimensions.1 as f32 / layer.tileset_dimensions.1 as f32;
 
             for (y, tiles) in layer.map.tiles.iter().enumerate() {
                 for (x, tile) in tiles.iter().enumerate() {
                     if let Some(tile) = tile {
-                        let x_in_tex = *tile as u32 % layer.tile_set_dimensions.1;
-                        let y_in_tex = *tile as u32 / layer.tile_set_dimensions.0;
+                        let x_in_tex = *tile as u32 % layer.tileset_dimensions.1;
+                        let y_in_tex = *tile as u32 / layer.tileset_dimensions.0;
 
                         ctx.with_clipping(
                             Rect {

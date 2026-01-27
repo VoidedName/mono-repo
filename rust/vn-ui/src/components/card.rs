@@ -1,4 +1,9 @@
-use crate::{into_box_impl, Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams, UiContext};
+use crate::{
+    Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams,
+    UiContext, into_box_impl,
+};
+use std::cell::RefCell;
+use std::rc::Rc;
 use vn_scene::{BoxPrimitiveData, Color, Scene, Transform};
 use vn_ui_animation_macros::Interpolatable;
 
@@ -20,10 +25,10 @@ impl<State, Message> Card<State, Message> {
     pub fn new<P: Into<StateToParams<State, CardParams>>>(
         child: impl Into<Box<dyn Element<State = State, Message = Message>>>,
         params: P,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> Self {
         Self {
-            id: world.next_id(),
+            id: world.borrow_mut().next_id(),
             child: child.into(),
             params: params.into(),
         }
@@ -135,15 +140,17 @@ pub trait CardExt<State, Message> {
     fn card<P: Into<StateToParams<State, CardParams>>>(
         self,
         params: P,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> Card<State, Message>;
 }
 
-impl<State, Message, E: Into<Box<dyn Element<State = State, Message = Message>>> + 'static> CardExt<State, Message> for E {
+impl<State, Message, E: Into<Box<dyn Element<State = State, Message = Message>>> + 'static>
+    CardExt<State, Message> for E
+{
     fn card<P: Into<StateToParams<State, CardParams>>>(
         self,
         params: P,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> Card<State, Message> {
         Card::new(self, params, world)
     }

@@ -188,13 +188,17 @@ macro_rules! params {
 #[macro_export]
 macro_rules! into_box_impl {
     ($ident:ident) => {
-        impl<S: 'static, M: Clone + 'static> Into<Box<dyn $crate::Element<State = S, Message = M>>> for $ident<S, M> {
+        impl<S: 'static, M: Clone + 'static> Into<Box<dyn $crate::Element<State = S, Message = M>>>
+            for $ident<S, M>
+        {
             fn into(self) -> Box<dyn $crate::Element<State = S, Message = M>> {
                 Box::new(self)
             }
         }
 
-        impl<S: 'static, M: Clone + 'static> Into<Box<dyn $crate::Element<State = S, Message = M>>> for Box<$ident<S, M>> {
+        impl<S: 'static, M: Clone + 'static> Into<Box<dyn $crate::Element<State = S, Message = M>>>
+            for Box<$ident<S, M>>
+        {
             fn into(self) -> Box<dyn $crate::Element<State = S, Message = M>> {
                 self
             }

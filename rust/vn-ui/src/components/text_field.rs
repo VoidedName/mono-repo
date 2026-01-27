@@ -1,6 +1,11 @@
 use crate::text::layout::TextLayout;
 use crate::utils::ToArray;
-use crate::{into_box_impl, DynamicDimension, ElementId, ElementImpl, ElementSize, ElementWorld, EventHandler, InteractionState, Interpolatable, SizeConstraints, StateToParams, TextFieldAction, TextMetrics, UiContext};
+use crate::{
+    DynamicDimension, ElementId, ElementImpl, ElementSize, ElementWorld, EventHandler,
+    InteractionState, Interpolatable, SizeConstraints, StateToParams, TextFieldAction, TextMetrics,
+    UiContext, into_box_impl,
+};
+use std::cell::RefCell;
 use std::rc::Rc;
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, TextPrimitiveData, Transform};
 use web_time::Instant;
@@ -56,10 +61,10 @@ pub struct TextField<State: 'static, Message: 'static> {
 impl<State: 'static, Message: 'static> TextField<State, Message> {
     pub fn new<P: Into<StateToParams<State, TextFieldParams<Message>>>>(
         params: P,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> Self {
         Self {
-            id: world.next_id(),
+            id: world.borrow_mut().next_id(),
             line_height: 0.0,
             visuals: None,
             layout: None,

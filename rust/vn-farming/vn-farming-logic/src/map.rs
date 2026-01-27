@@ -21,9 +21,9 @@ pub struct Map<State: 'static> {
 }
 
 impl<State> Map<State> {
-    pub fn new(params: StateToParams<State, MapParams>, world: &mut ElementWorld) -> Self {
+    pub fn new(params: StateToParams<State, MapParams>, world: Rc<RefCell<ElementWorld>>) -> Self {
         Self {
-            id: world.next_id(),
+            id: world.borrow_mut().next_id(),
             params,
         }
     }

@@ -1,5 +1,6 @@
 use crate::logic::TextMetric;
 use crate::logic::game_state::LoadTileSetMenuEvent;
+use std::cell::RefCell;
 use std::rc::Rc;
 use vn_scene::Color;
 use vn_ui::*;
@@ -23,7 +24,7 @@ pub fn input<State: 'static, Event: Clone + 'static, F>(
     font_size: f32,
     metrics: Rc<TextMetric>,
     handler: EventHandler<TextFieldAction, Event>,
-    world: &mut ElementWorld,
+    world: Rc<RefCell<ElementWorld>>,
 ) -> Input<State, Event>
 where
     F: Fn(&State) -> TextFieldState + 'static,
@@ -54,13 +55,13 @@ where
                 }
             }
         },
-        world,
+        world.clone(),
     );
 
     let input_id = input.id().clone();
 
     let input = input
-        .padding(params!(PaddingParams::uniform(5.0)), world)
+        .padding(params!(PaddingParams::uniform(5.0)), world.clone())
         .card({
                   let input_id = input_id.clone();
                   params!(args =>
@@ -70,8 +71,9 @@ where
                         border_color: if is_hovered { Color::WHITE } else { Color::WHITE.with_alpha(0.5) },
                         corner_radius: 5.0,
                         border_size: 2.0,
-                    })},
-            world,
+                    })
+              },
+              world.clone(),
         );
 
     Input {
@@ -86,7 +88,7 @@ pub fn label<State: 'static, Event: Clone + 'static, F>(
     font_size: f32,
     color: Color,
     metrics: Rc<TextMetric>,
-    world: &mut ElementWorld,
+    world: Rc<RefCell<ElementWorld>>,
 ) -> Box<dyn Element<State = State, Message = Event>>
 where
     F: Fn(&State) -> String + 'static,
@@ -111,7 +113,7 @@ where
                 }
             }
         },
-        world,
+        world.clone(),
     ))
 }
 
@@ -122,7 +124,7 @@ pub fn labelled_input<State: 'static, Event: Clone + 'static, F>(
     font_size: f32,
     metrics: Rc<TextMetric>,
     handler: EventHandler<TextFieldAction, Event>,
-    world: &mut ElementWorld,
+    world: Rc<RefCell<ElementWorld>>,
 ) -> Input<State, Event>
 where
     F: Fn(&State) -> TextFieldState + 'static,
@@ -136,7 +138,7 @@ where
         font_size,
         metrics.clone(),
         handler,
-        world,
+        world.clone(),
     );
 
     let label = TextField::new(
@@ -158,13 +160,13 @@ where
                 }
             }
         },
-        world,
+        world.clone(),
     )
     .anchor(
         params!(AnchorParams {
             location: AnchorLocation::Left
         }),
-        world,
+        world.clone(),
     );
 
     let flex = Flex::new(
@@ -180,7 +182,7 @@ where
                 children: flex_children.clone()
             })
         },
-        world,
+        world.clone(),
     );
 
     input.element = Box::new(flex);
@@ -204,9 +206,10 @@ pub fn btn<State: 'static, Event: Clone + 'static, F>(
     font: impl ToString,
     font_size: f32,
     disabled: F,
+    color: impl Fn(&State) -> Color + 'static,
     metrics: Rc<TextMetric>,
     handler: EventHandler<ButtonAction, Event>,
-    world: &mut ElementWorld,
+    world: Rc<RefCell<ElementWorld>>,
 ) -> Box<dyn Element<State = State, Message = Event>>
 where
     F: Fn(&State) -> bool + 'static + Clone,
@@ -223,7 +226,7 @@ where
                         caret_position: None,
                         font: font.clone(),
                         font_size,
-                        color: if disabled(args.state) { Color::WHITE.with_alpha(0.5) } else { Color::WHITE },
+                        color: if disabled(args.state) { color(args.state).with_alpha(0.5) } else { color(args.state) },
                         caret_width: None,
                         caret_blink_duration: None,
                     },
@@ -233,13 +236,13 @@ where
                 }
             }
         },
-        world,
+        world.clone(),
     )
-        .padding(params!(PaddingParams::uniform(5.0)), world)
-        .interactive_set(false, world)
+        .padding(params!(PaddingParams::uniform(5.0)), world.clone())
+        .interactive_set(false, world.clone())
         .button({
                     let disabled = disabled.clone();
-            params! { args =>
+                    params! { args =>
             let is_hovered = args.ctx.event_manager.borrow().is_hovered(args.id);
             ButtonParams {
                 background: if is_hovered && !disabled(args.state) { Color::WHITE.with_alpha(0.15) } else { Color::WHITE.with_alpha(0.1) },
@@ -250,14 +253,46 @@ where
                 on_click: handler.clone(),
             }
                 }
-        },
-            world,
+                },
+                world.clone(),
         ).interactive({
-                                        let disabled = disabled.clone();
-                                        params!(args => InteractiveParams {is_interactive: !disabled(args.state)})
-                                    }, world);
+                          let disabled = disabled.clone();
+                          params!(args => InteractiveParams {is_interactive: !disabled(args.state)})
+                      }, world);
 
     Box::new(btn)
+}
+
+pub struct ListParams<State: 'static, Message: 'static> {
+    pub len: usize,
+    pub child: Box<
+        dyn Fn(&State, usize, Rc<RefCell<ElementWorld>>) -> Rc<RefCell<FlexChild<State, Message>>>
+            + 'static,
+    >,
+}
+
+pub fn list<State: 'static, Message: 'static, F>(
+    list_params: F,
+    direction: FlexDirection,
+    force_orthogonal_same_size: bool,
+    world: Rc<RefCell<ElementWorld>>,
+) -> Box<dyn Element<State = State, Message = Message>>
+where
+    F: Fn(&State) -> ListParams<State, Message> + 'static + Clone,
+{
+    Box::new(Flex::new(
+        {
+            let world = world.clone();
+            params!(args<State> =>
+            let params = list_params(args.state);
+                FlexParams {
+                    direction,
+                    force_orthogonal_same_size,
+                    children: (0..params.len).map(|idx| (params.child)(args.state, idx, world.clone())).collect(),
+            })
+        },
+        world.clone(),
+    ))
 }
 
 pub fn empty_texture() -> &'static [u8] {

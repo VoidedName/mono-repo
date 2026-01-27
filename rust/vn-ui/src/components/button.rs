@@ -1,9 +1,10 @@
 use crate::utils::ToArray;
 use crate::{
-    AnchorExt, Element, ElementId, ElementImpl, ElementSize, ElementWorld, EventHandler,
-    InteractionEventKind, InteractionState, SizeConstraints, StateToParams, UiContext,
-    into_box_impl,
+    Element, ElementId, ElementImpl, ElementSize, ElementWorld, EventHandler, InteractionEventKind,
+    InteractionState, SizeConstraints, StateToParams, UiContext, into_box_impl,
 };
+use std::cell::RefCell;
+use std::rc::Rc;
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
 
 #[derive(Debug, Copy, Clone)]
@@ -30,10 +31,10 @@ impl<State, Message> Button<State, Message> {
     pub fn new<P: Into<StateToParams<State, ButtonParams<Message>>>>(
         child: impl Into<Box<dyn Element<State = State, Message = Message>>>,
         params: P,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> Self {
         Self {
-            id: world.next_id(),
+            id: world.borrow_mut().next_id(),
             child: child.into(),
             params: params.into(),
         }
@@ -160,7 +161,7 @@ pub trait ButtonExt<State, Message> {
     fn button<P: Into<StateToParams<State, ButtonParams<Message>>>>(
         self,
         params: P,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> Button<State, Message>;
 }
 
@@ -170,7 +171,7 @@ impl<State, Message, E: Into<Box<dyn Element<State = State, Message = Message>>>
     fn button<P: Into<StateToParams<State, ButtonParams<Message>>>>(
         self,
         params: P,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> Button<State, Message> {
         Button::new(self, params, world)
     }

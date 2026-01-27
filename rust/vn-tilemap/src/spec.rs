@@ -15,15 +15,15 @@ pub struct TileMapLayerMapSpecification {
     pub tiles: Vec<Vec<Option<usize>>>,
 }
 
-/// This assumes that the tile_set image is not padded in any way, i.e. the pixel dimensions are a multiple
+/// This assumes that the tileset image is not padded in any way, i.e. the pixel dimensions are a multiple
 /// of the tile dimensions
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TileMapLayerSpecification {
     pub name: String,
-    /// Path to the tile_set image?
-    pub tile_set: String,
-    /// Dimensions of the tile set image in tiles
-    pub tile_set_dimensions: (u32, u32),
+    /// Path to the tileset image
+    pub tileset: String,
+    /// Dimensions of the tileset image in tiles
+    pub tileset_dimensions: (u32, u32),
     /// Dimensions of a single tile inside the texture in pixels
     pub tile_dimensions: (u32, u32),
     /// The actual map

@@ -1,5 +1,7 @@
+use std::cell::RefCell;
+use std::rc::Rc;
 use vn_scene::{BoxPrimitiveData, Color, Scene, Transform};
-use vn_ui::{ElementId, ElementImpl, ElementSize, ElementWorld, InteractionEvent, SizeConstraints, StateToParams, StateToParamsArgs, UiContext};
+use vn_ui::{into_box_impl, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionEvent, SizeConstraints, StateToParams, StateToParamsArgs, UiContext};
 
 pub struct GridParams {
     pub rows: u32,
@@ -16,9 +18,9 @@ pub struct Grid<State: 'static, Message: 'static> {
 }
 
 impl<State: 'static, Message: 'static> Grid<State, Message> {
-    pub fn new<P: Into<StateToParams<State, GridParams>>>(params: P, world: &mut ElementWorld) -> Self {
+    pub fn new<P: Into<StateToParams<State, GridParams>>>(params: P, world: Rc<RefCell<ElementWorld>>) -> Self {
         Self {
-            id: world.next_id(),
+            id: world.borrow_mut().next_id(),
             params: params.into(),
             _phantom: std::marker::PhantomData,
         }
@@ -66,8 +68,8 @@ impl<State: 'static, Message: 'static> ElementImpl for Grid<State, Message> {
             ctx,
         });
 
-        for y in 0..=params.cols {
-            let px = origin.0 + y as f32 * params.grid_size.0 - params.grid_width / 2.0;
+        for x in 0..=params.cols {
+            let px = origin.0 + x as f32 * params.grid_size.0 - params.grid_width / 2.0;
             scene.add_box(BoxPrimitiveData {
                 transform: Transform::builder().translation([px, origin.1]).build(),
                 size: [
@@ -82,8 +84,8 @@ impl<State: 'static, Message: 'static> ElementImpl for Grid<State, Message> {
             });
         }
 
-        for x in 0..=params.rows {
-            let px = origin.1 + x as f32 * params.grid_size.1 - params.grid_width / 2.0;
+        for y in 0..=params.rows {
+            let px = origin.1 + y as f32 * params.grid_size.1 - params.grid_width / 2.0;
             scene.add_box(BoxPrimitiveData {
                 transform: Transform::builder().translation([origin.0, px]).build(),
                 size: [
@@ -108,3 +110,5 @@ impl<State: 'static, Message: 'static> ElementImpl for Grid<State, Message> {
         vec![]
     }
 }
+
+into_box_impl!(Grid);

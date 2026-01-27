@@ -1,6 +1,11 @@
 use crate::components::ExtendedHitbox;
 use crate::utils::ToArray;
-use crate::{into_box_impl, DynamicDimension, DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionState, SizeConstraints, StateToParams, UiContext};
+use crate::{
+    DynamicDimension, DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld,
+    InteractionState, SizeConstraints, StateToParams, UiContext, into_box_impl,
+};
+use std::cell::RefCell;
+use std::rc::Rc;
 use vn_scene::{Rect, Scene};
 use vn_ui_animation_macros::Interpolatable;
 use web_time::{Duration, Instant};
@@ -30,11 +35,11 @@ impl<State: 'static, Message: 'static> ToolTip<State, Message> {
         element: impl Into<Box<dyn Element<State = State, Message = Message>>>,
         tooltip: impl Into<Box<dyn Element<State = State, Message = Message>>>,
         params: P,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> Self {
         Self {
-            tooltip: Box::new(ExtendedHitbox::new(tooltip, world)),
-            id: world.next_id(),
+            tooltip: Box::new(ExtendedHitbox::new(tooltip, world.clone())),
+            id: world.borrow_mut().next_id(),
             element: element.into(),
             params: params.into(),
             show_tooltip: false,
@@ -137,17 +142,26 @@ impl<State: 'static, Message: 'static> ElementImpl for ToolTip<State, Message> {
                 if self.show_tooltip {
                     // todo: to some more intelligent positioning of the tooltip
 
-                    ctx.with_clipping(Rect {
-                        position: [origin.0, origin.1 - self.tool_tip_size.height - 10.0],
-                        size: [self.tool_tip_size.width, self.tool_tip_size.height],
-                    }, |ctx| {
-                        let tooltip_origin = (origin.0, origin.1 - self.tool_tip_size.height - 10.0);
+                    ctx.with_clipping(
+                        Rect {
+                            position: [origin.0, origin.1 - self.tool_tip_size.height - 10.0],
+                            size: [self.tool_tip_size.width, self.tool_tip_size.height],
+                        },
+                        |ctx| {
+                            let tooltip_origin =
+                                (origin.0, origin.1 - self.tool_tip_size.height - 10.0);
 
-                        canvas.with_next_layer(&mut |canvas| {
-                            self.tooltip
-                                .draw(ctx, state, tooltip_origin, self.tool_tip_size, canvas)
-                        });
-                    })
+                            canvas.with_next_layer(&mut |canvas| {
+                                self.tooltip.draw(
+                                    ctx,
+                                    state,
+                                    tooltip_origin,
+                                    self.tool_tip_size,
+                                    canvas,
+                                )
+                            });
+                        },
+                    )
                 }
             },
         );
@@ -172,16 +186,18 @@ pub trait ToolTipExt<State, Message> {
         self,
         tooltip: impl Into<Box<dyn Element<State = State, Message = Message>>>,
         params: P,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> ToolTip<State, Message>;
 }
 
-impl<State, Message, E: Into<Box<dyn Element<State = State, Message = Message>>> + 'static> ToolTipExt<State, Message> for E {
+impl<State, Message, E: Into<Box<dyn Element<State = State, Message = Message>>> + 'static>
+    ToolTipExt<State, Message> for E
+{
     fn tooltip<P: Into<StateToParams<State, TooltipParams>>>(
         self,
         tooltip: impl Into<Box<dyn Element<State = State, Message = Message>>>,
         params: P,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> ToolTip<State, Message> {
         ToolTip::new(self, tooltip, params, world)
     }

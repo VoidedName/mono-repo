@@ -8,8 +8,11 @@ use winit::event::MouseButton;
 pub mod editor;
 pub use editor::*;
 
-pub mod load_tile_set_menu;
-pub use load_tile_set_menu::*;
+pub mod load_tileset_menu;
+pub use load_tileset_menu::*;
+
+pub mod new_layer_menu;
+pub use new_layer_menu::*;
 
 pub mod ui_helper;
 pub use ui_helper::*;
@@ -17,7 +20,7 @@ use vn_scene::TextureId;
 use vn_ui::{DynamicDimension, DynamicSize, Element, ElementSize, EventManager, InteractionEventKind, SimpleLayoutCache, SizeConstraints, UiContext};
 use vn_ui::InteractionEventKind::MouseScroll;
 use vn_wgpu_window::WgpuScene;
-use crate::logic::ApplicationEvent;
+use crate::logic::{ApplicationEvent, EditorCallback};
 
 pub trait ApplicationStateEx {
     type StateEvent;
@@ -155,7 +158,13 @@ pub trait ApplicationStateEx {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
+pub enum TryLoadTileSetResult {
+    Loaded(LoadedTileSet),
+    Reuse(String),
+}
+
+#[derive(Clone, Debug)]
 pub struct LoadedTileSet {
     name: String,
     texture_id: TextureId,
@@ -163,9 +172,22 @@ pub struct LoadedTileSet {
     tile_dimensions: (u32, u32),
 }
 
+pub struct LoadTileSetMenuStateWithEditorMemory {
+    pub menu: LoadTileSetMenu,
+    pub editor: Editor,
+    pub editor_callback: EditorCallback<Option<TryLoadTileSetResult>>
+}
+
+pub struct NewLayerMenuStateWithEditorMemory {
+    pub menu: NewLayerMenu,
+    pub editor: Editor,
+    pub editor_callback: EditorCallback<Option<TryLoadTileSetResult>>
+}
+
 pub enum ApplicationState {
     Editor(Editor),
-    LoadTileSetMenu(LoadTileSetMenu),
+    NewLayerMenu(NewLayerMenuStateWithEditorMemory),
+    LoadTileSetMenu(LoadTileSetMenuStateWithEditorMemory),
 }
 
 macro_rules! dispatch {
@@ -173,6 +195,7 @@ macro_rules! dispatch {
         match $self {
             ApplicationState::LoadTileSetMenu($inner) => $action,
             ApplicationState::Editor($inner) => $action,
+            ApplicationState::NewLayerMenu($inner) => $action,
         }
     };
 }
@@ -205,5 +228,49 @@ impl ApplicationState {
 
     pub fn handle_mouse_wheel(&mut self, delta_x: f32, delta_y: f32) {
         dispatch!(self, inner, inner.handle_mouse_wheel(delta_x, delta_y))
+    }
+}
+
+impl ApplicationStateEx for LoadTileSetMenuStateWithEditorMemory {
+    type StateEvent = LoadTileSetMenuEvent;
+    type State = LoadTileSetMenuState;
+    type ApplicationEvent = ApplicationEvent;
+
+    fn ui(&self) -> &RefCell<Box<dyn Element<State=Self::State, Message=Self::StateEvent>>> {
+        self.menu.ui()
+    }
+
+    fn state(&self) -> &Self::State {
+        self.menu.state()
+    }
+
+    fn event_manager(&self) -> Rc<RefCell<EventManager>> {
+        self.menu.event_manager()
+    }
+
+    fn handle_event(&mut self, event: Self::StateEvent) -> Option<Self::ApplicationEvent> {
+        self.menu.handle_event(event)
+    }
+}
+
+impl ApplicationStateEx for NewLayerMenuStateWithEditorMemory {
+    type StateEvent = NewLayerEvent;
+    type State = NewLayerState;
+    type ApplicationEvent = ApplicationEvent;
+
+    fn ui(&self) -> &RefCell<Box<dyn Element<State=Self::State, Message=Self::StateEvent>>> {
+        self.menu.ui()
+    }
+
+    fn state(&self) -> &Self::State {
+        self.menu.state()
+    }
+
+    fn event_manager(&self) -> Rc<RefCell<EventManager>> {
+        self.menu.event_manager()
+    }
+
+    fn handle_event(&mut self, event: Self::StateEvent) -> Option<Self::ApplicationEvent> {
+        self.menu.handle_event(event)
     }
 }

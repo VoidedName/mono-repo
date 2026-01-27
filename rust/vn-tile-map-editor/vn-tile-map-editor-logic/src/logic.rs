@@ -1,8 +1,12 @@
-use crate::logic::game_state::{ApplicationState, Editor, EditorState, LoadTileSetMenu, LoadedTexture, LoadedTileSet};
+use crate::logic::game_state::{
+    ApplicationState, ApplicationStateEx, Editor, LoadTileSetMenu,
+    LoadTileSetMenuStateWithEditorMemory, LoadedTexture, NewLayerMenu,
+    NewLayerMenuStateWithEditorMemory, TryLoadTileSetResult,
+};
 use std::cell::RefCell;
+use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
-use std::future::Future;
 use thiserror::Error;
 use vn_ui::*;
 use vn_wgpu_window::StateLogic;
@@ -12,7 +16,6 @@ use vn_wgpu_window::scene_renderer::SceneRenderer;
 use web_time::Instant;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
-use vn_tilemap::TileMapSpecification;
 
 pub mod game_state;
 pub mod grid;
@@ -100,12 +103,17 @@ pub enum FileLoadingError {
     GeneralError(String),
 }
 
+pub struct File {
+    pub name: String,
+    pub bytes: Vec<u8>,
+}
+
 pub trait PlatformHooks {
     fn load_asset(
         &self,
         path: String,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<Vec<u8>, FileLoadingError>>>>;
-    
+
     fn load_file(
         &self,
         path: String,
@@ -113,16 +121,19 @@ pub trait PlatformHooks {
 
     fn exit(&self);
 
-    fn pick_file(&self, extensions: &[&str]) -> Option<String>;
+    fn pick_file(&self, extensions: &[&str]) -> Option<File>;
 }
 
-pub struct T {
-    t: TileMapSpecification
+pub struct EditorCallback<Msg> {
+    pub call: Box<dyn Fn(&mut Editor, Msg)>,
 }
 
 pub enum ApplicationEvent {
-    TileSetLoaded(LoadedTileSet),
-    TileSetLoadCanceled,
+    TilesetLoaded(TryLoadTileSetResult),
+    TilesetReuse(String),
+    TilesetLoadCanceled,
+    LoadTileset(Vec<String>),
+    NewLayer(Vec<String>, EditorCallback<Option<TryLoadTileSetResult>>),
 }
 
 pub struct MainLogic {
@@ -133,14 +144,19 @@ pub struct MainLogic {
     mouse_position: (f32, f32),
     #[allow(unused)]
     platform: Rc<Box<dyn PlatformHooks>>,
-    app_state: ApplicationState,
+    app_state: Option<ApplicationState>,
 }
 
 pub struct ApplicationContext {
+    #[allow(unused)]
     platform: Rc<Box<dyn PlatformHooks>>,
+    #[allow(unused)]
     gv: Rc<GraphicsContext>,
+    #[allow(unused)]
     rm: Rc<ResourceManager>,
+    #[allow(unused)]
     text_metrics: Rc<TextMetric>,
+    #[allow(unused)]
     stats: Rc<RefCell<FpsStats>>,
 }
 
@@ -180,32 +196,132 @@ impl MainLogic {
             graphics_context,
             fps_stats,
             platform,
-            app_state: game_state,
+            app_state: Some(game_state),
         })
     }
 }
 
 impl StateLogic<SceneRenderer> for MainLogic {
     fn process_events(&mut self) {
-        if let Some(event) = self.app_state.process_events() {
-            match event {
-                ApplicationEvent::TileSetLoaded(tiles) => {
-                    log::info!("Loaded tiles {:?}", tiles);
-                }
-                ApplicationEvent::TileSetLoadCanceled => {
-                    log::info!("Load canceled");
+        self.app_state = Some(match self.app_state.take().unwrap() {
+            ApplicationState::Editor(mut editor) => {
+                if let Some(event) = editor.process_events() {
+                    match event {
+                        ApplicationEvent::NewLayer(already_loaded, editor_callback) => {
+                            ApplicationState::NewLayerMenu(NewLayerMenuStateWithEditorMemory {
+                                menu: NewLayerMenu::new(
+                                    already_loaded,
+                                    ApplicationContext {
+                                        platform: self.platform.clone(),
+                                        gv: self.graphics_context.clone(),
+                                        rm: self.resource_manager.clone(),
+                                        text_metrics: Rc::new(TextMetric {
+                                            rm: self.resource_manager.clone(),
+                                            gc: self.graphics_context.clone(),
+                                        }),
+                                        stats: self.fps_stats.clone(),
+                                    },
+                                ),
+                                editor_callback,
+                                editor,
+                            })
+                        }
+                        _ => ApplicationState::Editor(editor),
+                    }
+                } else {
+                    ApplicationState::Editor(editor)
                 }
             }
-        }
+            ApplicationState::LoadTileSetMenu(mut menu) => {
+                if let Some(event) = menu.process_events() {
+                    match event {
+                        ApplicationEvent::TilesetLoaded(tiles) => {
+                            log::info!("Loaded tiles {:?}", tiles);
+                            (menu.editor_callback.call)(&mut menu.editor, Some(tiles));
+                            ApplicationState::Editor(menu.editor)
+                        }
+                        ApplicationEvent::TilesetLoadCanceled => {
+                            log::info!("Load canceled");
+                            (menu.editor_callback.call)(&mut menu.editor, None);
+                            ApplicationState::Editor(menu.editor)
+                        }
+                        _ => ApplicationState::LoadTileSetMenu(menu),
+                    }
+                } else {
+                    ApplicationState::LoadTileSetMenu(menu)
+                }
+            }
+            ApplicationState::NewLayerMenu(mut new_menu) => {
+                if let Some(event) = new_menu.process_events() {
+                    match event {
+                        ApplicationEvent::LoadTileset(loaded_tilesets) => {
+                            log::info!("Start loading tileset");
+
+                            let file = self.platform.pick_file(&["png", "jpg"]);
+                            match file {
+                                Some(file) => {
+                                    // TODO: Deal with file loading error
+                                    let tex = self
+                                        .resource_manager
+                                        .load_texture_from_bytes(&file.bytes, Sampling::Nearest)
+                                        .expect("Failed to load texture");
+
+                                    ApplicationState::LoadTileSetMenu(pollster::block_on(async {
+                                        LoadTileSetMenuStateWithEditorMemory {
+                                            editor_callback: new_menu.editor_callback,
+                                            menu: LoadTileSetMenu::new(
+                                                ApplicationContext {
+                                                    platform: self.platform.clone(),
+                                                    gv: self.graphics_context.clone(),
+                                                    rm: self.resource_manager.clone(),
+                                                    text_metrics: Rc::new(TextMetric {
+                                                        rm: self.resource_manager.clone(),
+                                                        gc: self.graphics_context.clone(),
+                                                    }),
+                                                    stats: self.fps_stats.clone(),
+                                                },
+                                                LoadedTexture {
+                                                    suggested_name: file.name,
+                                                    id: tex.id.clone(),
+                                                    dimensions: tex.size,
+                                                },
+                                                loaded_tilesets,
+                                            )
+                                            .await
+                                            .expect("Loading tileset failed"),
+                                            editor: new_menu.editor,
+                                        }
+                                    }))
+                                }
+                                None => ApplicationState::NewLayerMenu(new_menu),
+                            }
+                        }
+                        ApplicationEvent::TilesetLoadCanceled => {
+                            ApplicationState::Editor(new_menu.editor)
+                        }
+                        ApplicationEvent::TilesetReuse(tiles) => {
+                            (new_menu.editor_callback.call)(
+                                &mut new_menu.editor,
+                                Some(TryLoadTileSetResult::Reuse(tiles)),
+                            );
+                            ApplicationState::Editor(new_menu.editor)
+                        }
+                        _ => ApplicationState::NewLayerMenu(new_menu),
+                    }
+                } else {
+                    ApplicationState::NewLayerMenu(new_menu)
+                }
+            }
+        });
     }
 
     fn handle_key(&mut self, _event_loop: &ActiveEventLoop, event: &KeyEvent) {
-        self.app_state.handle_key(event);
+        self.app_state.as_mut().unwrap().handle_key(event);
     }
 
     fn handle_mouse_position(&mut self, x: f32, y: f32) {
         self.mouse_position = (x, y);
-        self.app_state.handle_mouse_position(x, y);
+        self.app_state.as_mut().unwrap().handle_mouse_position(x, y);
     }
 
     fn handle_mouse_button(
@@ -214,11 +330,16 @@ impl StateLogic<SceneRenderer> for MainLogic {
         state: winit::event::ElementState,
     ) {
         self.app_state
+            .as_mut()
+            .unwrap()
             .handle_mouse_button(self.mouse_position, button, state);
     }
 
     fn handle_mouse_wheel(&mut self, delta_x: f32, delta_y: f32) {
-        self.app_state.handle_mouse_wheel(delta_x, delta_y);
+        self.app_state
+            .as_mut()
+            .unwrap()
+            .handle_mouse_wheel(delta_x, delta_y);
     }
 
     fn resized(&mut self, width: u32, height: u32) {
@@ -231,6 +352,8 @@ impl StateLogic<SceneRenderer> for MainLogic {
 
         let scene = self
             .app_state
+            .as_ref()
+            .unwrap()
             .render_target((self.size.0 as f32, self.size.1 as f32));
 
         self.resource_manager.cleanup(60, 10000);

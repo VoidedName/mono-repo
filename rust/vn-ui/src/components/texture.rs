@@ -1,4 +1,9 @@
-use crate::{into_box_impl, DynamicDimension, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionEvent, SizeConstraints, StateToParams, UiContext};
+use crate::{
+    DynamicDimension, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionEvent,
+    SizeConstraints, StateToParams, UiContext, into_box_impl,
+};
+use std::cell::RefCell;
+use std::rc::Rc;
 use vn_scene::{Color, ImagePrimitiveData, Rect, Scene, TextureId, Transform};
 use vn_ui_animation::Interpolatable;
 use vn_ui_animation_macros::Interpolatable;
@@ -69,10 +74,10 @@ pub struct Texture<State: 'static, Message: 'static> {
 impl<State, Message> Texture<State, Message> {
     pub fn new<P: Into<StateToParams<State, TextureParams>>>(
         params: P,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> Self {
         Self {
-            id: world.next_id(),
+            id: world.borrow_mut().next_id(),
             params: params.into(),
             _phantom: std::marker::PhantomData,
         }

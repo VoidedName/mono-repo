@@ -1,6 +1,10 @@
 use crate::utils::ToArray;
-use crate::{into_box_impl, DynamicDimension, Element, ElementId, ElementImpl, ElementSize, ElementWorld, EventHandler, ScrollAreaAction, SizeConstraints, StateToParams, UiContext};
+use crate::{
+    DynamicDimension, Element, ElementId, ElementImpl, ElementSize, ElementWorld, EventHandler,
+    ScrollAreaAction, SizeConstraints, StateToParams, UiContext, into_box_impl,
+};
 use std::cell::RefCell;
+use std::rc::Rc;
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
 
 #[derive(Copy, Clone, Debug)]
@@ -39,8 +43,9 @@ impl<State, Message: Clone> ScrollArea<State, Message> {
     pub fn new<P: Into<StateToParams<State, ScrollAreaParams<Message>>>>(
         child: impl Into<Box<dyn Element<State = State, Message = Message>>>,
         params: P,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> Self {
+        let mut world = world.borrow_mut();
         Self {
             id: world.next_id(),
             scroll_v_id: world.next_id(),
@@ -306,7 +311,7 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                                 let new_scroll = drag.initial_scroll + delta_mouse * scroll_ratio;
                                 return vec![ScrollAreaAction::ScrollY(new_scroll.clamp(
                                     0.0,
-                                    self.child_size.height - self.viewport_size.height,
+                                    (self.child_size.height - self.viewport_size.height).max(0.0),
                                 ))];
                             } else if drag.id == self.scroll_h_id {
                                 let delta_mouse = x - drag.initial_mouse;
@@ -314,7 +319,7 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                                 let new_scroll = drag.initial_scroll + delta_mouse * scroll_ratio;
                                 return vec![ScrollAreaAction::ScrollX(new_scroll.clamp(
                                     0.0,
-                                    self.child_size.width - self.viewport_size.width,
+                                    (self.child_size.width - self.viewport_size.width).max(0.0),
                                 ))];
                             }
                         }
@@ -324,7 +329,7 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                         if ctx.event_manager.borrow().is_hovered(self.id) {
                             let current = params.scroll_y.position.unwrap_or(0.0);
                             let next = (current - y)
-                                .clamp(0.0, self.child_size.height - self.viewport_size.height);
+                                .clamp(0.0, (self.child_size.height - self.viewport_size.height).max(0.0));
 
                             if current != next {
                                 return vec![ScrollAreaAction::ScrollY(next)];
@@ -366,20 +371,21 @@ pub trait ScrollAreaExt<State, Message> {
     fn scroll_area<P: Into<StateToParams<State, ScrollAreaParams<Message>>>>(
         self,
         params: P,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> ScrollArea<State, Message>
     where
         Message: Clone;
 }
 
-impl<State, Message, E: Into<Box<dyn Element<State = State, Message = Message>>> + 'static> ScrollAreaExt<State, Message> for E
+impl<State, Message, E: Into<Box<dyn Element<State = State, Message = Message>>> + 'static>
+    ScrollAreaExt<State, Message> for E
 where
     Message: Clone,
 {
     fn scroll_area<P: Into<StateToParams<State, ScrollAreaParams<Message>>>>(
         self,
         params: P,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> ScrollArea<State, Message> {
         ScrollArea::new(self, params, world)
     }

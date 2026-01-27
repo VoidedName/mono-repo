@@ -1,10 +1,9 @@
 use env_logger::Env;
-use rfd::{AsyncFileDialog, FileDialog};
+use rfd::{AsyncFileDialog};
 use std::future::Future;
 use std::io::Read;
-use std::path::PathBuf;
 use std::pin::Pin;
-use vn_tile_map_editor_logic::logic::{FileLoadingError, PlatformHooks};
+use vn_tile_map_editor_logic::logic::{File, FileLoadingError, PlatformHooks};
 
 pub async fn load_file(path: String) -> anyhow::Result<Vec<u8>, FileLoadingError> {
     let mut file = std::fs::File::open(path)
@@ -35,13 +34,23 @@ impl PlatformHooks for NativePlatformHooks {
         std::process::exit(0);
     }
 
-    fn pick_file(&self, extensions: &[&str]) -> Option<String> {
+    fn pick_file(&self, extensions: &[&str]) -> Option<File> {
         pollster::block_on(async {
-            AsyncFileDialog::new()
+            let path = AsyncFileDialog::new()
                 .add_filter("filter", extensions)
-                .pick_file().await
+                .pick_file()
+                .await
                 .map(|path| path.path().to_str().map(String::from))
-                .flatten()
+                .flatten();
+
+            match path {
+                Some(path) => self
+                    .load_file(path.clone())
+                    .await
+                    .ok()
+                    .map(|bytes| File { bytes, name: path }),
+                None => None,
+            }
         })
     }
 }

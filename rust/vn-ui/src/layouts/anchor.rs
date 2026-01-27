@@ -1,4 +1,9 @@
-use crate::{into_box_impl, params, Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams, UiContext};
+use crate::{
+    Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams,
+    UiContext, into_box_impl,
+};
+use std::cell::RefCell;
+use std::rc::Rc;
 use vn_scene::Scene;
 
 #[derive(Clone, Copy)]
@@ -32,10 +37,10 @@ impl<State, Message> Anchor<State, Message> {
     pub fn new<P: Into<StateToParams<State, AnchorParams>>>(
         child: impl Into<Box<dyn Element<State = State, Message = Message>>>,
         params: P,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> Self {
         Self {
-            id: world.next_id(),
+            id: world.borrow_mut().next_id(),
             child: child.into(),
             child_size: ElementSize::ZERO,
             params: params.into(),
@@ -184,7 +189,7 @@ pub trait AnchorExt<State, Message> {
     fn anchor<P: Into<StateToParams<State, AnchorParams>>>(
         self,
         params: P,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> Anchor<State, Message>;
 }
 
@@ -194,7 +199,7 @@ impl<State, Message, E: Into<Box<dyn Element<State = State, Message = Message>>>
     fn anchor<P: Into<StateToParams<State, AnchorParams>>>(
         self,
         params: P,
-        world: &mut ElementWorld,
+        world: Rc<RefCell<ElementWorld>>,
     ) -> Anchor<State, Message> {
         Anchor::new(self, params, world)
     }
@@ -206,13 +211,11 @@ macro_rules! anchor_location {
     ($ident:ident, $location:ident) => {
         #[macro_export]
         macro_rules! $ident {
-            () => {
-                {
-                    $crate::params!($crate::AnchorParams {
-                        location: $crate::AnchorLocation::$location,
-                    })
-                }
-            };
+            () => {{
+                $crate::params!($crate::AnchorParams {
+                    location: $crate::AnchorLocation::$location,
+                })
+            }};
         }
     };
 }
@@ -221,8 +224,8 @@ anchor_location!(top, Top);
 anchor_location!(bottom, Bottom);
 anchor_location!(left, Left);
 anchor_location!(right, Right);
-anchor_location!(topleft, TopLeft);
-anchor_location!(topright, TopRight);
-anchor_location!(bottomleft, BottomLeft);
-anchor_location!(bottomright, BottomRight);
+anchor_location!(top_left, TopLeft);
+anchor_location!(top_right, TopRight);
+anchor_location!(bottom_left, BottomLeft);
+anchor_location!(bottom_right, BottomRight);
 anchor_location!(center, Center);

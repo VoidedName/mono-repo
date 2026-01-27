@@ -1,10 +1,10 @@
 use crate::logic::game_state::LoadTileMenuStateErrors::{
     TilesHeighIsZero, TilesHighMustDivideTexture, TilesWideIsZero, TilesWideMustDivideTexture,
-    TilesetNameIsEmpty,
+    TilesetNameAlreadyInUse, TilesetNameIsEmpty,
 };
 use crate::logic::game_state::{
-    ApplicationStateEx, Input, LoadedTileSet, TextFieldState, btn, input, label, labelled_input,
-    suppress_enter_key,
+    ApplicationStateEx, Input, LoadedTileSet, TextFieldState, TryLoadTileSetResult, btn, input,
+    label, labelled_input, suppress_enter_key,
 };
 use crate::logic::{ApplicationContext, ApplicationEvent, Grid, GridParams};
 use crate::{UI_FONT, UI_FONT_SIZE};
@@ -23,7 +23,8 @@ pub struct LoadedTexture {
 }
 
 #[derive(Debug)]
-pub struct LoadTileMenuState {
+pub struct LoadTileSetMenuState {
+    already_loaded_tilesets: Vec<String>,
     tileset_name_input_state: TextFieldState,
     loaded_texture: LoadedTexture,
     loaded_texture_scroll_x: ScrollBarParams,
@@ -49,6 +50,8 @@ pub enum LoadTileMenuStateErrors {
     TilesHighMustDivideTexture,
     #[error("Tileset name must not be empty")]
     TilesetNameIsEmpty,
+    #[error("Tileset name must be unique")]
+    TilesetNameAlreadyInUse,
 }
 
 #[derive(Clone, Debug)]
@@ -59,6 +62,7 @@ pub enum LoadTileSetMenuInputEvent {
 
 #[derive(Clone, Debug)]
 pub enum LoadTileSetMenuEvent {
+    Reuse(String),
     Save,
     Cancel,
     TileSetNameInputChanged(LoadTileSetMenuInputEvent),
@@ -73,8 +77,8 @@ pub enum LoadTileSetMenuEvent {
 pub struct LoadTileSetMenu {
     #[allow(unused)]
     ctx: ApplicationContext,
-    ui: RefCell<Box<dyn Element<State = LoadTileMenuState, Message = LoadTileSetMenuEvent>>>,
-    state: LoadTileMenuState,
+    ui: RefCell<Box<dyn Element<State = LoadTileSetMenuState, Message = LoadTileSetMenuEvent>>>,
+    state: LoadTileSetMenuState,
     event_manager: Rc<RefCell<EventManager>>,
 }
 
@@ -82,25 +86,28 @@ impl LoadTileSetMenu {
     pub async fn new(
         ctx: ApplicationContext,
         loaded_texture: LoadedTexture,
+        already_loaded_tilesets: Vec<String>,
     ) -> anyhow::Result<Self> {
-        let world = &mut ElementWorld::new();
+        let world = Rc::new(RefCell::new(ElementWorld::new()));
         let save = btn(
             "Save",
             UI_FONT,
             UI_FONT_SIZE,
-            |state: &LoadTileMenuState| !state.errors.is_empty(),
+            |state: &LoadTileSetMenuState| !state.errors.is_empty(),
+            |_| Color::WHITE,
             ctx.text_metrics.clone(),
             EventHandler::new(|_, _| vec![LoadTileSetMenuEvent::Save]),
-            world,
+            world.clone(),
         );
         let cancel = btn(
             "Cancel",
             UI_FONT,
             UI_FONT_SIZE,
             |_| false,
+            |_| Color::WHITE,
             ctx.text_metrics.clone(),
             EventHandler::new(|_, _| vec![LoadTileSetMenuEvent::Cancel]),
-            world,
+            world.clone(),
         );
 
         let actions = Flex::new(
@@ -108,7 +115,8 @@ impl LoadTileSetMenu {
                 let children = vec![
                     FlexChild::new(save).into_rc_refcell(),
                     FlexChild::new(
-                        Empty::new(world).padding(params!(PaddingParams::horizontal(16.0)), world),
+                        Empty::new(world.clone())
+                            .padding(params!(PaddingParams::horizontal(16.0)), world.clone()),
                     )
                     .into_rc_refcell(),
                     FlexChild::new(cancel).into_rc_refcell(),
@@ -119,20 +127,20 @@ impl LoadTileSetMenu {
                     children: children.clone(),
                 })
             },
-            world,
+            world.clone(),
         )
         .anchor(
             params!(AnchorParams {
                 location: AnchorLocation::Right
             }),
-            world,
+            world.clone(),
         );
 
         let Input {
             id: tileset_name_input_id,
             element: tileset_name_input,
         } = input(
-            |state: &LoadTileMenuState| state.tileset_name_input_state.clone(),
+            |state: &LoadTileSetMenuState| state.tileset_name_input_state.clone(),
             Some("Tileset Name"),
             UI_FONT,
             UI_FONT_SIZE,
@@ -150,7 +158,7 @@ impl LoadTileSetMenu {
                 }
             })
             .with_overwrite(suppress_enter_key()),
-            world,
+            world.clone(),
         );
 
         // these could be dropboxes containing all divisors of the texture dimension instead
@@ -158,7 +166,7 @@ impl LoadTileSetMenu {
             id: tiles_wide_id,
             element: tiles_wide,
         } = labelled_input(
-            |state: &LoadTileMenuState| state.tiles_wide_input.clone(),
+            |state: &LoadTileSetMenuState| state.tiles_wide_input.clone(),
             "Tiles Wide: ",
             UI_FONT,
             UI_FONT_SIZE,
@@ -176,14 +184,14 @@ impl LoadTileSetMenu {
                 }
             })
             .with_overwrite(suppress_enter_key()),
-            world,
+            world.clone(),
         );
 
         let Input {
             id: tiles_heigh_id,
             element: tiles_high,
         } = labelled_input(
-            |state: &LoadTileMenuState| state.tiles_heigh_input.clone(),
+            |state: &LoadTileSetMenuState| state.tiles_heigh_input.clone(),
             "Tiles High: ",
             UI_FONT,
             UI_FONT_SIZE,
@@ -201,11 +209,11 @@ impl LoadTileSetMenu {
                 }
             })
             .with_overwrite(suppress_enter_key()),
-            world,
+            world.clone(),
         );
 
         let error = label(
-            |state: &LoadTileMenuState| {
+            |state: &LoadTileSetMenuState| {
                 let mut messages: Vec<_> = state.errors.iter().map(|e| e.to_string()).collect();
                 messages.sort();
                 messages.join("\n")
@@ -214,29 +222,29 @@ impl LoadTileSetMenu {
             UI_FONT_SIZE,
             Color::RED,
             ctx.text_metrics.clone(),
-            world,
+            world.clone(),
         );
 
         let tex_description = label(
-            |state: &LoadTileMenuState| {
+            |state: &LoadTileSetMenuState| {
                 format!("Dimension:\n {:?}", state.loaded_texture.dimensions)
             },
             UI_FONT,
             UI_FONT_SIZE,
             Color::WHITE.with_alpha(0.5),
             ctx.text_metrics.clone(),
-            world,
+            world.clone(),
         );
 
         let grid = Grid::new(
-            params!(args<LoadTileMenuState> => GridParams {
+            params!(args<LoadTileSetMenuState> => GridParams {
                 cols: args.state.tiles_wide,
                 rows: args.state.tiles_high,
                 grid_size: (args.state.loaded_texture.dimensions.0 as f32 / args.state.tiles_wide as f32, args.state.loaded_texture.dimensions.1 as f32 / args.state.tiles_high as f32),
                 grid_color: Color::WHITE,
                 grid_width: 3.0,
             }),
-            world,
+            world.clone(),
         );
 
         // make this scrollable
@@ -246,7 +254,7 @@ impl LoadTileSetMenu {
                 Box::new(Stack::new(
                     vec![
                         Box::new(Texture::new(
-                            params!(args<LoadTileMenuState> =>
+                            params!(args<LoadTileSetMenuState> =>
                                 TextureParams {
                                     texture_id: args.state.loaded_texture.id.clone(),
                                     tint: Color::WHITE,
@@ -260,13 +268,13 @@ impl LoadTileSetMenu {
                                         height: args.state.loaded_texture.dimensions.1 as f32,
                                     }
                             }),
-                            world,
+                            world.clone(),
                         )),
                         Box::new(grid),
                     ],
-                    world,
+                    world.clone(),
                 )),
-                params!(args<LoadTileMenuState> =>
+                params!(args<LoadTileSetMenuState> =>
                     ScrollAreaParams {
                         scroll_x: args.state.loaded_texture_scroll_x.clone(),
                         scroll_y: args.state.loaded_texture_scroll_y.clone(),
@@ -278,15 +286,13 @@ impl LoadTileSetMenu {
                             }),
                     }
                 ),
-                world,
+                world.clone(),
             )),
             params!(PreferSizeParams {
-                size: ElementSize {
-                    width: 256.0 + 24.0,
-                    height: 256.0 + 24.0,
-                }
+                width: Some(256.0 + 24.0),
+                height: Some(256.0 + 24.0),
             }),
-            world,
+            world.clone(),
         );
 
         let title = Padding::new(
@@ -296,19 +302,19 @@ impl LoadTileSetMenu {
                 UI_FONT_SIZE,
                 Color::WHITE,
                 ctx.text_metrics.clone(),
-                world,
+                world.clone(),
             ),
             params!(PaddingParams {
                 pad_bottom: 25.0,
                 ..Default::default()
             }),
-            world,
+            world.clone(),
         )
         .anchor(
             params!(AnchorParams {
                 location: AnchorLocation::Top
             }),
-            world,
+            world.clone(),
         );
 
         let settings_children = vec![
@@ -332,7 +338,7 @@ impl LoadTileSetMenu {
                             children: settings_children.clone(),
                         })
                     },
-                    world,
+                    world.clone(),
                 ),
                 1.0,
             )
@@ -346,7 +352,7 @@ impl LoadTileSetMenu {
                             children: preview_children.clone()
                         })
                     },
-                    world,
+                    world.clone(),
                 ),
                 1.0,
             )
@@ -364,12 +370,12 @@ impl LoadTileSetMenu {
                             children: main_panel_children.clone(),
                         })
                     },
-                    world,
+                    world.clone(),
                 ),
                 1.0,
             )
             .into_rc_refcell(),
-            FlexChild::weighted(Empty::new(world), 0.0).into_rc_refcell(),
+            FlexChild::weighted(Empty::new(world.clone()), 0.0).into_rc_refcell(),
             FlexChild::new(error).into_rc_refcell(),
             FlexChild::new(actions).into_rc_refcell(),
         ];
@@ -383,17 +389,15 @@ impl LoadTileSetMenu {
                         children: main_layout_children.clone(),
                     })
                 },
-                world,
+                world.clone(),
             ),
             params!(PreferSizeParams {
-                size: ElementSize {
-                    width: 256.0 * 2.0 + 50.0,
-                    height: 256.0 * 2.0,
-                }
+                width: Some(256.0 * 2.0 + 50.0),
+                height: Some(256.0 * 2.0),
             }),
-            world,
+            world.clone(),
         )
-        .padding(params!(PaddingParams::uniform(25.0)), world)
+        .padding(params!(PaddingParams::uniform(25.0)), world.clone())
         .card(
             params!(CardParams {
                 background_color: Color::BLACK,
@@ -401,18 +405,37 @@ impl LoadTileSetMenu {
                 corner_radius: 5.0,
                 border_color: Color::WHITE,
             }),
-            world,
+            world.clone(),
         )
         .anchor(
             params!(AnchorParams {
                 location: AnchorLocation::Center
             }),
-            world,
+            world.clone(),
         );
 
+        let mut suggested_name = loaded_texture
+            .suggested_name
+            .split("[\\\\/]")
+            .collect::<Vec<_>>()
+            .last()
+            .unwrap()
+            .to_string();
+        if suggested_name.contains("\\.") {
+            suggested_name = suggested_name
+                .split("\\.")
+                .collect::<Vec<_>>()
+                .first()
+                .unwrap()
+                .to_string();
+        }
+
         let mut errors = HashSet::new();
-        if loaded_texture.suggested_name.trim().is_empty() {
+        if suggested_name.is_empty() {
             errors.insert(TilesetNameIsEmpty);
+        }
+        if already_loaded_tilesets.contains(&suggested_name) {
+            errors.insert(TilesetNameAlreadyInUse);
         }
         errors.insert(TilesHeighIsZero);
         errors.insert(TilesWideIsZero);
@@ -420,10 +443,11 @@ impl LoadTileSetMenu {
         Ok(Self {
             ctx,
             ui: RefCell::new(Box::new(ui)),
-            state: LoadTileMenuState {
+            state: LoadTileSetMenuState {
+                already_loaded_tilesets,
                 tileset_name_input_state: TextFieldState {
                     id: tileset_name_input_id,
-                    text: loaded_texture.suggested_name.clone(),
+                    text: suggested_name,
                     caret: None,
                 },
                 loaded_texture,
@@ -460,7 +484,7 @@ impl LoadTileSetMenu {
 
 impl ApplicationStateEx for LoadTileSetMenu {
     type StateEvent = LoadTileSetMenuEvent;
-    type State = LoadTileMenuState;
+    type State = LoadTileSetMenuState;
     type ApplicationEvent = ApplicationEvent;
 
     fn ui(&self) -> &RefCell<Box<dyn Element<State = Self::State, Message = Self::StateEvent>>> {
@@ -486,11 +510,18 @@ impl ApplicationStateEx for LoadTileSetMenu {
                     self.state.tileset_name_input_state.caret = Some(position);
                 }
                 LoadTileSetMenuInputEvent::TextChanged(new_text) => {
-                    if new_text.trim().is_empty() {
+                    if new_text.is_empty() {
                         self.state.errors.insert(TilesetNameIsEmpty);
                     } else {
                         self.state.errors.remove(&TilesetNameIsEmpty);
                     }
+
+                    if self.state.already_loaded_tilesets.contains(&new_text) {
+                        self.state.errors.insert(TilesetNameAlreadyInUse);
+                    } else {
+                        self.state.errors.remove(&TilesetNameAlreadyInUse);
+                    }
+
                     self.state.tileset_name_input_state.text = new_text;
                 }
             },
@@ -580,17 +611,20 @@ impl ApplicationStateEx for LoadTileSetMenu {
             }
 
             LoadTileSetMenuEvent::Save => {
-                return Some(ApplicationEvent::TileSetLoaded(LoadedTileSet {
-                    texture_id: self.state.loaded_texture.id.clone(),
-                    name: self.state.tileset_name_input_state.text.clone(),
-                    texture_dimensions: self.state.loaded_texture.dimensions,
-                    tile_dimensions: (
-                        self.state.loaded_texture.dimensions.0 / self.state.tiles_wide,
-                        self.state.loaded_texture.dimensions.1 / self.state.tiles_high,
-                    ),
-                }));
+                return Some(ApplicationEvent::TilesetLoaded(
+                    TryLoadTileSetResult::Loaded(LoadedTileSet {
+                        texture_id: self.state.loaded_texture.id.clone(),
+                        name: self.state.tileset_name_input_state.text.clone(),
+                        texture_dimensions: self.state.loaded_texture.dimensions,
+                        tile_dimensions: (
+                            self.state.loaded_texture.dimensions.0 / self.state.tiles_wide,
+                            self.state.loaded_texture.dimensions.1 / self.state.tiles_high,
+                        ),
+                    }),
+                ));
             }
-            LoadTileSetMenuEvent::Cancel => return Some(ApplicationEvent::TileSetLoadCanceled),
+            LoadTileSetMenuEvent::Reuse(name) => return Some(ApplicationEvent::TilesetReuse(name)),
+            LoadTileSetMenuEvent::Cancel => return Some(ApplicationEvent::TilesetLoadCanceled),
         }
 
         None

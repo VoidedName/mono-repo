@@ -143,6 +143,12 @@ impl Rect {
         size: [f32::MAX, f32::MAX],
     };
 
+    /// A unit rectangle i.e. size of 1
+    pub const UNIT: Self = Self {
+        position: [0.0, 0.0],
+        size: [1.0, 1.0],
+    };
+
     /// Creates a new builder for a [`Rect`].
     pub fn builder() -> RectBuilder {
         RectBuilder::new()
