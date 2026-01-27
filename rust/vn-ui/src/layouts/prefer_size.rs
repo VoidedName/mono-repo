@@ -1,7 +1,4 @@
-use crate::{
-    DynamicDimension, DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld,
-    InteractionEvent, SizeConstraints, StateToParams, StateToParamsArgs, UiContext,
-};
+use crate::{into_box_impl, DynamicDimension, DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionEvent, SizeConstraints, StateToParams, StateToParamsArgs, UiContext};
 use vn_scene::Scene;
 
 pub struct PreferSizeParams {
@@ -16,13 +13,13 @@ pub struct PreferSize<State: 'static, Message> {
 
 impl<State: 'static, Message> PreferSize<State, Message> {
     pub fn new<P: Into<StateToParams<State, PreferSizeParams>>>(
-        child: Box<dyn Element<State = State, Message = Message>>,
+        child: impl Into<Box<dyn Element<State = State, Message = Message>>>,
         params: P,
         world: &mut ElementWorld,
     ) -> Self {
         Self {
             id: world.next_id(),
-            child,
+            child: child.into(),
             params: params.into(),
         }
     }
@@ -82,4 +79,4 @@ impl<State, Message> ElementImpl for PreferSize<State, Message> {
     }
 }
 
-
+into_box_impl!(PreferSize);

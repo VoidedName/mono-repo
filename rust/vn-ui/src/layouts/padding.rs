@@ -1,7 +1,4 @@
-use crate::{
-    Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams,
-    UiContext,
-};
+use crate::{into_box_impl, Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams, UiContext};
 use vn_scene::Scene;
 use vn_ui_animation_macros::Interpolatable;
 
@@ -50,13 +47,13 @@ pub struct Padding<State: 'static, Message: 'static> {
 
 impl<State, Message> Padding<State, Message> {
     pub fn new<P: Into<StateToParams<State, PaddingParams>>>(
-        child: Box<dyn Element<State = State, Message = Message>>,
+        child: impl Into<Box<dyn Element<State = State, Message = Message>>>,
         params: P,
         world: &mut ElementWorld,
     ) -> Self {
         Self {
             id: world.next_id(),
-            child,
+            child: child.into(),
             params: params.into(),
         }
     }
@@ -148,20 +145,22 @@ impl<State, Message> ElementImpl for Padding<State, Message> {
     }
 }
 
-pub trait PaddingExt: Element {
-    fn padding<P: Into<StateToParams<Self::State, PaddingParams>>>(
+pub trait PaddingExt<State, Message> {
+    fn padding<P: Into<StateToParams<State, PaddingParams>>>(
         self,
         params: P,
         world: &mut ElementWorld,
-    ) -> Padding<Self::State, Self::Message>;
+    ) -> Padding<State, Message>;
 }
 
-impl<E: Element + 'static> PaddingExt for E {
-    fn padding<P: Into<StateToParams<Self::State, PaddingParams>>>(
+impl<State, Message, E: Into<Box<dyn Element<State = State, Message = Message>>> + 'static> PaddingExt<State, Message> for E {
+    fn padding<P: Into<StateToParams<State, PaddingParams>>>(
         self,
         params: P,
         world: &mut ElementWorld,
-    ) -> Padding<Self::State, Self::Message> {
-        Padding::new(Box::new(self), params, world)
+    ) -> Padding<State, Message> {
+        Padding::new(self, params, world)
     }
 }
+
+into_box_impl!(Padding);

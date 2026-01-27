@@ -125,7 +125,7 @@ impl StartMenu {
             )
             .anchor(
                 Box::new(|_| AnchorParams {
-                    location: AnchorLocation::CENTER,
+                    location: AnchorLocation::Center,
                 }),
                 &mut world,
             )
@@ -169,7 +169,7 @@ impl StartMenu {
 
         let ui = Flex::new_column_unweighted(buttons, true, &mut world).anchor(
             Box::new(|_| AnchorParams {
-                location: AnchorLocation::CENTER,
+                location: AnchorLocation::Center,
             }),
             &mut world,
         );

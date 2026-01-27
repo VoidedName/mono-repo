@@ -6,7 +6,7 @@ use winit::event::KeyEvent;
 use winit::event::MouseButton;
 
 pub mod editor;
-pub use editor::Editor;
+pub use editor::*;
 
 pub mod load_tile_set_menu;
 pub use load_tile_set_menu::*;
@@ -163,26 +163,26 @@ pub struct LoadedTileSet {
     tile_dimensions: (u32, u32),
 }
 
-pub enum ApplicationState<ApplicationEvent> {
-    Editor(Editor<ApplicationEvent>),
-    LoadTileSetMenu(LoadTileSetMenu<ApplicationEvent>),
+pub enum ApplicationState {
+    Editor(Editor),
+    LoadTileSetMenu(LoadTileSetMenu),
 }
 
 macro_rules! dispatch {
     ($self:ident, $inner:ident, $action:expr) => {
         match $self {
-            ApplicationState::Editor($inner) => $action,
             ApplicationState::LoadTileSetMenu($inner) => $action,
+            ApplicationState::Editor($inner) => $action,
         }
     };
 }
 
-impl ApplicationState<ApplicationEvent> {
+impl ApplicationState {
     pub fn process_events(&mut self) -> Option<ApplicationEvent> {
         dispatch!(self, inner, inner.process_events())
     }
 
-    pub fn render_target(&self, size: (f32, f32)) -> vn_wgpu_window::scene::WgpuScene {
+    pub fn render_target(&self, size: (f32, f32)) -> WgpuScene {
         dispatch!(self, inner, inner.render_target(size))
     }
 

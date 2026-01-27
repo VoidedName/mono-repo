@@ -1,10 +1,6 @@
 use crate::text::layout::TextLayout;
 use crate::utils::ToArray;
-use crate::{
-    DynamicDimension, ElementId, ElementImpl, ElementSize, ElementWorld, EventHandler,
-    InteractionState, Interpolatable, SizeConstraints, StateToParams, TextFieldAction, TextMetrics,
-    UiContext,
-};
+use crate::{into_box_impl, DynamicDimension, ElementId, ElementImpl, ElementSize, ElementWorld, EventHandler, InteractionState, Interpolatable, SizeConstraints, StateToParams, TextFieldAction, TextMetrics, UiContext};
 use std::rc::Rc;
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, TextPrimitiveData, Transform};
 use web_time::Instant;
@@ -394,3 +390,5 @@ impl<State, Message: Clone> ElementImpl for TextField<State, Message> {
         messages
     }
 }
+
+into_box_impl!(TextField);

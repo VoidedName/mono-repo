@@ -1,8 +1,5 @@
 use crate::utils::ToArray;
-use crate::{
-    DynamicDimension, Element, ElementId, ElementImpl, ElementSize, ElementWorld, EventHandler,
-    ScrollAreaAction, SizeConstraints, StateToParams, UiContext,
-};
+use crate::{into_box_impl, DynamicDimension, Element, ElementId, ElementImpl, ElementSize, ElementWorld, EventHandler, ScrollAreaAction, SizeConstraints, StateToParams, UiContext};
 use std::cell::RefCell;
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
 
@@ -40,7 +37,7 @@ pub struct ScrollArea<State: 'static, Message: 'static> {
 
 impl<State, Message: Clone> ScrollArea<State, Message> {
     pub fn new<P: Into<StateToParams<State, ScrollAreaParams<Message>>>>(
-        child: Box<dyn Element<State = State, Message = Message>>,
+        child: impl Into<Box<dyn Element<State = State, Message = Message>>>,
         params: P,
         world: &mut ElementWorld,
     ) -> Self {
@@ -48,7 +45,7 @@ impl<State, Message: Clone> ScrollArea<State, Message> {
             id: world.next_id(),
             scroll_v_id: world.next_id(),
             scroll_h_id: world.next_id(),
-            child,
+            child: child.into(),
             params: params.into(),
             child_size: ElementSize::ZERO,
             viewport_size: ElementSize::ZERO,
@@ -166,10 +163,7 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
 
                 let clip_rect = Rect {
                     position: [origin.0, origin.1],
-                    size: [
-                        self.viewport_size.width,
-                        self.viewport_size.height,
-                    ],
+                    size: [self.viewport_size.width, self.viewport_size.height],
                 };
 
                 ctx.with_clipping(clip_rect, |ctx| {
@@ -203,6 +197,19 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                             scrollbar_rect,
                             |_| {},
                         );
+
+                        scene.add_box(BoxPrimitiveData {
+                            transform: Transform {
+                                translation: [scrollbar_rect.position[0], origin.1],
+                                ..Transform::DEFAULT
+                            },
+                            size: [scrollbar_rect.size[0], size.height],
+                            color: params.scroll_x.color.with_alpha(0.1),
+                            border_color: Color::TRANSPARENT,
+                            border_thickness: 0.0,
+                            border_radius: params.scroll_x.width / 2.0,
+                            clip_rect,
+                        });
 
                         scene.add_box(BoxPrimitiveData {
                             transform: Transform {
@@ -242,6 +249,19 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                             scrollbar_rect,
                             |_| {},
                         );
+
+                        scene.add_box(BoxPrimitiveData {
+                            transform: Transform {
+                                translation: [origin.0, scrollbar_rect.position[1]],
+                                ..Transform::DEFAULT
+                            },
+                            size: [size.width, scrollbar_rect.size[1]],
+                            color: params.scroll_x.color.with_alpha(0.1),
+                            border_color: Color::TRANSPARENT,
+                            border_thickness: 0.0,
+                            border_radius: params.scroll_x.width / 2.0,
+                            clip_rect,
+                        });
 
                         scene.add_box(BoxPrimitiveData {
                             transform: Transform {
@@ -342,26 +362,27 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
     }
 }
 
-pub trait ScrollAreaExt: Element {
-    fn scroll_area<P: Into<StateToParams<Self::State, ScrollAreaParams<Self::Message>>>>(
+pub trait ScrollAreaExt<State, Message> {
+    fn scroll_area<P: Into<StateToParams<State, ScrollAreaParams<Message>>>>(
         self,
         params: P,
         world: &mut ElementWorld,
-    ) -> ScrollArea<Self::State, Self::Message>
+    ) -> ScrollArea<State, Message>
     where
-        Self: Sized + 'static,
-        Self::Message: Clone;
+        Message: Clone;
 }
 
-impl<E: Element + 'static> ScrollAreaExt for E
+impl<State, Message, E: Into<Box<dyn Element<State = State, Message = Message>>> + 'static> ScrollAreaExt<State, Message> for E
 where
-    E::Message: Clone,
+    Message: Clone,
 {
-    fn scroll_area<P: Into<StateToParams<Self::State, ScrollAreaParams<Self::Message>>>>(
+    fn scroll_area<P: Into<StateToParams<State, ScrollAreaParams<Message>>>>(
         self,
         params: P,
         world: &mut ElementWorld,
-    ) -> ScrollArea<Self::State, Self::Message> {
-        ScrollArea::new(Box::new(self), params, world)
+    ) -> ScrollArea<State, Message> {
+        ScrollArea::new(self, params, world)
     }
 }
+
+into_box_impl!(ScrollArea);

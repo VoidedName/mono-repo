@@ -1,4 +1,4 @@
-use crate::logic::game_state::{ApplicationState, LoadTileSetMenu, LoadedTexture, LoadedTileSet};
+use crate::logic::game_state::{ApplicationState, Editor, EditorState, LoadTileSetMenu, LoadedTexture, LoadedTileSet};
 use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
@@ -15,6 +15,8 @@ use winit::event_loop::ActiveEventLoop;
 use vn_tilemap::TileMapSpecification;
 
 pub mod game_state;
+pub mod grid;
+pub use grid::*;
 
 pub struct TextMetric {
     pub rm: Rc<ResourceManager>,
@@ -131,7 +133,7 @@ pub struct MainLogic {
     mouse_position: (f32, f32),
     #[allow(unused)]
     platform: Rc<Box<dyn PlatformHooks>>,
-    app_state: ApplicationState<ApplicationEvent>,
+    app_state: ApplicationState,
 }
 
 pub struct ApplicationContext {
@@ -155,13 +157,10 @@ impl MainLogic {
         resource_manager.load_font_from_bytes("jetbrains-bold", &font_bytes)?;
         resource_manager.set_glyph_size_increment(4.0);
 
-        let example_tileset = platform.load_asset("[Base]BaseChip_pipo.png".to_string()).await?;
-        let example_tileset = resource_manager.load_texture_from_bytes(&example_tileset, Sampling::Nearest)?;
-
         let fps_stats = Rc::new(RefCell::new(FpsStats::new()));
 
-        let game_state = ApplicationState::LoadTileSetMenu(
-            LoadTileSetMenu::new(ApplicationContext {
+        let game_state = ApplicationState::Editor(
+            Editor::new(ApplicationContext {
                 platform: platform.clone(),
                 gv: graphics_context.clone(),
                 rm: resource_manager.clone(),
@@ -170,10 +169,6 @@ impl MainLogic {
                     gc: graphics_context.clone(),
                 }),
                 stats: fps_stats.clone(),
-            }, LoadedTexture {
-                suggested_name: "[Base]BaseChip_pipo".to_string(),
-                id: example_tileset.id.clone(),
-                dimensions: example_tileset.size,
             })
             .await?,
         );

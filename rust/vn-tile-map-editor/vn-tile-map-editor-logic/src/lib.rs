@@ -5,6 +5,9 @@ pub use logic::MainLogic;
 use std::rc::Rc;
 use vn_wgpu_window::init_with_logic;
 
+pub const UI_FONT: &str = "jetbrains-bold";
+pub const UI_FONT_SIZE: f32 = 16.0;
+
 pub fn init(new_fn: Box<dyn PlatformHooks>) -> anyhow::Result<()> {
     log::info!("Initializing Tile Map Editor!");
 

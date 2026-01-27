@@ -1,7 +1,9 @@
 use crate::{
     DynamicDimension, Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints,
-    StateToParams, UiContext,
+    StateToParams, StateToParamsArgs, UiContext, into_box_impl,
 };
+use std::cell::RefCell;
+use std::rc::Rc;
 use vn_scene::{Rect, Scene};
 
 #[derive(Clone, Copy)]
@@ -10,11 +12,12 @@ pub enum FlexDirection {
     Column,
 }
 
-#[derive(Clone, Copy)]
-pub struct FlexParams {
+#[derive(Clone)]
+pub struct FlexParams<State: 'static, Message: 'static> {
     pub direction: FlexDirection,
     /// if true, all elements will be forced to the same size along the orthogonal axis.
     pub force_orthogonal_same_size: bool,
+    pub children: Vec<Rc<RefCell<FlexChild<State, Message>>>>,
 }
 
 pub struct FlexChild<State: 'static, Message: 'static> {
@@ -23,129 +26,59 @@ pub struct FlexChild<State: 'static, Message: 'static> {
 }
 
 impl<State: 'static, Message: 'static> FlexChild<State, Message> {
-    pub fn new(element: Box<dyn Element<State = State, Message = Message>>) -> Self {
+    pub fn new(element: impl Into<Box<dyn Element<State = State, Message = Message>>>) -> Self {
         Self {
-            element,
+            element: element.into(),
             weight: None,
         }
     }
 
     pub fn weighted(
-        element: Box<dyn Element<State = State, Message = Message>>,
+        element: impl Into<Box<dyn Element<State = State, Message = Message>>>,
         weight: f32,
     ) -> Self {
         Self {
-            element,
+            element: element.into(),
             weight: Some(weight),
         }
     }
-}
-
-pub trait WeightedElement<State, Message> {
-    fn with_weight_element(self, weight: f32) -> FlexChild<State, Message>;
-}
-
-impl<State, Message, E: Element<State = State, Message = Message> + 'static>
-    WeightedElement<State, Message> for E
-{
-    fn with_weight_element(self, weight: f32) -> FlexChild<State, Message> {
-        FlexChild::weighted(Box::new(self), weight)
+    
+    pub fn into_rc_refcell(self) -> Rc<RefCell<FlexChild<State, Message>>> {
+        Rc::new(RefCell::new(self))
     }
 }
 
-impl<State, Message> WeightedElement<State, Message>
+impl<State, Message> Into<FlexChild<State, Message>>
     for Box<dyn Element<State = State, Message = Message>>
 {
-    fn with_weight_element(self, weight: f32) -> FlexChild<State, Message> {
-        FlexChild::weighted(self, weight)
+    fn into(self) -> FlexChild<State, Message> {
+        FlexChild::new(self)
     }
 }
 
 pub struct Flex<State: 'static, Message: 'static> {
     id: ElementId,
-    children: Vec<FlexChild<State, Message>>,
     layout: Vec<ElementSize>,
-    params: StateToParams<State, FlexParams>,
+    params: StateToParams<State, FlexParams<State, Message>>,
 }
 
 impl<State: 'static, Message: 'static> Flex<State, Message> {
-    pub fn new<P: Into<StateToParams<State, FlexParams>>>(
-        children: Vec<FlexChild<State, Message>>,
+    pub fn new<P: Into<StateToParams<State, FlexParams<State, Message>>>>(
         params: P,
         world: &mut ElementWorld,
     ) -> Self {
         Self {
             id: world.next_id(),
-            layout: std::iter::repeat(ElementSize::ZERO)
-                .take(children.len())
-                .collect(),
-            children,
+            layout: Vec::new(),
             params: params.into(),
         }
     }
 
-    pub fn new_unweighted<P: Into<StateToParams<State, FlexParams>>>(
-        children: Vec<Box<dyn Element<State = State, Message = Message>>>,
+    pub fn new_unweighted<P: Into<StateToParams<State, FlexParams<State, Message>>>>(
         params: P,
         world: &mut ElementWorld,
     ) -> Self {
-        Self::new(
-            children.into_iter().map(FlexChild::new).collect(),
-            params,
-            world,
-        )
-    }
-
-    pub fn new_row(
-        children: Vec<FlexChild<State, Message>>,
-        force_orthogonal_same_size: bool,
-        world: &mut ElementWorld,
-    ) -> Self {
-        let params = StateToParams(Box::new(move |_| FlexParams {
-            direction: FlexDirection::Row,
-            force_orthogonal_same_size,
-        }));
-
-        Self::new(children, params, world)
-    }
-
-    pub fn new_row_unweighted(
-        children: Vec<Box<dyn Element<State = State, Message = Message>>>,
-        force_orthogonal_same_size: bool,
-        world: &mut ElementWorld,
-    ) -> Self {
-        let params = StateToParams(Box::new(move |_| FlexParams {
-            direction: FlexDirection::Row,
-            force_orthogonal_same_size,
-        }));
-
-        Self::new_unweighted(children, params, world)
-    }
-
-    pub fn new_column(
-        children: Vec<FlexChild<State, Message>>,
-        force_orthogonal_same_size: bool,
-        world: &mut ElementWorld,
-    ) -> Self {
-        let params = StateToParams(Box::new(move |_| FlexParams {
-            direction: FlexDirection::Column,
-            force_orthogonal_same_size,
-        }));
-
-        Self::new(children, params, world)
-    }
-
-    pub fn new_column_unweighted(
-        children: Vec<Box<dyn Element<State = State, Message = Message>>>,
-        force_orthogonal_same_size: bool,
-        world: &mut ElementWorld,
-    ) -> Self {
-        let params = StateToParams(Box::new(move |_| FlexParams {
-            direction: FlexDirection::Column,
-            force_orthogonal_same_size,
-        }));
-
-        Self::new_unweighted(children, params, world)
+        Self::new(params, world)
     }
 }
 
@@ -168,11 +101,18 @@ impl<State, Message> ElementImpl for Flex<State, Message> {
         // do we extend constraints to denote that they should not grow along some axis?
         let mut total_unweighted_in_direction: f32 = 0.0;
         let mut max_orthogonal: f32 = 0.0;
-        let params = self.params.call(crate::StateToParamsArgs {
+        let params = self.params.call(StateToParamsArgs {
             state,
             id: self.id,
             ctx,
         });
+
+        if self.layout.len() < params.children.len() {
+            self.layout.extend(vec![
+                ElementSize::ZERO;
+                params.children.len() - self.layout.len()
+            ]);
+        }
 
         let mut child_constraints = constraints;
         child_constraints.min_size.width = 0.0;
@@ -184,7 +124,8 @@ impl<State, Message> ElementImpl for Flex<State, Message> {
 
         let mut total_weight = None;
 
-        for (idx, child) in self.children.iter_mut().enumerate() {
+        for (idx, child) in params.children.iter().enumerate() {
+            let mut child = child.borrow_mut();
             let child_size = child.element.layout_impl(ctx, state, child_constraints);
 
             if let Some(weight) = child.weight {
@@ -221,7 +162,8 @@ impl<State, Message> ElementImpl for Flex<State, Message> {
             }
         }
 
-        for (idx, child) in self.children.iter_mut().enumerate() {
+        for (idx, child) in params.children.iter().enumerate() {
+            let mut child = child.borrow_mut();
             if let Some(_) = child.weight {
                 continue;
             }
@@ -258,7 +200,8 @@ impl<State, Message> ElementImpl for Flex<State, Message> {
                 0.0
             };
 
-            for (idx, child) in self.children.iter_mut().enumerate() {
+            for (idx, child) in params.children.iter().enumerate() {
+                let mut child = child.borrow_mut();
                 if child.weight.is_none() {
                     continue;
                 }
@@ -303,7 +246,7 @@ impl<State, Message> ElementImpl for Flex<State, Message> {
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = self.params.call(crate::StateToParamsArgs {
+        let params = self.params.call(StateToParamsArgs {
             state,
             id: self.id,
             ctx,
@@ -319,7 +262,8 @@ impl<State, Message> ElementImpl for Flex<State, Message> {
                     FlexDirection::Row => origin.0,
                     FlexDirection::Column => origin.1,
                 };
-                for (idx, child) in self.children.iter_mut().enumerate() {
+                for (idx, child) in params.children.iter().enumerate() {
+                    let mut child = child.borrow_mut();
                     let mut child_size = self.layout[idx];
 
                     match params.direction {
@@ -357,10 +301,18 @@ impl<State, Message> ElementImpl for Flex<State, Message> {
         state: &Self::State,
         event: &crate::InteractionEvent,
     ) -> Vec<Self::Message> {
+        let params = self.params.call(StateToParamsArgs {
+            ctx,
+            state,
+            id: self.id,
+        });
+
         let mut messages = Vec::new();
-        for child in &mut self.children {
-            messages.extend(child.element.handle_event(ctx, state, event));
+        for child in &mut params.children.iter() {
+            messages.extend(child.borrow_mut().element.handle_event(ctx, state, event));
         }
         messages
     }
 }
+
+into_box_impl!(Flex);

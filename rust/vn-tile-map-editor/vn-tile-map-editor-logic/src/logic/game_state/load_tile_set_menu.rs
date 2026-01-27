@@ -2,15 +2,14 @@ use crate::logic::game_state::LoadTileMenuStateErrors::{
     TilesHeighIsZero, TilesHighMustDivideTexture, TilesWideIsZero, TilesWideMustDivideTexture,
     TilesetNameIsEmpty,
 };
-use crate::logic::game_state::editor::{Grid, GridParams};
 use crate::logic::game_state::{
-    ApplicationStateEx, Input, LoadedTileSet, TextFieldState, btn, empty_texture, input, label,
-    labelled_input, suppress_enter_key,
+    ApplicationStateEx, Input, LoadedTileSet, TextFieldState, btn, input, label, labelled_input,
+    suppress_enter_key,
 };
-use crate::logic::{ApplicationContext, ApplicationEvent};
+use crate::logic::{ApplicationContext, ApplicationEvent, Grid, GridParams};
+use crate::{UI_FONT, UI_FONT_SIZE};
 use std::cell::RefCell;
 use std::collections::HashSet;
-use std::marker::PhantomData;
 use std::rc::Rc;
 use thiserror::Error;
 use vn_scene::TextureId;
@@ -71,23 +70,15 @@ pub enum LoadTileSetMenuEvent {
     TexturePreviewScrollY(f32),
 }
 
-pub struct LoadTileSetMenu<ApplicationEvent> {
+pub struct LoadTileSetMenu {
     #[allow(unused)]
     ctx: ApplicationContext,
-    #[allow(unused)]
     ui: RefCell<Box<dyn Element<State = LoadTileMenuState, Message = LoadTileSetMenuEvent>>>,
-    #[allow(unused)]
     state: LoadTileMenuState,
-    #[allow(unused)]
     event_manager: Rc<RefCell<EventManager>>,
-    #[allow(unused)]
-    _phantom: PhantomData<ApplicationEvent>,
 }
 
-const UI_FONT: &str = "jetbrains-bold";
-const UI_FONT_SIZE: f32 = 16.0;
-
-impl<ApplicationEvent> LoadTileSetMenu<ApplicationEvent> {
+impl LoadTileSetMenu {
     pub async fn new(
         ctx: ApplicationContext,
         loaded_texture: LoadedTexture,
@@ -112,20 +103,27 @@ impl<ApplicationEvent> LoadTileSetMenu<ApplicationEvent> {
             world,
         );
 
-        let actions = Flex::new_row_unweighted(
-            vec![
-                save,
-                Box::new(
-                    Empty::new(world).padding(params!(PaddingParams::horizontal(16.0)), world),
-                ),
-                cancel,
-            ],
-            true,
+        let actions = Flex::new(
+            {
+                let children = vec![
+                    FlexChild::new(save).into_rc_refcell(),
+                    FlexChild::new(
+                        Empty::new(world).padding(params!(PaddingParams::horizontal(16.0)), world),
+                    )
+                    .into_rc_refcell(),
+                    FlexChild::new(cancel).into_rc_refcell(),
+                ];
+                params!(FlexParams {
+                    direction: FlexDirection::Row,
+                    force_orthogonal_same_size: true,
+                    children: children.clone(),
+                })
+            },
             world,
         )
         .anchor(
             params!(AnchorParams {
-                location: AnchorLocation::RIGHT
+                location: AnchorLocation::Right
             }),
             world,
         );
@@ -308,51 +306,85 @@ impl<ApplicationEvent> LoadTileSetMenu<ApplicationEvent> {
         )
         .anchor(
             params!(AnchorParams {
-                location: AnchorLocation::TOP
+                location: AnchorLocation::Top
             }),
             world,
         );
 
+        let settings_children = vec![
+            FlexChild::new(tileset_name_input).into_rc_refcell(),
+            FlexChild::new(tiles_wide).into_rc_refcell(),
+            FlexChild::new(tiles_high).into_rc_refcell(),
+        ];
+
+        let preview_children = vec![
+            FlexChild::new(texture).into_rc_refcell(),
+            FlexChild::new(tex_description).into_rc_refcell(),
+        ];
+
+        let main_panel_children = vec![
+            FlexChild::weighted(
+                Flex::new(
+                    {
+                        params!(FlexParams {
+                            direction: FlexDirection::Column,
+                            force_orthogonal_same_size: true,
+                            children: settings_children.clone(),
+                        })
+                    },
+                    world,
+                ),
+                1.0,
+            )
+            .into_rc_refcell(),
+            FlexChild::weighted(
+                Flex::new(
+                    {
+                        params!(FlexParams {
+                            direction: FlexDirection::Column,
+                            force_orthogonal_same_size: true,
+                            children: preview_children.clone()
+                        })
+                    },
+                    world,
+                ),
+                1.0,
+            )
+            .into_rc_refcell(),
+        ];
+
+        let main_layout_children = vec![
+            FlexChild::new(title).into_rc_refcell(),
+            FlexChild::weighted(
+                Flex::new(
+                    {
+                        params!(FlexParams {
+                            direction: FlexDirection::Row,
+                            force_orthogonal_same_size: true,
+                            children: main_panel_children.clone(),
+                        })
+                    },
+                    world,
+                ),
+                1.0,
+            )
+            .into_rc_refcell(),
+            FlexChild::weighted(Empty::new(world), 0.0).into_rc_refcell(),
+            FlexChild::new(error).into_rc_refcell(),
+            FlexChild::new(actions).into_rc_refcell(),
+        ];
+
         let ui = PreferSize::new(
-            Box::new(Flex::new_column(
-                vec![
-                    FlexChild::new(Box::new(title)),
-                    FlexChild::weighted(
-                        Box::new(Flex::new_row(
-                            vec![
-                                FlexChild::weighted(
-                                    Box::new(Flex::new_column(
-                                        vec![
-                                            FlexChild::new(tileset_name_input),
-                                            FlexChild::new(tiles_wide),
-                                            FlexChild::new(tiles_high),
-                                        ],
-                                        true,
-                                        world,
-                                    )),
-                                    1.0,
-                                ),
-                                FlexChild::weighted(
-                                    Box::new(Flex::new_column_unweighted(
-                                        vec![Box::new(texture), tex_description],
-                                        true,
-                                        world,
-                                    )),
-                                    1.0,
-                                ),
-                            ],
-                            true,
-                            world,
-                        )),
-                        1.0,
-                    ),
-                    FlexChild::weighted(Box::new(Empty::new(world)), 0.0),
-                    FlexChild::new(error),
-                    FlexChild::new(Box::new(actions)),
-                ],
-                true,
+            Flex::new(
+                {
+                    params!(FlexParams {
+                        direction: FlexDirection::Column,
+                        force_orthogonal_same_size: true,
+                        children: main_layout_children.clone(),
+                    })
+                },
                 world,
-            )),
+            ),
             params!(PreferSizeParams {
                 size: ElementSize {
                     width: 256.0 * 2.0 + 50.0,
@@ -373,7 +405,7 @@ impl<ApplicationEvent> LoadTileSetMenu<ApplicationEvent> {
         )
         .anchor(
             params!(AnchorParams {
-                location: AnchorLocation::CENTER
+                location: AnchorLocation::Center
             }),
             world,
         );
@@ -422,12 +454,11 @@ impl<ApplicationEvent> LoadTileSetMenu<ApplicationEvent> {
                 errors,
             },
             event_manager: Rc::new(RefCell::new(EventManager::new())),
-            _phantom: PhantomData,
         })
     }
 }
 
-impl ApplicationStateEx for LoadTileSetMenu<ApplicationEvent> {
+impl ApplicationStateEx for LoadTileSetMenu {
     type StateEvent = LoadTileSetMenuEvent;
     type State = LoadTileMenuState;
     type ApplicationEvent = ApplicationEvent;

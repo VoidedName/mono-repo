@@ -1,7 +1,4 @@
-use crate::{
-    Element, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionEvent, SizeConstraints,
-    StateToParams, UiContext,
-};
+use crate::{into_box_impl, Element, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionEvent, SizeConstraints, StateToParams, UiContext};
 use vn_scene::Scene;
 
 pub struct Interactive<State: 'static, Message: 'static> {
@@ -16,13 +13,13 @@ pub struct InteractiveParams {
 
 impl<State, Message> Interactive<State, Message> {
     pub fn new<P: Into<StateToParams<State, InteractiveParams>>>(
-        child: Box<dyn Element<State = State, Message = Message>>,
+        child: impl Into<Box<dyn Element<State = State, Message = Message>>>,
         params: P,
         world: &mut ElementWorld,
     ) -> Self {
         Self {
             id: world.next_id(),
-            child,
+            child: child.into(),
             params: params.into(),
         }
     }
@@ -78,38 +75,40 @@ impl<State, Message> ElementImpl for Interactive<State, Message> {
     }
 }
 
-pub trait InteractiveExt: Element {
-    fn interactive<P: Into<StateToParams<Self::State, InteractiveParams>>>(
+pub trait InteractiveExt<State, Message> {
+    fn interactive<P: Into<StateToParams<State, InteractiveParams>>>(
         self,
         params: P,
         world: &mut ElementWorld,
-    ) -> Interactive<Self::State, Self::Message>;
+    ) -> Interactive<State, Message>;
 
     fn interactive_set(
         self,
         interactive: bool,
         world: &mut ElementWorld,
-    ) -> Interactive<Self::State, Self::Message>;
+    ) -> Interactive<State, Message>;
 }
 
-impl<E: Element + 'static> InteractiveExt for E {
-    fn interactive<P: Into<StateToParams<Self::State, InteractiveParams>>>(
+impl<State, Message, E: Into<Box<dyn Element<State = State, Message = Message>>> + 'static> InteractiveExt<State, Message> for E {
+    fn interactive<P: Into<StateToParams<State, InteractiveParams>>>(
         self,
         params: P,
         world: &mut ElementWorld,
-    ) -> Interactive<Self::State, Self::Message> {
-        Interactive::new(Box::new(self), params, world)
+    ) -> Interactive<State, Message> {
+        Interactive::new(self, params, world)
     }
 
     fn interactive_set(
         self,
         interactive: bool,
         world: &mut ElementWorld,
-    ) -> Interactive<Self::State, Self::Message> {
+    ) -> Interactive<State, Message> {
         let params = StateToParams(Box::new(move |_| InteractiveParams {
             is_interactive: interactive,
         }));
 
-        Interactive::new(Box::new(self), params, world)
+        Interactive::new(self, params, world)
     }
 }
+
+into_box_impl!(Interactive);

@@ -1,22 +1,19 @@
-use crate::{
-    Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams,
-    UiContext,
-};
+use crate::{into_box_impl, params, Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams, UiContext};
 use vn_scene::Scene;
 
 #[derive(Clone, Copy)]
 pub enum AnchorLocation {
-    TOP,
-    BOTTOM,
-    LEFT,
-    RIGHT,
+    Top,
+    Bottom,
+    Left,
+    Right,
 
     TopLeft,
     TopRight,
     BottomLeft,
     BottomRight,
 
-    CENTER,
+    Center,
 }
 
 #[derive(Clone, Copy)]
@@ -33,13 +30,13 @@ pub struct Anchor<State: 'static, Message: 'static> {
 
 impl<State, Message> Anchor<State, Message> {
     pub fn new<P: Into<StateToParams<State, AnchorParams>>>(
-        child: Box<dyn Element<State = State, Message = Message>>,
+        child: impl Into<Box<dyn Element<State = State, Message = Message>>>,
         params: P,
         world: &mut ElementWorld,
     ) -> Self {
         Self {
             id: world.next_id(),
-            child,
+            child: child.into(),
             child_size: ElementSize::ZERO,
             params: params.into(),
         }
@@ -95,7 +92,7 @@ impl<State, Message> ElementImpl for Anchor<State, Message> {
             ctx,
         });
         match params.location {
-            AnchorLocation::TOP => self.child.draw(
+            AnchorLocation::Top => self.child.draw(
                 ctx,
                 state,
                 (
@@ -105,7 +102,7 @@ impl<State, Message> ElementImpl for Anchor<State, Message> {
                 self.child_size,
                 canvas,
             ),
-            AnchorLocation::BOTTOM => self.child.draw(
+            AnchorLocation::Bottom => self.child.draw(
                 ctx,
                 state,
                 (
@@ -115,7 +112,7 @@ impl<State, Message> ElementImpl for Anchor<State, Message> {
                 self.child_size,
                 canvas,
             ),
-            AnchorLocation::LEFT => self.child.draw(
+            AnchorLocation::Left => self.child.draw(
                 ctx,
                 state,
                 (
@@ -125,7 +122,7 @@ impl<State, Message> ElementImpl for Anchor<State, Message> {
                 self.child_size,
                 canvas,
             ),
-            AnchorLocation::RIGHT => self.child.draw(
+            AnchorLocation::Right => self.child.draw(
                 ctx,
                 state,
                 (
@@ -160,7 +157,7 @@ impl<State, Message> ElementImpl for Anchor<State, Message> {
                 self.child_size,
                 canvas,
             ),
-            AnchorLocation::CENTER => self.child.draw(
+            AnchorLocation::Center => self.child.draw(
                 ctx,
                 state,
                 (
@@ -183,20 +180,49 @@ impl<State, Message> ElementImpl for Anchor<State, Message> {
     }
 }
 
-pub trait AnchorExt: Element {
-    fn anchor<P: Into<StateToParams<Self::State, AnchorParams>>>(
+pub trait AnchorExt<State, Message> {
+    fn anchor<P: Into<StateToParams<State, AnchorParams>>>(
         self,
         params: P,
         world: &mut ElementWorld,
-    ) -> Anchor<Self::State, Self::Message>;
+    ) -> Anchor<State, Message>;
 }
 
-impl<E: Element + 'static> AnchorExt for E {
-    fn anchor<P: Into<StateToParams<Self::State, AnchorParams>>>(
+impl<State, Message, E: Into<Box<dyn Element<State = State, Message = Message>>> + 'static>
+    AnchorExt<State, Message> for E
+{
+    fn anchor<P: Into<StateToParams<State, AnchorParams>>>(
         self,
         params: P,
         world: &mut ElementWorld,
-    ) -> Anchor<Self::State, Self::Message> {
-        Anchor::new(Box::new(self), params, world)
+    ) -> Anchor<State, Message> {
+        Anchor::new(self, params, world)
     }
 }
+
+into_box_impl!(Anchor);
+
+macro_rules! anchor_location {
+    ($ident:ident, $location:ident) => {
+        #[macro_export]
+        macro_rules! $ident {
+            () => {
+                {
+                    $crate::params!($crate::AnchorParams {
+                        location: $crate::AnchorLocation::$location,
+                    })
+                }
+            };
+        }
+    };
+}
+
+anchor_location!(top, Top);
+anchor_location!(bottom, Bottom);
+anchor_location!(left, Left);
+anchor_location!(right, Right);
+anchor_location!(topleft, TopLeft);
+anchor_location!(topright, TopRight);
+anchor_location!(bottomleft, BottomLeft);
+anchor_location!(bottomright, BottomRight);
+anchor_location!(center, Center);

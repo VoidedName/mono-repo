@@ -162,12 +162,26 @@ where
     )
     .anchor(
         params!(AnchorParams {
-            location: AnchorLocation::LEFT
+            location: AnchorLocation::Left
         }),
         world,
     );
 
-    let flex = Flex::new_row_unweighted(vec![Box::new(label), input.element], true, world);
+    let flex = Flex::new(
+        {
+            let flex_children = vec![
+                FlexChild::new(label).into_rc_refcell(),
+                FlexChild::new(input.element).into_rc_refcell(),
+            ];
+
+            params!(FlexParams {
+                direction: FlexDirection::Row,
+                force_orthogonal_same_size: true,
+                children: flex_children.clone()
+            })
+        },
+        world,
+    );
 
     input.element = Box::new(flex);
 

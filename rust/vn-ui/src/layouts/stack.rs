@@ -1,7 +1,4 @@
-use crate::{
-    DynamicDimension, DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld,
-    SizeConstraints, UiContext,
-};
+use crate::{into_box_impl, DynamicDimension, DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, UiContext};
 use vn_scene::Scene;
 
 pub struct Stack<State, Message> {
@@ -112,22 +109,4 @@ impl<State, Message> ElementImpl for Stack<State, Message> {
     }
 }
 
-pub trait StackExt: Element {
-    fn stack_with(
-        self,
-        others: Vec<Box<dyn Element<State = Self::State, Message = Self::Message>>>,
-        world: &mut ElementWorld,
-    ) -> Stack<Self::State, Self::Message>;
-}
-
-impl<E: Element + 'static> StackExt for E {
-    fn stack_with(
-        self,
-        others: Vec<Box<dyn Element<State = Self::State, Message = Self::Message>>>,
-        world: &mut ElementWorld,
-    ) -> Stack<Self::State, Self::Message> {
-        let mut elements = others;
-        elements.insert(0, Box::new(self));
-        Stack::new(elements, world)
-    }
-}
+into_box_impl!(Stack);

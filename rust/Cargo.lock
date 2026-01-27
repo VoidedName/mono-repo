@@ -1804,6 +1804,8 @@ name = "vn-tilemap"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "vn-scene",
+ "vn-ui",
 ]
 
 [[package]]

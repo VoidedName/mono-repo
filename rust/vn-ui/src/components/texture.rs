@@ -1,7 +1,4 @@
-use crate::{
-    DynamicDimension, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionEvent,
-    SizeConstraints, StateToParams, UiContext,
-};
+use crate::{into_box_impl, DynamicDimension, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionEvent, SizeConstraints, StateToParams, UiContext};
 use vn_scene::{Color, ImagePrimitiveData, Rect, Scene, TextureId, Transform};
 use vn_ui_animation::Interpolatable;
 use vn_ui_animation_macros::Interpolatable;
@@ -237,3 +234,5 @@ impl<State, Message> ElementImpl for Texture<State, Message> {
         vec![]
     }
 }
+
+into_box_impl!(Texture);

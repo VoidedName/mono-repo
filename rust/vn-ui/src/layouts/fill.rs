@@ -1,6 +1,6 @@
 use crate::{
     DynamicDimension, Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints,
-    UiContext,
+    UiContext, into_box_impl,
 };
 
 use vn_scene::Scene;
@@ -12,12 +12,12 @@ pub struct Fill<State, Message> {
 
 impl<State, Message> Fill<State, Message> {
     pub fn new(
-        element: Box<dyn Element<State = State, Message = Message>>,
+        element: impl Into<Box<dyn Element<State = State, Message = Message>>>,
         world: &mut ElementWorld,
     ) -> Self {
         Self {
             id: world.next_id(),
-            element,
+            element: element.into(),
         }
     }
 }
@@ -81,12 +81,16 @@ impl<State, Message> ElementImpl for Fill<State, Message> {
     }
 }
 
-pub trait FillExt: Element {
-    fn fill(self, world: &mut ElementWorld) -> Fill<Self::State, Self::Message>;
+pub trait FillExt<State, Message> {
+    fn fill(self, world: &mut ElementWorld) -> Fill<State, Message>;
 }
 
-impl<E: Element + 'static> FillExt for E {
-    fn fill(self, world: &mut ElementWorld) -> Fill<Self::State, Self::Message> {
-        Fill::new(Box::new(self), world)
+impl<State, Message, E: Into<Box<dyn Element<State = State, Message = Message>>> + 'static>
+    FillExt<State, Message> for E
+{
+    fn fill(self, world: &mut ElementWorld) -> Fill<State, Message> {
+        Fill::new(self, world)
     }
 }
+
+into_box_impl!(Fill);

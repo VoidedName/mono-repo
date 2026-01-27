@@ -1,4 +1,4 @@
-use crate::{ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, UiContext};
+use crate::{into_box_impl, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, UiContext};
 use vn_scene::Scene;
 
 pub struct Empty<State: 'static, Message: 'static> {
@@ -51,3 +51,5 @@ impl<State, Message> ElementImpl for Empty<State, Message> {
         vec![]
     }
 }
+
+into_box_impl!(Empty);
