@@ -149,7 +149,11 @@ where
                 state.update();
                 match state.render() {
                     Ok(_) => {}
-                    Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::OutOfMemory) => {
+                    Err(
+                        wgpu::SurfaceError::Lost
+                        | wgpu::SurfaceError::OutOfMemory
+                        | wgpu::SurfaceError::Outdated,
+                    ) => {
                         let size = state.context.window.inner_size();
                         state.resize(size.width, size.height)
                     }

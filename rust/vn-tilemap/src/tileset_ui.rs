@@ -5,12 +5,12 @@ use std::rc::Rc;
 use vn_scene::{Color, ImagePrimitiveData, Rect, Scene, TextureId, Transform};
 use vn_ui::{
     ElementId, ElementImpl, ElementSize, ElementWorld, InteractionEvent, SizeConstraints,
-    StateToParams, StateToParamsArgs, UiContext,
+    StateToParams, StateToParamsArgs, UiContext, into_box_impl,
 };
 
 #[derive(Clone)]
 pub struct TileMapParams {
-    pub texture: Vec<TextureId>,
+    pub textures: Vec<TextureId>,
     pub specification: TileMapSpecification,
     pub draw_tile_size: ElementSize,
 }
@@ -74,29 +74,41 @@ impl<State, Message> ElementImpl for TileMap<State, Message> {
             id: self.id,
         });
 
-        for (layer, tex) in params.specification.layers.iter().zip(&params.texture) {
-            let tile_width_in_tex =
-                layer.tile_dimensions.0 as f32 / layer.tileset_dimensions.0 as f32;
-            let tile_height_in_tex =
-                layer.tile_dimensions.1 as f32 / layer.tileset_dimensions.1 as f32;
+        let specs = &params
+            .specification
+            .layers
+            .iter()
+            .zip(&params.textures)
+            .collect::<Vec<_>>();
 
-            for (y, tiles) in layer.map.tiles.iter().enumerate() {
-                for (x, tile) in tiles.iter().enumerate() {
-                    if let Some(tile) = tile {
-                        let x_in_tex = *tile as u32 % layer.tileset_dimensions.1;
-                        let y_in_tex = *tile as u32 / layer.tileset_dimensions.0;
+        ctx.with_clipping(
+            Rect {
+                position: [origin.0, origin.1],
+                size: [size.width, size.height],
+            },
+            |ctx| {
+                for x in 0..params.specification.map_dimensions.0 {
+                    for y in 0..params.specification.map_dimensions.1 {
+                        for (layer, texture) in specs {
+                            let tile_id = layer
+                                .map
+                                .tiles
+                                .get(y as usize)
+                                .map(|row| row.get(x as usize).unwrap_or(&None))
+                                .unwrap_or(&None);
 
-                        ctx.with_clipping(
-                            Rect {
-                                position: [origin.0, origin.1],
-                                size: [size.width, size.height],
-                            },
-                            |ctx| {
+                            let uv_width = 1.0 / layer.tileset_dimensions.0 as f32;
+                            let uv_height = 1.0 / layer.tileset_dimensions.1 as f32;
+
+                            if let Some(tile_id) = tile_id {
+                                let uv_x = *tile_id as u32 / layer.tileset_dimensions.1;
+                                let uv_y = *tile_id as u32 % layer.tileset_dimensions.0;
+
                                 scene.add_image(ImagePrimitiveData {
                                     transform: Transform {
                                         translation: [
-                                            x as f32 * params.draw_tile_size.width,
-                                            y as f32 * params.draw_tile_size.height,
+                                            x as f32 * params.draw_tile_size.width + origin.0,
+                                            y as f32 * params.draw_tile_size.height + origin.1,
                                         ],
                                         ..Transform::DEFAULT
                                     },
@@ -105,22 +117,19 @@ impl<State, Message> ElementImpl for TileMap<State, Message> {
                                         params.draw_tile_size.height,
                                     ],
                                     tint: Color::WHITE,
-                                    texture_id: tex.clone(),
+                                    texture_id: (*texture).clone(),
                                     clip_rect: ctx.clip_rect,
                                     uv_rect: Rect {
-                                        position: [
-                                            x_in_tex as f32 * tile_width_in_tex,
-                                            y_in_tex as f32 * tile_height_in_tex,
-                                        ],
-                                        size: [tile_width_in_tex, tile_height_in_tex],
+                                        position: [uv_x as f32 * uv_width, uv_y as f32 * uv_height],
+                                        size: [uv_width, uv_height],
                                     },
                                 })
-                            },
-                        )
+                            };
+                        }
                     }
                 }
-            }
-        }
+            },
+        );
     }
 
     fn handle_event_impl(
@@ -132,3 +141,5 @@ impl<State, Message> ElementImpl for TileMap<State, Message> {
         vec![]
     }
 }
+
+into_box_impl!(TileMap);

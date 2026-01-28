@@ -7,3 +7,4 @@ edition = "2024"
 serde = { version = "1.0", features = ["derive"] }
 vn-ui = { path = "../vn-ui" }
 vn-scene = { path = "../vn-scene" }
+log = { workspace = true }

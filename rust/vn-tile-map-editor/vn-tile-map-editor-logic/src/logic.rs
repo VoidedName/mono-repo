@@ -257,14 +257,24 @@ impl StateLogic<SceneRenderer> for MainLogic {
                         ApplicationEvent::LoadTileset(loaded_tilesets) => {
                             log::info!("Start loading tileset");
 
-                            let file = self.platform.pick_file(&["png", "jpg"]);
+                            let file = self.platform.pick_file(&[
+                                // "png", "jpg"
+                            ]);
                             match file {
                                 Some(file) => {
-                                    // TODO: Deal with file loading error
-                                    let tex = self
+                                    let tex = match self
                                         .resource_manager
-                                        .load_texture_from_bytes(&file.bytes, Sampling::Nearest)
-                                        .expect("Failed to load texture");
+                                        .load_texture_from_bytes(&file.bytes, Sampling::Nearest) {
+                                        Ok(tex) => tex,
+                                        Err(e) => {
+                                            log::error!("Failed to load texture: {}", e);
+                                            new_menu.set_error(e.to_string());
+                                            self.app_state = Some(ApplicationState::NewLayerMenu(
+                                                new_menu,
+                                            ));
+                                            return;
+                                        }
+                                    };
 
                                     ApplicationState::LoadTileSetMenu(pollster::block_on(async {
                                         LoadTileSetMenuStateWithEditorMemory {

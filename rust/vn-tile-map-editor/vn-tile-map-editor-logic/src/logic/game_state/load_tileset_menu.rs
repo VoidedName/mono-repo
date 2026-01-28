@@ -4,7 +4,7 @@ use crate::logic::game_state::LoadTileMenuStateErrors::{
 };
 use crate::logic::game_state::{
     ApplicationStateEx, Input, LoadedTileSet, TextFieldState, TryLoadTileSetResult, btn, input,
-    label, labelled_input, suppress_enter_key,
+    label, labelled_input, suppress_enter_key, with_fps,
 };
 use crate::logic::{ApplicationContext, ApplicationEvent, Grid, GridParams};
 use crate::{UI_FONT, UI_FONT_SIZE};
@@ -90,20 +90,24 @@ impl LoadTileSetMenu {
     ) -> anyhow::Result<Self> {
         let world = Rc::new(RefCell::new(ElementWorld::new()));
         let save = btn(
-            "Save",
+            |_| "Save".to_string(),
             UI_FONT,
             UI_FONT_SIZE,
             |state: &LoadTileSetMenuState| !state.errors.is_empty(),
+            |_| Color::WHITE,
+            |_| Color::WHITE,
             |_| Color::WHITE,
             ctx.text_metrics.clone(),
             EventHandler::new(|_, _| vec![LoadTileSetMenuEvent::Save]),
             world.clone(),
         );
         let cancel = btn(
-            "Cancel",
+            |_| "Cancel".to_string(),
             UI_FONT,
             UI_FONT_SIZE,
             |_| false,
+            |_| Color::WHITE,
+            |_| Color::WHITE,
             |_| Color::WHITE,
             ctx.text_metrics.clone(),
             EventHandler::new(|_, _| vec![LoadTileSetMenuEvent::Cancel]),
@@ -416,14 +420,14 @@ impl LoadTileSetMenu {
 
         let mut suggested_name = loaded_texture
             .suggested_name
-            .split("[\\\\/]")
+            .split(&['\\', '/'])
             .collect::<Vec<_>>()
             .last()
             .unwrap()
             .to_string();
-        if suggested_name.contains("\\.") {
+        if suggested_name.contains('.') {
             suggested_name = suggested_name
-                .split("\\.")
+                .split('.')
                 .collect::<Vec<_>>()
                 .first()
                 .unwrap()
@@ -441,8 +445,8 @@ impl LoadTileSetMenu {
         errors.insert(TilesWideIsZero);
 
         Ok(Self {
+            ui: RefCell::new(with_fps(&ctx, Box::new(ui), world.clone())),
             ctx,
-            ui: RefCell::new(Box::new(ui)),
             state: LoadTileSetMenuState {
                 already_loaded_tilesets,
                 tileset_name_input_state: TextFieldState {

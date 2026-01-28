@@ -4,6 +4,7 @@ use crate::{UI_FONT, UI_FONT_SIZE};
 use std::cell::RefCell;
 use std::rc::Rc;
 use vn_scene::{Color, Rect};
+use vn_tilemap::{TileMap, TileMapParams};
 use vn_ui::*;
 use vn_wgpu_window::resource_manager::Sampling;
 
@@ -29,10 +30,12 @@ pub fn layers(
     .anchor(center!(), world.clone());
 
     let new_layer = btn(
-        "Add Layer",
+        |_| "Add Layer".to_string(),
         UI_FONT,
         UI_FONT_SIZE,
         |_| false,
+        |_| Color::WHITE,
+        |_| Color::WHITE,
         |_| Color::WHITE,
         ctx.text_metrics.clone(),
         EventHandler::new(|_, e| match e {
@@ -44,10 +47,12 @@ pub fn layers(
     );
 
     let save = btn(
-        "Save",
+        |_| "Save".to_string(),
         UI_FONT,
         UI_FONT_SIZE,
         |_| false,
+        |_| Color::WHITE,
+        |_| Color::WHITE,
         |_| Color::WHITE,
         ctx.text_metrics.clone(),
         EventHandler::new(|_, e| match e {
@@ -59,10 +64,12 @@ pub fn layers(
     );
 
     let load = btn(
-        "Load",
+        |_| "Load".to_string(),
         UI_FONT,
         UI_FONT_SIZE,
         |_| false,
+        |_| Color::WHITE,
+        |_| Color::WHITE,
         |_| Color::WHITE,
         ctx.text_metrics.clone(),
         EventHandler::new(|_, e| match e {
@@ -70,20 +77,6 @@ pub fn layers(
                 vec![EditorEvent::LoadSpec]
             }
         }),
-        world.clone(),
-    );
-
-    let add_layer = Flex::new(
-        {
-            let c = vec![
-                FlexChild::new(new_layer).into_rc_refcell(),
-            ];
-            params!(FlexParams {
-                direction: FlexDirection::Row,
-                force_orthogonal_same_size: false,
-                children: c.clone()
-            })
-        },
         world.clone(),
     );
 
@@ -119,12 +112,22 @@ pub fn layers(
                 let cache_len = { cache.borrow().len() };
 
                 for idx in cache_len..args.state.tile_map.layers.len() {
-                     let layer = label(
+                     let layer = btn(
                         move |state: &EditorState| state.tile_map.layers[idx].name.clone(),
                         UI_FONT,
                         UI_FONT_SIZE,
-                        Color::WHITE,
+                        |_| false,
+                        move |state: &EditorState| if state.current_layer.map(|l| l == idx).unwrap_or(false) {
+                            Color::GREEN
+                        } else {
+                            Color::WHITE.with_alpha(0.8)
+                        },
+                        |_| Color::TRANSPARENT,
+                        |_| Color::WHITE,
                         metrics.clone(),
+                        EventHandler::new(move |_, e| match e {
+                            ButtonAction::Clicked => vec![EditorEvent::SwitchToLayer(idx)],
+                        }),
                         world.clone(),
                     );
 
@@ -142,45 +145,41 @@ pub fn layers(
         world.clone(),
     );
 
-    let layer_list = ScrollArea::new(
-        layer_flex,
-        {
-            params!(args<EditorState> => ScrollAreaParams {
-                scroll_x: args.state.layer_list_scroll_x,
-                scroll_y: args.state.layer_list_scroll_y,
-                scroll_action_handler: EventHandler::new(|_, e| {
-                    match e {
-                        ScrollAreaAction::ScrollX(v) => vec![EditorEvent::LayerListScrollX(v)],
-                        ScrollAreaAction::ScrollY(v) => vec![EditorEvent::LayerListScrollY(v)],
-                    }
-                })
-            })
-        },
-        world.clone(),
-    );
-
-    let loaded_tileset_list = ScrollArea::new(
-        Empty::new(world.clone()),
-        params!(args<EditorState> => ScrollAreaParams {
-            scroll_x: args.state.loaded_tileset_list_view_scroll_x,
-            scroll_y: args.state.loaded_tileset_list_view_scroll_y,
-            scroll_action_handler: EventHandler::new(|_, e| {
-                match e {
-                    ScrollAreaAction::ScrollX(v) => vec![EditorEvent::LoadedTilesetListScrollX(v)],
-                    ScrollAreaAction::ScrollY(v) => vec![EditorEvent::LoadedTilesetListScrollY(v)],
-                }
-            })
-        }),
-        world.clone(),
-    );
+    let layer_list = layer_flex
+        .padding(params!(PaddingParams::uniform(5.0)), world.clone())
+        .card(
+            params!(CardParams {
+                border_color: Color::WHITE,
+                corner_radius: 5.0,
+                border_size: 2.0,
+                background_color: Color::BLACK,
+            }),
+            world.clone(),
+        );
 
     Flex::new(
         {
             let c = vec![
+                FlexChild::new(Flex::new(
+                    {
+                        let c = vec![
+                            FlexChild::weighted(Empty::new(world.clone()), 1.0).into_rc_refcell(),
+                        ];
+                        params!(FlexParams {
+                            force_orthogonal_same_size: true,
+                            direction: FlexDirection::Row,
+                            children: c.clone()
+                        })
+                    },
+                    world.clone(),
+                ))
+                .into_rc_refcell(),
                 FlexChild::new(title).into_rc_refcell(),
-                FlexChild::new(layer_list).into_rc_refcell(),
-                FlexChild::new(add_layer).into_rc_refcell(),
-                FlexChild::new(loaded_tileset_list).into_rc_refcell(),
+                FlexChild::new(
+                    layer_list.padding(params!(PaddingParams::bottom(25.0)), world.clone()),
+                )
+                .into_rc_refcell(),
+                FlexChild::new(new_layer).into_rc_refcell(),
                 FlexChild::weighted(Empty::new(world.clone()), 1.0).into_rc_refcell(),
                 FlexChild::new(save_load).into_rc_refcell(),
             ];
@@ -193,12 +192,21 @@ pub fn layers(
         world.clone(),
     )
     .padding(params!(PaddingParams::uniform(25.0)), world.clone())
+    .anchor(top!(), world.clone())
+    .fill(world.clone())
     .card(
         params!(CardParams {
             border_color: Color::WHITE,
             border_size: 2.0,
             background_color: Color::BLACK,
-            corner_radius: 25.0,
+            corner_radius: 5.0,
+        }),
+        world.clone(),
+    )
+    .prefer_size(
+        params!(PreferSizeParams {
+            width: Some(400.0),
+            height: None,
         }),
         world.clone(),
     )
@@ -226,7 +234,74 @@ pub fn editor(
     )
     .anchor(center!(), world.clone());
 
-    title.into()
+    let grid = Grid::new(
+        params!(args<EditorState> =>
+        GridParams {
+            cols: args.state.tile_map.map_dimensions.0,
+            rows: args.state.tile_map.map_dimensions.1,
+            grid_color: Color::WHITE.with_alpha(0.5),
+            grid_width: 3.0,
+            grid_size: (32.0, 32.0),
+        }),
+        world.clone(),
+    );
+
+    let map = TileMap::new(
+        params!(args<EditorState> => TileMapParams {
+            draw_tile_size: ElementSize {
+                width: 32.0,
+                height: 32.0,
+            },
+            textures: args.state.tile_map.layers.iter()
+                .map(|l| args.state.loaded_tilesets.get(&l.tileset).unwrap().clone())
+                .collect(),
+            specification: args.state.tile_map.clone(),
+        }),
+        world.clone(),
+    );
+
+    let map = Stack::new(vec![map.into(), grid.into()], world.clone())
+        .anchor(center!(), world.clone())
+        .scroll_area(
+            params!(args<EditorState> => ScrollAreaParams {
+                scroll_x: args.state.tilemap_view_scroll_x,
+                scroll_y: args.state.tilemap_view_scroll_y,
+                scroll_action_handler: EventHandler::new(|_, e| match e {
+                    ScrollAreaAction::ScrollX(v) => vec![EditorEvent::TilemapViewScrollX(v)],
+                    ScrollAreaAction::ScrollY(v) => vec![EditorEvent::TilemapViewScrollY(v)],
+                })
+            }),
+            world.clone(),
+        )
+        .fill(world.clone());
+
+    Box::new(Flex::new(
+        {
+            let c = vec![
+                FlexChild::new(Flex::new(
+                    {
+                        let c =
+                            FlexChild::weighted(Empty::new(world.clone()), 1.0).into_rc_refcell();
+                        params!(FlexParams {
+                            direction: FlexDirection::Row,
+                            children: vec![c.clone()],
+                            force_orthogonal_same_size: true,
+                        })
+                    },
+                    world.clone(),
+                ))
+                .into_rc_refcell(),
+                FlexChild::new(title).into_rc_refcell(),
+                FlexChild::weighted(map, 1.0).into_rc_refcell(),
+            ];
+            params!(FlexParams {
+                children: c.clone(),
+                direction: FlexDirection::Column,
+                force_orthogonal_same_size: true,
+            })
+        },
+        world.clone(),
+    ))
 }
 
 pub fn tileset(
@@ -339,12 +414,21 @@ pub fn tileset(
             world.clone(),
         )
         .padding(params!(PaddingParams::uniform(25.0)), world.clone())
+        .anchor(top!(), world.clone())
+        .fill(world.clone())
         .card(
             params!(CardParams {
                 border_color: Color::WHITE,
-                corner_radius: 25.0,
+                corner_radius: 5.0,
                 border_size: 2.0,
                 background_color: Color::BLACK,
+            }),
+            world.clone(),
+        )
+        .prefer_size(
+            params!(PreferSizeParams {
+                width: Some(400.0),
+                height: None,
             }),
             world.clone(),
         ),

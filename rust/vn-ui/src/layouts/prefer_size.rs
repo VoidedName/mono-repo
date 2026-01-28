@@ -1,7 +1,6 @@
 use crate::{
     DynamicDimension, DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld,
-    InteractionEvent, SizeConstraints, StateToParams, StateToParamsArgs,
-    UiContext, into_box_impl,
+    InteractionEvent, SizeConstraints, StateToParams, StateToParamsArgs, UiContext, into_box_impl,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -66,7 +65,7 @@ impl<State, Message> ElementImpl for PreferSize<State, Message> {
                 },
                 None => constraints.max_size.width,
             },
-            height: match params.width {
+            height: match params.height {
                 Some(height) => match constraints.max_size.height {
                     DynamicDimension::Hint(_) => DynamicDimension::Limit(height),
                     DynamicDimension::Limit(limit) => DynamicDimension::Limit(height.min(limit)),

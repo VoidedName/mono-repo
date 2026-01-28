@@ -1,5 +1,6 @@
-use crate::logic::TextMetric;
 use crate::logic::game_state::LoadTileSetMenuEvent;
+use crate::logic::{ApplicationContext, FpsStats, TextMetric};
+use crate::{UI_FONT, UI_FONT_SIZE};
 use std::cell::RefCell;
 use std::rc::Rc;
 use vn_scene::Color;
@@ -202,11 +203,13 @@ pub fn suppress_enter_key() -> fn(ElementId, &InteractionEvent) -> (Vec<LoadTile
 }
 
 pub fn btn<State: 'static, Event: Clone + 'static, F>(
-    text: impl ToString,
+    text: impl Fn(&State) -> String + 'static,
     font: impl ToString,
     font_size: f32,
     disabled: F,
     color: impl Fn(&State) -> Color + 'static,
+    border_color: impl Fn(&State) -> Color + 'static,
+    accent_color: impl Fn(&State) -> Color + 'static,
     metrics: Rc<TextMetric>,
     handler: EventHandler<ButtonAction, Event>,
     world: Rc<RefCell<ElementWorld>>,
@@ -216,10 +219,10 @@ where
 {
     let btn = TextField::new(
         {
-            let text = text.to_string();
             let font = font.to_string();
             let disabled = disabled.clone();
             params! {args =>
+                let text = text(args.state);
                 TextFieldParams {
                     visuals: TextVisuals {
                         text: text.clone(),
@@ -243,18 +246,16 @@ where
         .button({
                     let disabled = disabled.clone();
                     params! { args =>
-            let is_hovered = args.ctx.event_manager.borrow().is_hovered(args.id);
-            ButtonParams {
-                background: if is_hovered && !disabled(args.state) { Color::WHITE.with_alpha(0.15) } else { Color::WHITE.with_alpha(0.1) },
-                border_color: if is_hovered && !disabled(args.state) { Color::WHITE } else { Color::WHITE.with_alpha(0.5) },
-                border_width: 2.0,
-                corner_radius: 5.0,
-                interaction: Default::default(),
-                on_click: handler.clone(),
-            }
-                }
-                },
-                world.clone(),
+                        let is_hovered = args.ctx.event_manager.borrow().is_hovered(args.id);
+                        ButtonParams {
+                            background: if is_hovered && !disabled(args.state) { accent_color(args.state).with_alpha(0.15) } else { accent_color(args.state).with_alpha(0.1) },
+                            border_color: if is_hovered && !disabled(args.state) { border_color(args.state) } else { border_color(args.state).with_alpha(0.5) },
+                            border_width: 2.0,
+                            corner_radius: 5.0,
+                            interaction: Default::default(),
+                            on_click: handler.clone(),
+            }}
+                }, world.clone(),
         ).interactive({
                           let disabled = disabled.clone();
                           params!(args => InteractiveParams {is_interactive: !disabled(args.state)})
@@ -293,6 +294,34 @@ where
         },
         world.clone(),
     ))
+}
+
+pub fn with_fps<State: 'static, Message: Clone + 'static>(
+    ctx: &ApplicationContext,
+    layout: Box<dyn Element<State = State, Message = Message>>,
+    world: Rc<RefCell<ElementWorld>>,
+) -> Box<dyn Element<State = State, Message = Message>> {
+    let metrics = ctx.text_metrics.clone();
+    let fps = ctx.stats.clone();
+
+    let fps = label(
+        move |_| {
+            fps.borrow()
+                .current_fps
+                .borrow()
+                .map(|fps| format!("FPS: {:>7.2}", fps))
+                .unwrap_or("N/A".to_string())
+        },
+        UI_FONT,
+        UI_FONT_SIZE,
+        Color::WHITE.with_alpha(0.5),
+        metrics,
+        world.clone(),
+    )
+    .padding(params!(PaddingParams::uniform(5.0)), world.clone())
+    .anchor(top_right!(), world.clone());
+
+    Stack::new(vec![layout, fps.into()], world.clone()).into()
 }
 
 pub fn empty_texture() -> &'static [u8] {

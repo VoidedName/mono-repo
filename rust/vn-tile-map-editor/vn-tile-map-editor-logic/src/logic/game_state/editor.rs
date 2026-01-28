@@ -1,9 +1,9 @@
 use crate::logic::game_state::editor_ui::{editor, layers, tileset};
-use crate::logic::game_state::{ApplicationStateEx, TryLoadTileSetResult, label};
+use crate::logic::game_state::{ApplicationStateEx, TryLoadTileSetResult, label, with_fps};
 use crate::logic::{ApplicationContext, ApplicationEvent, EditorCallback};
 use crate::{UI_FONT, UI_FONT_SIZE};
 use std::cell::RefCell;
-use std::collections::{HashMap};
+use std::collections::HashMap;
 use std::rc::Rc;
 use vn_scene::{Color, TextureId};
 use vn_tilemap::{TileMapLayerMapSpecification, TileMapLayerSpecification, TileMapSpecification};
@@ -21,24 +21,21 @@ pub struct EditorState {
     tile_map: TileMapSpecification,
     tileset_view_scroll_x: ScrollBarParams,
     tileset_view_scroll_y: ScrollBarParams,
-    layer_list_scroll_x: ScrollBarParams,
-    layer_list_scroll_y: ScrollBarParams,
-    loaded_tileset_list_view_scroll_x: ScrollBarParams,
-    loaded_tileset_list_view_scroll_y: ScrollBarParams,
+    tilemap_view_scroll_x: ScrollBarParams,
+    tilemap_view_scroll_y: ScrollBarParams,
 }
 
 #[derive(Debug, Clone)]
 pub enum EditorEvent {
     TilesetViewScrollX(f32),
     TilesetViewScrollY(f32),
-    LayerListScrollX(f32),
-    LayerListScrollY(f32),
-    LoadedTilesetListScrollX(f32),
-    LoadedTilesetListScrollY(f32),
+    TilemapViewScrollX(f32),
+    TilemapViewScrollY(f32),
     TryAddingLayer,
     LoadSpec,
     SaveSpec,
     AddLayer(TryLoadTileSetResult),
+    SwitchToLayer(usize),
 }
 
 pub struct Editor {
@@ -114,8 +111,8 @@ impl Editor {
         };
 
         Ok(Self {
+            ui: RefCell::new(with_fps(&ctx, Box::new(ui), world.clone())),
             ctx,
-            ui: RefCell::new(Box::new(ui)),
             state: EditorState {
                 current_layer: None,
                 loaded_tilesets: HashMap::new(),
@@ -125,10 +122,8 @@ impl Editor {
                 },
                 tileset_view_scroll_x: scroll_bar,
                 tileset_view_scroll_y: scroll_bar,
-                layer_list_scroll_x: scroll_bar,
-                layer_list_scroll_y: scroll_bar,
-                loaded_tileset_list_view_scroll_x: scroll_bar,
-                loaded_tileset_list_view_scroll_y: scroll_bar,
+                tilemap_view_scroll_y: scroll_bar,
+                tilemap_view_scroll_x: scroll_bar,
             },
             event_manager: Rc::new(RefCell::new(EventManager::new())),
         })
@@ -156,19 +151,20 @@ impl ApplicationStateEx for Editor {
         log::info!("handling state event: {:?}", event);
 
         match event {
+            EditorEvent::SwitchToLayer(layer) => {
+                self.state.current_layer = Some(layer.clamp(0, self.state.tile_map.layers.len()));
+            }
             EditorEvent::TilesetViewScrollX(v) => {
                 self.state.tileset_view_scroll_x.position = Some(v)
             }
             EditorEvent::TilesetViewScrollY(v) => {
                 self.state.tileset_view_scroll_y.position = Some(v)
             }
-            EditorEvent::LayerListScrollX(v) => self.state.layer_list_scroll_x.position = Some(v),
-            EditorEvent::LayerListScrollY(v) => self.state.layer_list_scroll_y.position = Some(v),
-            EditorEvent::LoadedTilesetListScrollX(v) => {
-                self.state.loaded_tileset_list_view_scroll_x.position = Some(v)
+            EditorEvent::TilemapViewScrollX(v) => {
+                self.state.tilemap_view_scroll_x.position = Some(v)
             }
-            EditorEvent::LoadedTilesetListScrollY(v) => {
-                self.state.loaded_tileset_list_view_scroll_y.position = Some(v)
+            EditorEvent::TilemapViewScrollY(v) => {
+                self.state.tilemap_view_scroll_y.position = Some(v)
             }
             EditorEvent::TryAddingLayer => {
                 return Some(ApplicationEvent::NewLayer(
@@ -193,7 +189,15 @@ impl ApplicationStateEx for Editor {
                             name: "Unnamed Layer".to_string(),
                             tileset: tileset.name.clone(),
                             tile_dimensions: (tileset.tile_dimensions.0, tileset.tile_dimensions.1),
-                            map: TileMapLayerMapSpecification { tiles: vec![] },
+                            map: TileMapLayerMapSpecification {
+                                tiles: vec![
+                                    vec![
+                                        Some(0);
+                                        self.state.tile_map.map_dimensions.0 as usize
+                                    ];
+                                    self.state.tile_map.map_dimensions.1 as usize
+                                ],
+                            },
                             tileset_dimensions: (cols, rows),
                         });
 
@@ -214,7 +218,15 @@ impl ApplicationStateEx for Editor {
                             name: "Unnamed Layer".to_string(),
                             tileset: settings.tileset.clone(),
                             tile_dimensions: settings.tile_dimensions.clone(),
-                            map: TileMapLayerMapSpecification { tiles: vec![] },
+                            map: TileMapLayerMapSpecification {
+                                tiles: vec![
+                                    vec![
+                                        Some(0);
+                                        self.state.tile_map.map_dimensions.0 as usize
+                                    ];
+                                    self.state.tile_map.map_dimensions.1 as usize
+                                ],
+                            },
                             tileset_dimensions: settings.tileset_dimensions.clone(),
                         });
                     }

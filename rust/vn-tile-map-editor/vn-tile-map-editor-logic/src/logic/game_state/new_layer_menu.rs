@@ -1,21 +1,17 @@
-use crate::logic::game_state::{ApplicationStateEx, ListParams, btn, label, list};
+use crate::logic::game_state::{ApplicationStateEx, ListParams, btn, label, list, with_fps};
 use crate::logic::{ApplicationContext, ApplicationEvent};
 use crate::{UI_FONT, UI_FONT_SIZE};
 use std::cell::RefCell;
 use std::rc::Rc;
 use vn_scene::Color;
-use vn_ui::{
-    AnchorExt, ButtonAction, CardExt, CardParams, Element, ElementWorld, Empty, EventHandler,
-    EventManager, Flex, FlexChild, FlexDirection, FlexParams, PaddingExt, PaddingParams,
-    PreferSizeExt, PreferSizeParams, ScrollAreaAction, ScrollAreaExt, ScrollAreaParams,
-    ScrollBarParams, center, params,
-};
+use vn_ui::{AnchorExt, ButtonAction, CardExt, CardParams, Element, ElementWorld, Empty, EventHandler, EventManager, Flex, FlexChild, FlexDirection, FlexParams, PaddingExt, PaddingParams, PreferSizeExt, PreferSizeParams, ScrollAreaAction, ScrollAreaExt, ScrollAreaParams, ScrollBarParams, center, params, Stack};
 
 pub struct NewLayerState {
     existing_tileset_names: Vec<String>,
     selected_tileset: Option<usize>,
     scroll_x: ScrollBarParams,
     scroll_y: ScrollBarParams,
+    error: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -39,6 +35,12 @@ pub struct NewLayerMenu {
 }
 
 impl NewLayerMenu {
+    pub fn set_error(&mut self, error: String) {
+        self.state.error = Some(error)
+    }
+}
+
+impl NewLayerMenu {
     pub fn new(existing_tileset_names: Vec<String>, ctx: ApplicationContext) -> Self {
         let world = Rc::new(RefCell::new(ElementWorld::new()));
 
@@ -53,16 +55,13 @@ impl NewLayerMenu {
         .padding(params!(PaddingParams::bottom(25.0)), world.clone())
         .anchor(center!(), world.clone());
 
-        // menu
-        // title
-        // list
-        // Load New | Use Selected | Cancel
-
         let new = btn(
-            "Load New",
+            |_| "Load New".to_string(),
             UI_FONT,
             UI_FONT_SIZE,
             |_: &NewLayerState| false,
+            |_| Color::WHITE,
+            |_| Color::WHITE,
             |_| Color::WHITE,
             ctx.text_metrics.clone(),
             EventHandler::new(|_, e| match e {
@@ -72,10 +71,12 @@ impl NewLayerMenu {
         );
 
         let use_selected = btn(
-            "Use Selected",
+            |_| "Use Selected".to_string(),
             UI_FONT,
             UI_FONT_SIZE,
             |state: &NewLayerState| state.selected_tileset.is_none(),
+            |_| Color::WHITE,
+            |_| Color::WHITE,
             |_| Color::WHITE,
             ctx.text_metrics.clone(),
             EventHandler::new(|_, e| match e {
@@ -85,10 +86,12 @@ impl NewLayerMenu {
         );
 
         let cancel = btn(
-            "Cancel",
+            |_| "Cancel".to_string(),
             UI_FONT,
             UI_FONT_SIZE,
             |_: &NewLayerState| false,
+            |_| Color::WHITE,
+            |_| Color::WHITE,
             |_| Color::WHITE,
             ctx.text_metrics.clone(),
             EventHandler::new(|_, e| match e {
@@ -104,7 +107,7 @@ impl NewLayerMenu {
 
                 for idx in 0..existing_tileset_names.len() {
                     children.push(Rc::new(RefCell::new(FlexChild::new(btn(
-                        &existing_tileset_names[idx],
+                        move |state: &NewLayerState| state.existing_tileset_names[idx].clone(),
                         UI_FONT,
                         UI_FONT_SIZE,
                         |_| false,
@@ -119,6 +122,8 @@ impl NewLayerMenu {
                                 Color::WHITE.with_alpha(0.8)
                             }
                         },
+                        |_| Color::TRANSPARENT,
+                        |_| Color::WHITE,
                         ctx.text_metrics.clone(),
                         EventHandler::new(move |_, e| match e {
                             ButtonAction::Clicked => vec![NewLayerEvent::SelectLayer(idx)],
@@ -172,6 +177,15 @@ impl NewLayerMenu {
             world.clone(),
         );
 
+        let error = label(
+            |state: &NewLayerState| state.error.as_ref().unwrap_or(&"".to_string()).clone(),
+            UI_FONT,
+            UI_FONT_SIZE,
+            Color::RED,
+            ctx.text_metrics.clone(),
+            world.clone(),
+        );
+
         let layout = Flex::new(
             {
                 let children = vec![
@@ -179,7 +193,11 @@ impl NewLayerMenu {
                     FlexChild::new(list).into_rc_refcell(),
                     FlexChild::new(
                         Empty::new(world.clone())
-                            .padding(params!(PaddingParams::vertical(10.0)), world.clone()),
+                            .padding(params!(PaddingParams::vertical(25.0)), world.clone()),
+                    )
+                    .into_rc_refcell(),
+                    FlexChild::new(
+                        error.padding(params!(PaddingParams::bottom(25.0)), world.clone()),
                     )
                     .into_rc_refcell(),
                     FlexChild::new(
@@ -240,12 +258,13 @@ impl NewLayerMenu {
         };
 
         Self {
-            ui: RefCell::new(Box::new(layout)),
+            ui: RefCell::new(with_fps(&ctx, Box::new(layout), world.clone())),
             state: NewLayerState {
                 existing_tileset_names,
                 selected_tileset: None,
                 scroll_x: scroll_bar,
                 scroll_y: scroll_bar,
+                error: None,
             },
             ctx,
             event_manager: Rc::new(RefCell::new(EventManager::new())),

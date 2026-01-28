@@ -328,8 +328,10 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                     crate::InteractionEventKind::MouseScroll { y } => {
                         if ctx.event_manager.borrow().is_hovered(self.id) {
                             let current = params.scroll_y.position.unwrap_or(0.0);
-                            let next = (current - y)
-                                .clamp(0.0, (self.child_size.height - self.viewport_size.height).max(0.0));
+                            let next = (current - y).clamp(
+                                0.0,
+                                (self.child_size.height - self.viewport_size.height).max(0.0),
+                            );
 
                             if current != next {
                                 return vec![ScrollAreaAction::ScrollY(next)];

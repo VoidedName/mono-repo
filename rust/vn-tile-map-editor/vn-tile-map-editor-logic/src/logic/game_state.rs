@@ -184,6 +184,12 @@ pub struct NewLayerMenuStateWithEditorMemory {
     pub editor_callback: EditorCallback<Option<TryLoadTileSetResult>>
 }
 
+impl NewLayerMenuStateWithEditorMemory {
+    pub fn set_error(&mut self, error: String) {
+        self.menu.set_error(error);
+    }
+}
+
 pub enum ApplicationState {
     Editor(Editor),
     NewLayerMenu(NewLayerMenuStateWithEditorMemory),
