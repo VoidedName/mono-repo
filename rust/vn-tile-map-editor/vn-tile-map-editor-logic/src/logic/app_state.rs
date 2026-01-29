@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use std::time::Instant;
 use winit::event::ElementState;
@@ -170,12 +171,27 @@ pub enum TryLoadTileSetResult {
     Reuse(String),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct LoadedTileSet {
     name: String,
+    extension: Option<String>,
     texture_id: TextureId,
     texture_dimensions: (u32, u32),
     tile_dimensions: (u32, u32),
+    bytes: Rc<RefCell<Vec<u8>>>,
+}
+
+impl Debug for LoadedTileSet {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LoadedTileSet")
+            .field("name", &self.name)
+            .field("extension", &self.extension)
+            .field("texture_id", &self.texture_id)
+            .field("texture_dimensions", &self.texture_dimensions)
+            .field("tile_dimensions", &self.tile_dimensions)
+            .field("bytes", &"<bytes>")
+            .finish()
+    }
 }
 
 pub struct LoadTileSetMenuStateWithEditorMemory {

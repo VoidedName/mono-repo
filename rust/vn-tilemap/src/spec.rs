@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TileMapSpecification {
-    /// Dimensions of the map in tiles
+    pub version: u32,
     pub map_dimensions: (u32, u32),
     pub layers: Vec<TileMapLayerSpecification>,
 }

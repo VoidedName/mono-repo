@@ -103,8 +103,15 @@ pub enum FileLoadingError {
     GeneralError(String),
 }
 
-pub struct File {
+#[derive(Clone, Debug)]
+pub struct FileDescriptor {
+    pub path: String,
     pub name: String,
+    pub extension: Option<String>,
+}
+
+pub struct File {
+    pub descriptor: FileDescriptor,
     pub bytes: Vec<u8>,
 }
 
@@ -116,12 +123,16 @@ pub trait PlatformHooks {
 
     fn load_file(
         &self,
-        path: String,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<Vec<u8>, FileLoadingError>>>>;
+        file: &FileDescriptor,
+    ) -> Pin<Box<dyn Future<Output = anyhow::Result<File, FileLoadingError>>>>;
 
     fn exit(&self);
 
     fn pick_file(&self, extensions: &[&str]) -> Option<File>;
+
+    fn pick_folder(&self) -> Option<String>;
+
+    fn save_file(&self, file: File) -> anyhow::Result<()>;
 }
 
 pub struct EditorCallback<Msg> {
@@ -295,7 +306,9 @@ impl StateLogic<SceneRenderer> for MainLogic {
                                                     stats: self.fps_stats.clone(),
                                                 },
                                                 LoadedTexture {
-                                                    suggested_name: file.name,
+                                                    suggested_name: file.descriptor.name.clone(),
+                                                    extension: file.descriptor.extension,
+                                                    bytes: Rc::new(RefCell::new(file.bytes)),
                                                     id: tex.id.clone(),
                                                     dimensions: tex.size,
                                                 },

@@ -18,6 +18,8 @@ use vn_ui::*;
 #[derive(Debug)]
 pub struct LoadedTexture {
     pub suggested_name: String,
+    pub bytes: Rc<RefCell<Vec<u8>>>,
+    pub extension: Option<String>,
     pub id: TextureId,
     pub dimensions: (u32, u32),
 }
@@ -432,21 +434,7 @@ impl LoadTileSetMenu {
             world.clone(),
         );
 
-        let mut suggested_name = loaded_texture
-            .suggested_name
-            .split(&['\\', '/'])
-            .collect::<Vec<_>>()
-            .last()
-            .unwrap()
-            .to_string();
-        if suggested_name.contains('.') {
-            suggested_name = suggested_name
-                .split('.')
-                .collect::<Vec<_>>()
-                .first()
-                .unwrap()
-                .to_string();
-        }
+        let suggested_name = loaded_texture.suggested_name.clone();
 
         let mut errors = HashSet::new();
         if suggested_name.is_empty() {
@@ -634,6 +622,8 @@ impl ApplicationStateEx for LoadTileSetMenu {
                         texture_id: self.state.loaded_texture.id.clone(),
                         name: self.state.tileset_name_input_state.text.clone(),
                         texture_dimensions: self.state.loaded_texture.dimensions,
+                        bytes: self.state.loaded_texture.bytes.clone(),
+                        extension: self.state.loaded_texture.extension.clone(),
                         tile_dimensions: (
                             self.state.loaded_texture.dimensions.0 / self.state.tiles_wide,
                             self.state.loaded_texture.dimensions.1 / self.state.tiles_high,

@@ -1,17 +1,43 @@
 use env_logger::Env;
-use rfd::{AsyncFileDialog};
+use rfd::AsyncFileDialog;
 use std::future::Future;
 use std::io::Read;
+use std::path::PathBuf;
 use std::pin::Pin;
-use vn_tile_map_editor_logic::logic::{File, FileLoadingError, PlatformHooks};
+use vn_tile_map_editor_logic::logic::{File, FileDescriptor, FileLoadingError, PlatformHooks};
 
-pub async fn load_file(path: String) -> anyhow::Result<Vec<u8>, FileLoadingError> {
+pub async fn load_file(file_to_load: FileDescriptor) -> anyhow::Result<File, FileLoadingError> {
+    let mut path = PathBuf::from(&file_to_load.path).join(&file_to_load.name);
+    if let Some(extension) = &file_to_load.extension {
+        path = path.with_added_extension(extension);
+    }
+
     let mut file = std::fs::File::open(path)
         .map_err(|e| FileLoadingError::GeneralError(format!("Failed to open file: {}", e)))?;
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer)
         .map_err(|e| FileLoadingError::GeneralError(format!("Failed to read file: {}", e)))?;
-    Ok(buffer)
+
+    Ok(File {
+        descriptor: file_to_load.clone(),
+        bytes: buffer,
+    })
+}
+
+fn divide_path(path: &str) -> (String, String, Option<String>) {
+    let path = PathBuf::from(path);
+    let extension = path.extension().map(|e| e.to_string_lossy().to_string());
+    let name = path
+        .file_stem()
+        .map(|f| f.to_string_lossy().to_string())
+        .unwrap_or_default();
+    (
+        path.parent()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default(),
+        name,
+        extension,
+    )
 }
 
 struct NativePlatformHooks;
@@ -20,14 +46,22 @@ impl PlatformHooks for NativePlatformHooks {
         &self,
         path: String,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<Vec<u8>, FileLoadingError>>>> {
-        Box::pin(load_file(format!("assets/{}", path)))
+        Box::pin(async move {
+            load_file(FileDescriptor {
+                path: "assets".to_string(),
+                name: path,
+                extension: None,
+            })
+            .await
+            .map(|f| f.bytes)
+        })
     }
 
     fn load_file(
         &self,
-        path: String,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<Vec<u8>, FileLoadingError>>>> {
-        Box::pin(load_file(format!("{}", path)))
+        file: &FileDescriptor,
+    ) -> Pin<Box<dyn Future<Output = anyhow::Result<File, FileLoadingError>>>> {
+        Box::pin(load_file(file.clone()))
     }
 
     fn exit(&self) {
@@ -40,18 +74,43 @@ impl PlatformHooks for NativePlatformHooks {
                 .add_filter("filter", extensions)
                 .pick_file()
                 .await
-                .map(|path| path.path().to_str().map(String::from))
-                .flatten();
+                .map(|path| {
+                    let path = path.path().to_string_lossy().to_string();
+                    divide_path(&path)
+                });
 
             match path {
-                Some(path) => self
-                    .load_file(path.clone())
+                Some((parent, name, extension)) => self
+                    .load_file(&FileDescriptor {
+                        path: parent,
+                        name,
+                        extension,
+                    })
                     .await
-                    .ok()
-                    .map(|bytes| File { bytes, name: path }),
+                    .ok(),
                 None => None,
             }
         })
+    }
+
+    fn pick_folder(&self) -> Option<String> {
+        pollster::block_on(async {
+            AsyncFileDialog::new()
+                .pick_folder()
+                .await
+                .map(|path| path.path().to_string_lossy().to_string())
+        })
+    }
+
+    fn save_file(&self, file: File) -> anyhow::Result<()> {
+        let path = std::path::Path::new(&file.descriptor.path);
+        let mut path = path.join(file.descriptor.name);
+        if let Some(extension) = &file.descriptor.extension {
+            path = path.with_added_extension(extension);
+        }
+
+        std::fs::write(path, file.bytes)?;
+        Ok(())
     }
 }
 

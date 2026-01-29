@@ -2,7 +2,7 @@ use crate::logic::app_state::editor_ui::{editor, layers, tileset};
 use crate::logic::app_state::{
     ApplicationStateEx, LoadedTileSet, TryLoadTileSetResult, label, with_fps,
 };
-use crate::logic::{ApplicationContext, ApplicationEvent, EditorCallback};
+use crate::logic::{ApplicationContext, ApplicationEvent, EditorCallback, File, FileDescriptor};
 use crate::{UI_FONT, UI_FONT_SIZE};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -13,6 +13,7 @@ use vn_ui::{
     AnchorExt, AnchorLocation, AnchorParams, Element, ElementWorld, Empty, EventManager, Flex,
     FlexChild, FlexDirection, FlexParams, PaddingExt, PaddingParams, ScrollBarParams, params,
 };
+use vn_wgpu_window::resource_manager::Sampling;
 
 pub mod editor_ui;
 
@@ -146,6 +147,7 @@ impl Editor {
                 current_layer: None,
                 loaded_tilesets: HashMap::new(),
                 tile_map: TileMapSpecification {
+                    version: 1,
                     layers: vec![],
                     map_dimensions: (10, 5),
                 },
@@ -307,8 +309,138 @@ impl ApplicationStateEx for Editor {
                     }
                 }
             }
-            EditorEvent::LoadSpec => {}
-            EditorEvent::SaveSpec => {}
+            EditorEvent::LoadSpec => {
+                // todo: !!!!!error handling!!!!!
+                if let Some(folder) = self.ctx.platform.pick_folder() {
+                    pollster::block_on(async {
+                        let map = self
+                            .ctx
+                            .platform
+                            .load_file(&FileDescriptor {
+                                path: folder.clone(),
+                                name: "tilemap".to_string(),
+                                extension: Some("json".to_string()),
+                            })
+                            .await
+                            .expect("failed to load tilemap spec");
+
+                        let mut map: TileMapSpecification = serde_json::from_slice(&map.bytes)
+                            .expect("failed to deserialize tilemap spec");
+
+                        for l in map.layers.iter_mut() {
+                            let tex_file = self
+                                .ctx
+                                .platform
+                                .load_file(&FileDescriptor {
+                                    path: folder.clone(),
+                                    name: l.tileset.clone(),
+                                    extension: None,
+                                })
+                                .await
+                                .expect("failed to load tileset spec");
+
+                            let tex = self
+                                .ctx
+                                .rm
+                                .load_texture_from_bytes(&tex_file.bytes, Sampling::Nearest)
+                                .expect("failed to load tileset texture");
+
+                            let tileset = LoadedTileSet {
+                                name: tex_file.descriptor.name.clone(),
+                                extension: tex_file.descriptor.extension,
+                                texture_id: tex.id.clone(),
+                                texture_dimensions: (
+                                    l.tileset_dimensions.0 * l.tile_dimensions.0,
+                                    l.tileset_dimensions.1 * l.tile_dimensions.1,
+                                ),
+                                tile_dimensions: l.tile_dimensions,
+                                bytes: Rc::new(RefCell::new(tex_file.bytes)),
+                            };
+                            l.tileset = tex_file.descriptor.name.clone();
+                            self.state
+                                .loaded_tilesets
+                                .insert(tex_file.descriptor.name, tileset);
+                        }
+
+                        let bar = ScrollBarParams {
+                            width: 16.0,
+                            color: Color::WHITE,
+                            position: Some(0.0),
+                            margin: 8.0,
+                        };
+
+                        let current_layer = if map.layers.len() > 0 {
+                            Some(0)
+                        } else {
+                            None
+                        };
+
+                        self.state = EditorState {
+                            loaded_tilesets: self.state.loaded_tilesets.clone(),
+                            current_layer,
+                            layer_caret_positions: vec![None; map.layers.len()],
+                            tile_map: map,
+                            tileset_view_scroll_x: bar,
+                            tileset_view_scroll_y: bar,
+                            tilemap_view_scroll_x: bar,
+                            tilemap_view_scroll_y: bar,
+                            brush: Brush::None,
+                        };
+                    })
+                };
+            }
+            EditorEvent::SaveSpec => {
+                let tilesets = self
+                    .state
+                    .tile_map
+                    .layers
+                    .iter()
+                    .filter_map(|l| self.state.loaded_tilesets.get(&l.tileset))
+                    .collect::<Vec<_>>();
+
+                let mut map = self.state.tile_map.clone();
+                map.layers.iter_mut().for_each(|l| {
+                    l.tileset = format!(
+                        "{}{}",
+                        l.tileset,
+                        self.state
+                            .loaded_tilesets
+                            .get(&l.tileset)
+                            .map(|ts| ts.extension.clone())
+                            .flatten()
+                            .unwrap_or_default()
+                    );
+                });
+
+                let path = self.ctx.platform.pick_folder();
+                if let Some(path) = path {
+                    // todo: deal with errors
+                    self.ctx
+                        .platform
+                        .save_file(File {
+                            descriptor: FileDescriptor {
+                                extension: Some("json".to_string()),
+                                path: path.clone(),
+                                name: "tilemap".to_string(),
+                            },
+                            bytes: serde_json::to_vec(&map).unwrap(),
+                        })
+                        .expect("failed to save tilemap spec");
+                    for ts in tilesets {
+                        self.ctx
+                            .platform
+                            .save_file(File {
+                                descriptor: FileDescriptor {
+                                    extension: ts.extension.clone(),
+                                    path: path.clone(),
+                                    name: ts.name.clone(),
+                                },
+                                bytes: ts.bytes.borrow().clone(),
+                            })
+                            .expect("failed to save tileset spec");
+                    }
+                }
+            }
         }
 
         None
