@@ -6,7 +6,7 @@ use std::rc::Rc;
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
 pub struct ElementId(pub u32);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum MouseButton {
     Left,
     Right,

@@ -1,10 +1,10 @@
-use crate::logic::game_state::LoadTileMenuStateErrors::{
+use crate::logic::app_state::LoadTileMenuStateErrors::{
     TilesHeighIsZero, TilesHighMustDivideTexture, TilesWideIsZero, TilesWideMustDivideTexture,
     TilesetNameAlreadyInUse, TilesetNameIsEmpty,
 };
-use crate::logic::game_state::{
+use crate::logic::app_state::{
     ApplicationStateEx, Input, LoadedTileSet, TextFieldState, TryLoadTileSetResult, btn, input,
-    label, labelled_input, suppress_enter_key, with_fps,
+    label, labelled_input, suppress_enter_key,
 };
 use crate::logic::{ApplicationContext, ApplicationEvent, Grid, GridParams};
 use crate::{UI_FONT, UI_FONT_SIZE};
@@ -244,9 +244,14 @@ impl LoadTileSetMenu {
             params!(args<LoadTileSetMenuState> => GridParams {
                 cols: args.state.tiles_wide,
                 rows: args.state.tiles_high,
-                grid_size: (args.state.loaded_texture.dimensions.0 as f32 / args.state.tiles_wide as f32, args.state.loaded_texture.dimensions.1 as f32 / args.state.tiles_high as f32),
+                grid_size: (
+                    args.state.loaded_texture.dimensions.0 as f32 / args.state.tiles_wide as f32,
+                    args.state.loaded_texture.dimensions.1 as f32 / args.state.tiles_high as f32,
+                ),
                 grid_color: Color::WHITE,
                 grid_width: 3.0,
+                child: Box::new(|_, _, _, _| None),
+                event_handler: EventHandler::none(),
             }),
             world.clone(),
         );
@@ -416,6 +421,15 @@ impl LoadTileSetMenu {
                 location: AnchorLocation::Center
             }),
             world.clone(),
+        )
+        .card(
+            params!(CardParams {
+                border_color: Color::WHITE,
+                border_size: 0.0,
+                background_color: Color::BLACK.with_alpha(0.75),
+                corner_radius: 0.0,
+            }),
+            world.clone(),
         );
 
         let mut suggested_name = loaded_texture
@@ -445,7 +459,7 @@ impl LoadTileSetMenu {
         errors.insert(TilesWideIsZero);
 
         Ok(Self {
-            ui: RefCell::new(with_fps(&ctx, Box::new(ui), world.clone())),
+            ui: RefCell::new(Box::new(ui)),
             ctx,
             state: LoadTileSetMenuState {
                 already_loaded_tilesets,

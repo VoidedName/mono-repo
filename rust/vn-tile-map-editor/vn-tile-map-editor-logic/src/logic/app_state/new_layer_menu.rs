@@ -1,10 +1,10 @@
-use crate::logic::game_state::{ApplicationStateEx, ListParams, btn, label, list, with_fps};
+use crate::logic::app_state::{ApplicationStateEx, ListParams, btn, label, list};
 use crate::logic::{ApplicationContext, ApplicationEvent};
 use crate::{UI_FONT, UI_FONT_SIZE};
 use std::cell::RefCell;
 use std::rc::Rc;
 use vn_scene::Color;
-use vn_ui::{AnchorExt, ButtonAction, CardExt, CardParams, Element, ElementWorld, Empty, EventHandler, EventManager, Flex, FlexChild, FlexDirection, FlexParams, PaddingExt, PaddingParams, PreferSizeExt, PreferSizeParams, ScrollAreaAction, ScrollAreaExt, ScrollAreaParams, ScrollBarParams, center, params, Stack};
+use vn_ui::*;
 
 pub struct NewLayerState {
     existing_tileset_names: Vec<String>,
@@ -248,7 +248,16 @@ impl NewLayerMenu {
             }),
             world.clone(),
         )
-        .anchor(center!(), world.clone());
+        .anchor(center!(), world.clone())
+        .card(
+            params!(CardParams {
+                border_color: Color::WHITE,
+                border_size: 0.0,
+                background_color: Color::BLACK.with_alpha(0.75),
+                corner_radius: 0.0,
+            }),
+            world.clone(),
+        );
 
         let scroll_bar = ScrollBarParams {
             width: 16.0,
@@ -258,7 +267,7 @@ impl NewLayerMenu {
         };
 
         Self {
-            ui: RefCell::new(with_fps(&ctx, Box::new(layout), world.clone())),
+            ui: RefCell::new(Box::new(layout)),
             state: NewLayerState {
                 existing_tileset_names,
                 selected_tileset: None,

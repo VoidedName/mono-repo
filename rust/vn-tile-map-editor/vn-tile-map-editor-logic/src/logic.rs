@@ -1,4 +1,4 @@
-use crate::logic::game_state::{
+use crate::logic::app_state::{
     ApplicationState, ApplicationStateEx, Editor, LoadTileSetMenu,
     LoadTileSetMenuStateWithEditorMemory, LoadedTexture, NewLayerMenu,
     NewLayerMenuStateWithEditorMemory, TryLoadTileSetResult,
@@ -17,7 +17,7 @@ use web_time::Instant;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
 
-pub mod game_state;
+pub mod app_state;
 pub mod grid;
 pub use grid::*;
 
@@ -242,8 +242,11 @@ impl StateLogic<SceneRenderer> for MainLogic {
                         }
                         ApplicationEvent::TilesetLoadCanceled => {
                             log::info!("Load canceled");
-                            (menu.editor_callback.call)(&mut menu.editor, None);
-                            ApplicationState::Editor(menu.editor)
+                            ApplicationState::NewLayerMenu(NewLayerMenuStateWithEditorMemory {
+                                menu: menu.new_layer_menu,
+                                editor_callback: menu.editor_callback,
+                                editor: menu.editor,
+                            })
                         }
                         _ => ApplicationState::LoadTileSetMenu(menu),
                     }
@@ -258,7 +261,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
                             log::info!("Start loading tileset");
 
                             let file = self.platform.pick_file(&[
-                                // "png", "jpg"
+                                "png", "jpg"
                             ]);
                             match file {
                                 Some(file) => {
@@ -279,6 +282,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
                                     ApplicationState::LoadTileSetMenu(pollster::block_on(async {
                                         LoadTileSetMenuStateWithEditorMemory {
                                             editor_callback: new_menu.editor_callback,
+                                            new_layer_menu: new_menu.menu,
                                             menu: LoadTileSetMenu::new(
                                                 ApplicationContext {
                                                     platform: self.platform.clone(),

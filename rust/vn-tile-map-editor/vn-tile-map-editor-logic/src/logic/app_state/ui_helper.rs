@@ -1,5 +1,4 @@
-use crate::logic::game_state::LoadTileSetMenuEvent;
-use crate::logic::{ApplicationContext, FpsStats, TextMetric};
+use crate::logic::{ApplicationContext, TextMetric};
 use crate::{UI_FONT, UI_FONT_SIZE};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -174,7 +173,7 @@ where
         {
             let flex_children = vec![
                 FlexChild::new(label).into_rc_refcell(),
-                FlexChild::new(input.element).into_rc_refcell(),
+                FlexChild::weighted(input.element, 1.0).into_rc_refcell(),
             ];
 
             params!(FlexParams {
@@ -191,7 +190,7 @@ where
     input
 }
 
-pub fn suppress_enter_key() -> fn(ElementId, &InteractionEvent) -> (Vec<LoadTileSetMenuEvent>, bool)
+pub fn suppress_enter_key<T>() -> fn(ElementId, &InteractionEvent) -> (Vec<T>, bool)
 {
     |_, event| match event.kind {
         InteractionEventKind::Keyboard(KeyEvent {

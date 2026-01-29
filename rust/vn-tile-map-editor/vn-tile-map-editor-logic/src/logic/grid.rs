@@ -1,33 +1,63 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
-use vn_scene::{BoxPrimitiveData, Color, Scene, Transform};
-use vn_ui::{into_box_impl, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionEvent, SizeConstraints, StateToParams, StateToParamsArgs, UiContext};
+use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
+use vn_ui::{DynamicDimension, DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld, EventHandler, InteractionEvent, InteractionEventKind, SizeConstraints, StateToParams, StateToParamsArgs, UiContext, into_box_impl, MouseButton};
 
-pub struct GridParams {
+pub struct GridParams<State, Message: Clone> {
     pub rows: u32,
     pub cols: u32,
     pub grid_size: (f32, f32),
     pub grid_color: Color,
     pub grid_width: f32,
+    pub event_handler: EventHandler<GridEvent, Message>,
+    pub child: Box<
+        dyn Fn(
+                &ElementId,
+                (u32, u32),
+                &State,
+                &UiContext,
+            ) -> Option<Rc<RefCell<dyn Element<State = State, Message = Message>>>>
+            + 'static,
+    >,
 }
 
-pub struct Grid<State: 'static, Message: 'static> {
+pub struct GridState {
+    pub mouse_over_cell: Option<(u32, u32)>,
+    pub mouse_is_down: bool,
+}
+
+#[derive(Clone, Debug)]
+pub enum GridEvent {
+    MouseOverCell(u32, u32),
+    MouseDown(MouseButton),
+    MouseUp(MouseButton),
+}
+
+pub struct Grid<State: 'static, Message: Clone + 'static> {
     id: ElementId,
-    params: StateToParams<State, GridParams>,
+    params: StateToParams<State, GridParams<State, Message>>,
+    offset: (f32, f32),
+    layout: HashMap<(u32, u32), ElementSize>,
     _phantom: std::marker::PhantomData<Message>,
 }
 
-impl<State: 'static, Message: 'static> Grid<State, Message> {
-    pub fn new<P: Into<StateToParams<State, GridParams>>>(params: P, world: Rc<RefCell<ElementWorld>>) -> Self {
+impl<State: 'static, Message: Clone + 'static> Grid<State, Message> {
+    pub fn new<P: Into<StateToParams<State, GridParams<State, Message>>>>(
+        params: P,
+        world: Rc<RefCell<ElementWorld>>,
+    ) -> Self {
         Self {
             id: world.borrow_mut().next_id(),
             params: params.into(),
+            offset: (0.0, 0.0),
+            layout: HashMap::new(),
             _phantom: std::marker::PhantomData,
         }
     }
 }
 
-impl<State: 'static, Message: 'static> ElementImpl for Grid<State, Message> {
+impl<State: 'static, Message: Clone + 'static> ElementImpl for Grid<State, Message> {
     type State = State;
     type Message = Message;
 
@@ -46,6 +76,22 @@ impl<State: 'static, Message: 'static> ElementImpl for Grid<State, Message> {
             id: self.id,
             ctx,
         });
+
+        let mut child_constraint = constraints;
+        child_constraint.max_size = DynamicSize {
+            width: DynamicDimension::Limit(params.grid_size.0),
+            height: DynamicDimension::Limit(params.grid_size.1),
+        };
+        child_constraint.min_size = ElementSize::ZERO;
+
+        for x in 0..=params.cols {
+            for y in 0..params.rows {
+                if let Some(child) = (params.child)(&self.id, (x, y), state, ctx) {
+                    let size = child.borrow_mut().layout(ctx, state, child_constraint);
+                    self.layout.insert((x, y), size);
+                }
+            }
+        }
 
         ElementSize {
             width: params.grid_size.0 * params.cols as f32,
@@ -67,6 +113,24 @@ impl<State: 'static, Message: 'static> ElementImpl for Grid<State, Message> {
             id: self.id,
             ctx,
         });
+
+        ctx.with_clipping(
+            Rect {
+                position: [origin.0, origin.1],
+                size: [
+                    params.cols as f32 * params.grid_size.0,
+                    params.rows as f32 * params.grid_size.1,
+                ],
+            },
+            |ctx| {
+                ctx.with_hitbox_hierarchy(self.id, scene.current_layer_id(), ctx.clip_rect, |_| {});
+
+                self.offset = (
+                    ctx.clip_rect.position[0] - origin.0,
+                    ctx.clip_rect.position[1] - origin.1,
+                );
+            },
+        );
 
         for x in 0..=params.cols {
             let px = origin.0 + x as f32 * params.grid_size.0 - params.grid_width / 2.0;
@@ -99,15 +163,73 @@ impl<State: 'static, Message: 'static> ElementImpl for Grid<State, Message> {
                 clip_rect: ctx.clip_rect,
             });
         }
+
+        for x in 0..=params.cols {
+            for y in 0..params.rows {
+                if let Some(child) = (params.child)(&self.id, (x, y), state, ctx) {
+                    child.borrow_mut().draw(
+                        ctx,
+                        state,
+                        (
+                            origin.0 + x as f32 * params.grid_size.0,
+                            origin.1 + y as f32 * params.grid_size.1,
+                        ),
+                        self.layout.get(&(x, y)).unwrap().clone(),
+                        scene,
+                    )
+                }
+            }
+        }
     }
 
     fn handle_event_impl(
         &mut self,
-        _ctx: &mut UiContext,
-        _state: &Self::State,
-        _event: &InteractionEvent,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        event: &InteractionEvent,
     ) -> Vec<Self::Message> {
-        vec![]
+        let params = self.params.call(StateToParamsArgs {
+            state,
+            id: self.id,
+            ctx,
+        });
+
+        params
+            .event_handler
+            .handle(self.id, event, || match event.kind {
+                InteractionEventKind::MouseDown {
+                    local_y, local_x, button, ..
+                } => {
+                    let x = ((local_x + self.offset.0) / params.grid_size.0) as u32;
+                    let y = ((local_y + self.offset.1) / params.grid_size.1) as u32;
+                    if (0..params.cols).contains(&x) && (0..params.rows).contains(&y) {
+                        if Some(self.id) == event.target {
+                            vec![GridEvent::MouseDown(button)]
+                        } else {
+                            vec![]
+                        }
+                    } else {
+                        vec![]
+                    }
+                }
+                InteractionEventKind::MouseUp { button, .. } => vec![GridEvent::MouseUp(button)],
+                InteractionEventKind::MouseMove {
+                    local_x, local_y, ..
+                } => {
+                    if Some(self.id) == event.target {
+                        let x = ((local_x + self.offset.0) / params.grid_size.0) as u32;
+                        let y = ((local_y + self.offset.1) / params.grid_size.1) as u32;
+                        if (0..params.cols).contains(&x) && (0..params.rows).contains(&y) {
+                            vec![GridEvent::MouseOverCell(x, y)]
+                        } else {
+                            vec![]
+                        }
+                    } else {
+                        vec![]
+                    }
+                }
+                _ => vec![],
+            })
     }
 }
 

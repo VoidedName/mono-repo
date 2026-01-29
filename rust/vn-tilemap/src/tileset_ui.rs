@@ -101,8 +101,8 @@ impl<State, Message> ElementImpl for TileMap<State, Message> {
                             let uv_height = 1.0 / layer.tileset_dimensions.1 as f32;
 
                             if let Some(tile_id) = tile_id {
-                                let uv_x = *tile_id as u32 / layer.tileset_dimensions.1;
-                                let uv_y = *tile_id as u32 % layer.tileset_dimensions.0;
+                                let uv_x = *tile_id as u32 % layer.tileset_dimensions.0;
+                                let uv_y = *tile_id as u32 / layer.tileset_dimensions.0;
 
                                 scene.add_image(ImagePrimitiveData {
                                     transform: Transform {

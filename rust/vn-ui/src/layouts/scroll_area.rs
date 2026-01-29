@@ -71,7 +71,7 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
         &mut self,
         ctx: &mut UiContext,
         state: &Self::State,
-        constraints: SizeConstraints,
+        mut constraints: SizeConstraints,
     ) -> ElementSize {
         let params = self.params.call(crate::StateToParamsArgs {
             state,
@@ -93,6 +93,9 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
             .layout(ctx, state, child_constraints.shrink_by(grow_by));
 
         self.child_size = child_size;
+
+        constraints.max_size.width = DynamicDimension::Limit(constraints.max_size.width.value());
+        constraints.max_size.height = DynamicDimension::Limit(constraints.max_size.height.value());
 
         let size = child_size
             .grow_by(grow_by)

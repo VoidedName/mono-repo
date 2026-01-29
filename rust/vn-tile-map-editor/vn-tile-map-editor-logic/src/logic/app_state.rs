@@ -15,19 +15,22 @@ pub mod new_layer_menu;
 pub use new_layer_menu::*;
 
 pub mod ui_helper;
-pub use ui_helper::*;
-use vn_scene::TextureId;
-use vn_ui::{DynamicDimension, DynamicSize, Element, ElementSize, EventManager, InteractionEventKind, SimpleLayoutCache, SizeConstraints, UiContext};
-use vn_ui::InteractionEventKind::MouseScroll;
-use vn_wgpu_window::WgpuScene;
 use crate::logic::{ApplicationEvent, EditorCallback};
+pub use ui_helper::*;
+use vn_scene::{Scene, TextureId};
+use vn_ui::InteractionEventKind::MouseScroll;
+use vn_ui::{
+    DynamicDimension, DynamicSize, Element, ElementSize, EventManager, InteractionEventKind,
+    SimpleLayoutCache, SizeConstraints, UiContext,
+};
+use vn_wgpu_window::WgpuScene;
 
 pub trait ApplicationStateEx {
     type StateEvent;
     type State;
     type ApplicationEvent: 'static;
 
-    fn ui(&self) -> &RefCell<Box<dyn Element<State=Self::State, Message=Self::StateEvent>>>;
+    fn ui(&self) -> &RefCell<Box<dyn Element<State = Self::State, Message = Self::StateEvent>>>;
     fn state(&self) -> &Self::State;
     fn event_manager(&self) -> Rc<RefCell<EventManager>>;
     fn handle_event(&mut self, event: Self::StateEvent) -> Option<Self::ApplicationEvent>;
@@ -45,7 +48,10 @@ pub trait ApplicationStateEx {
         };
 
         for event in &events {
-            let messages = self.ui().borrow_mut().handle_event(&mut ctx, self.state(), event);
+            let messages = self
+                .ui()
+                .borrow_mut()
+                .handle_event(&mut ctx, self.state(), event);
             for msg in messages {
                 if let Some(msg) = self.handle_event(msg) {
                     return Some(msg);
@@ -174,14 +180,15 @@ pub struct LoadedTileSet {
 
 pub struct LoadTileSetMenuStateWithEditorMemory {
     pub menu: LoadTileSetMenu,
+    pub new_layer_menu: NewLayerMenu,
     pub editor: Editor,
-    pub editor_callback: EditorCallback<Option<TryLoadTileSetResult>>
+    pub editor_callback: EditorCallback<Option<TryLoadTileSetResult>>,
 }
 
 pub struct NewLayerMenuStateWithEditorMemory {
     pub menu: NewLayerMenu,
     pub editor: Editor,
-    pub editor_callback: EditorCallback<Option<TryLoadTileSetResult>>
+    pub editor_callback: EditorCallback<Option<TryLoadTileSetResult>>,
 }
 
 impl NewLayerMenuStateWithEditorMemory {
@@ -229,7 +236,11 @@ impl ApplicationState {
         button: MouseButton,
         state: ElementState,
     ) {
-        dispatch!(self, inner, inner.handle_mouse_button(mouse_position, button, state))
+        dispatch!(
+            self,
+            inner,
+            inner.handle_mouse_button(mouse_position, button, state)
+        )
     }
 
     pub fn handle_mouse_wheel(&mut self, delta_x: f32, delta_y: f32) {
@@ -242,12 +253,21 @@ impl ApplicationStateEx for LoadTileSetMenuStateWithEditorMemory {
     type State = LoadTileSetMenuState;
     type ApplicationEvent = ApplicationEvent;
 
-    fn ui(&self) -> &RefCell<Box<dyn Element<State=Self::State, Message=Self::StateEvent>>> {
+    fn ui(&self) -> &RefCell<Box<dyn Element<State = Self::State, Message = Self::StateEvent>>> {
         self.menu.ui()
     }
 
     fn state(&self) -> &Self::State {
         self.menu.state()
+    }
+
+    fn render_target(&self, size: (f32, f32)) -> WgpuScene {
+        let mut menu = self.menu.render_target(size);
+        let mut new_menu = self.new_layer_menu.render_target(size);
+        let mut editor = self.editor.render_target(size);
+        editor.extend(&mut new_menu);
+        editor.extend(&mut menu);
+        editor
     }
 
     fn event_manager(&self) -> Rc<RefCell<EventManager>> {
@@ -264,8 +284,16 @@ impl ApplicationStateEx for NewLayerMenuStateWithEditorMemory {
     type State = NewLayerState;
     type ApplicationEvent = ApplicationEvent;
 
-    fn ui(&self) -> &RefCell<Box<dyn Element<State=Self::State, Message=Self::StateEvent>>> {
+    fn ui(&self) -> &RefCell<Box<dyn Element<State = Self::State, Message = Self::StateEvent>>> {
         self.menu.ui()
+    }
+
+    fn render_target(&self, size: (f32, f32)) -> WgpuScene {
+        let mut menu = self.menu.render_target(size);
+        self.editor.event_manager().borrow_mut().clear_hitboxes();
+        let mut editor = self.editor.render_target(size);
+        editor.extend(&mut menu);
+        editor
     }
 
     fn state(&self) -> &Self::State {
