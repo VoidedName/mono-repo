@@ -1,6 +1,6 @@
 = vn-tile-map-editor
 Voided Name
-v0.1.1, 2026-01-30
+v0.2.0, 2026-01-30
 :source-highlighter: rouge
 
 `vn-tile-map-editor` is a tile map editor built for the VN-Suit framework. It allows for creating and editing tile maps with multiple layers and tilesets.
@@ -11,7 +11,7 @@ Part of the link:../readme.asciidoc[VN-Suit] framework.
 
 The project is split into two crates:
 
-* **vn-tile-map-editor-logic**: Contains the core editor state, UI definitions using `vn-ui`, and map manipulation logic. It is (mostly) platform-agnostic and can be compiled to WASM with a few modifications (todo).
+* **vn-tile-map-editor-logic**: Contains the core editor state, UI definitions using `vn-ui`, and map manipulation logic. It should be platform-agnostic and can be compiled to WASM.
 * **vn-tile-map-editor-native**: The native runner for the editor, providing file system access and OS-level window management via `winit` and `wgpu`.
 
 == Feature Flags
@@ -50,10 +50,4 @@ cargo run --release -p vn-tile-map-editor-native --features debug_outlines
 
 == Remarks
 
-As I have only tested it on my own system – I have no idea if this will work on other systems, especially other operating systems / GPUs.
-
-This will not work in WASM as it uses pollster in the logic crate for file system interactions. I may consider refactoring it to support wasm in the future.
-
-A simple solution is to expose async interactions via the platform hook and to use something like `wasm_bindgen_futures::spawn_local` to make it work.
-
-The current file handling is also inadequate for WASM-based processing. Instead of operating over folders, one would need to use some sort of archive (such as `.tar[.gz|.bz2]`, `.zip`, etc.) format.
+As I have only tested it on my own system – I have no idea if this will work on other systems, especially other operating systems / GPUs / WASM.

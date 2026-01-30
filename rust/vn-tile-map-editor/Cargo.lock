@@ -2117,7 +2117,7 @@ dependencies = [
 
 [[package]]
 name = "vn-tile-map-editor-logic"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "log",
@@ -2134,7 +2134,7 @@ dependencies = [
 
 [[package]]
 name = "vn-tile-map-editor-native"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "env_logger",
