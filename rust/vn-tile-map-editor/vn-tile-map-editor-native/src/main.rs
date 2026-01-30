@@ -123,6 +123,21 @@ impl PlatformHooks for NativePlatformHooks {
         std::fs::write(path, file.bytes)?;
         Ok(())
     }
+
+    fn save(&self, extensions: &[&str], data: &[u8]) -> anyhow::Result<()> {
+        let path = pollster::block_on(async {
+            AsyncFileDialog::new()
+                .add_filter("filter", extensions)
+                .save_file()
+                .await
+                .map(|path| path.path().to_string_lossy().to_string())
+        });
+
+        match path {
+            None => Err(anyhow::anyhow!("No file selected")),
+            Some(path) => Ok(std::fs::write(path, data)?),
+        }
+    }
 }
 
 fn main() {

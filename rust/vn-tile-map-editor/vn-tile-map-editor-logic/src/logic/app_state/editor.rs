@@ -7,7 +7,7 @@ use crate::logic::{
 };
 use crate::{UI_FONT, UI_FONT_SIZE};
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use vn_scene::Color;
 use vn_tilemap::{TileMapLayerMapSpecification, TileMapLayerSpecification, TileMapSpecification};
@@ -561,48 +561,62 @@ impl<Platform: PlatformHooks + 'static> ApplicationStateEx for Editor<Platform> 
                     );
                 });
 
-                let path = self.ctx.platform.pick_folder();
-                if let Some(path) = path {
-                    if self
-                        .ctx
-                        .platform
-                        .save_file(File {
-                            descriptor: FileDescriptor {
-                                extension: Some("json".to_string()),
-                                path: path.clone(),
-                                name: "tilemap".to_string(),
-                            },
-                            bytes: serde_json::to_vec(&map).unwrap(),
-                        })
-                        .is_err()
-                    {
+                let data = serde_json::to_vec(&map).unwrap();
+                let mut archive = tar::Builder::new(Vec::new());
+                let mut header = tar::Header::new_ustar();
+                header.set_size(data.len() as u64);
+                header.set_path("tilemap.json").unwrap();
+                header.set_cksum();
+
+                archive.append(&mut header, data.as_slice()).unwrap();
+
+                let mut already_saved = HashSet::new();
+                for ts in tilesets {
+                    if already_saved.contains(&ts.file_name()) {
+                        continue;
+                    }
+                    already_saved.insert(ts.file_name());
+
+                    let data = ts.bytes.borrow();
+
+                    let mut header = tar::Header::new_ustar();
+                    header.set_size(data.len() as u64);
+                    header.set_path(ts.file_name()).unwrap();
+                    header.set_cksum();
+
+                    archive.append(&mut header, data.as_slice()).unwrap();
+                }
+
+                match archive.finish() {
+                    Ok(_) => {}
+                    Err(e) => {
                         self.handle_event(EditorEvent::HandleError(format!(
-                            "Failed to save tilemap.json in: {}",
-                            path
+                            "Failed to finish tar archive: {}",
+                            e
                         )));
                         return None;
                     }
+                }
 
-                    for ts in tilesets {
-                        if self
-                            .ctx
-                            .platform
-                            .save_file(File {
-                                descriptor: FileDescriptor {
-                                    extension: ts.extension.clone(),
-                                    path: path.clone(),
-                                    name: ts.name.clone(),
-                                },
-                                bytes: ts.bytes.borrow().clone(),
-                            })
-                            .is_err()
-                        {
-                            self.handle_event(EditorEvent::HandleError(format!(
-                                "Failed to save tileset {} in: {}",
-                                ts.name, path
-                            )));
-                            return None;
-                        }
+                let data = match archive.into_inner() {
+                    Ok(data) => data,
+                    Err(e) => {
+                        self.handle_event(EditorEvent::HandleError(format!(
+                            "Failed to get tar archive data: {}",
+                            e
+                        )));
+                        return None;
+                    }
+                };
+
+                match self.ctx.platform.save(&["tar"], data.as_slice()) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        self.handle_event(EditorEvent::HandleError(format!(
+                            "Failed to save tar archive: {}",
+                            e
+                        )));
+                        return None;
                     }
                 }
             }

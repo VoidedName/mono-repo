@@ -135,6 +135,8 @@ pub trait PlatformHooks {
     fn pick_folder(&self) -> Option<String>;
 
     fn save_file(&self, file: File) -> anyhow::Result<()>;
+
+    fn save(&self, extensions: &[&str], bytes: &[u8]) -> anyhow::Result<()>;
 }
 
 pub struct EditorCallback<Msg, Platform: PlatformHooks> {

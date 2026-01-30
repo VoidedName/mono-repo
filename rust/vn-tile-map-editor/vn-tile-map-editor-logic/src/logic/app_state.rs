@@ -185,6 +185,19 @@ pub struct LoadedTileSet {
     bytes: Rc<RefCell<Vec<u8>>>,
 }
 
+impl LoadedTileSet {
+    pub fn file_name(&self) -> String {
+        format!(
+            "{}{}",
+            self.name,
+            self.extension
+                .as_ref()
+                .map(|ext| format!(".{}", ext))
+                .unwrap_or_default()
+        )
+    }
+}
+
 impl Debug for LoadedTileSet {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("LoadedTileSet")
