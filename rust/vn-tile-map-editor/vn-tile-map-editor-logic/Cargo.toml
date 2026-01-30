@@ -1,6 +1,6 @@
 [package]
 name = "vn-tile-map-editor-logic"
-version = "0.1.01"
+version = "0.1.1"
 edition = "2024"
 
 [lib]
@@ -21,5 +21,4 @@ thiserror = { workspace = true }
 web-time = { workspace = true }
 winit = { workspace = true }
 pollster = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

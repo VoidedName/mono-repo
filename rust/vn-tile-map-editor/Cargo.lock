@@ -2095,12 +2095,11 @@ dependencies = [
 
 [[package]]
 name = "vn-tile-map-editor-logic"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "log",
  "pollster",
- "serde",
  "serde_json",
  "thiserror 2.0.18",
  "vn-scene",
@@ -2113,7 +2112,7 @@ dependencies = [
 
 [[package]]
 name = "vn-tile-map-editor-native"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "env_logger",

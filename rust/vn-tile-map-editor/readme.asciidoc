@@ -1,6 +1,6 @@
 = vn-tile-map-editor
 Voided Name
-v0.1.01, 2026-01-30
+v0.1.1, 2026-01-30
 :source-highlighter: rouge
 
 `vn-tile-map-editor` is a tile map editor built for the VN-Suit framework. It allows for creating and editing tile maps with multiple layers and tilesets.
