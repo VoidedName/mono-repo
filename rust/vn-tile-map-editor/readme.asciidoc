@@ -11,7 +11,7 @@ Part of the link:../readme.asciidoc[VN-Suit] framework.
 
 The project is split into two crates:
 
-* **vn-tile-map-editor-logic**: Contains the core editor state, UI definitions using `vn-ui`, and map manipulation logic. It is platform-agnostic and can be compiled to WASM.
+* **vn-tile-map-editor-logic**: Contains the core editor state, UI definitions using `vn-ui`, and map manipulation logic. It is (mostly) platform-agnostic and can be compiled to WASM with a few modifications (todo).
 * **vn-tile-map-editor-native**: The native runner for the editor, providing file system access and OS-level window management via `winit` and `wgpu`.
 
 == Feature Flags
