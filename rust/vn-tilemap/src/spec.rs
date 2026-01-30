@@ -26,6 +26,6 @@ pub struct TileMapLayerSpecification {
     pub tileset_dimensions: (u32, u32),
     /// Dimensions of a single tile inside the texture in pixels
     pub tile_dimensions: (u32, u32),
-    /// The actual map
+    /// The actual example_map
     pub map: TileMapLayerMapSpecification,
 }

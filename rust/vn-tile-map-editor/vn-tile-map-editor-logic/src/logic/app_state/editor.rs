@@ -39,7 +39,7 @@ pub enum EditorEvent {
     TilemapViewScrollX(f32),
     TilemapViewScrollY(f32),
     TryAddingLayer,
-    LoadSpec,
+    TryLoadSpec,
     SaveSpec,
     AddLayer(TryLoadTileSetResult),
     SwitchToLayer(usize),
@@ -50,6 +50,9 @@ pub enum EditorEvent {
     Brushing(u32, u32),
     ChangeTilemapSize(u32, u32),
     HandleError(String),
+    LoadSpecFromFolder(String),
+    MoveLayer(usize, usize),
+    LoadSpecFromData(TileMapSpecification, HashMap<String, LoadedTileSet>),
 }
 
 #[derive(Debug, Clone)]
@@ -176,7 +179,7 @@ impl Editor {
             margin: 8.0,
         };
 
-        Ok(Self {
+        let mut s = Self {
             ui: RefCell::new(with_fps(&ctx, Box::new(ui), world.clone())),
             ctx,
             state: EditorState {
@@ -196,7 +199,62 @@ impl Editor {
                 errors: Vec::new(),
             },
             event_manager: Rc::new(RefCell::new(EventManager::new())),
-        })
+        };
+
+        #[cfg(feature = "example_map")]
+        match s.load_example_map().await {
+            Ok(()) => {}
+            Err(e) => {
+                s.handle_event(EditorEvent::HandleError(format!(
+                    "Could not load example map: {}",
+                    e
+                )));
+            }
+        }
+
+        Ok(s)
+    }
+
+    async fn load_example_map(&mut self) -> anyhow::Result<()> {
+        let map = self
+            .ctx
+            .platform
+            .load_asset("example_map/tilemap.json".to_string())
+            .await?;
+        let mut map: TileMapSpecification = serde_json::from_slice(&map)?;
+        let mut tilemaps = HashMap::new();
+
+        for l in map.layers.iter_mut() {
+            let asset = format!("example_map/{}", l.tileset);
+            let tex_file = self.ctx.platform.load_asset(asset.clone()).await?;
+
+            let tex = self
+                .ctx
+                .rm
+                .load_texture_from_bytes(&tex_file, Sampling::Nearest)?;
+
+            let tex_name = l.tileset.strip_suffix(".png").unwrap().to_string();
+
+            let tileset = LoadedTileSet {
+                name: tex_name.clone(),
+                extension: Some("png".to_string()),
+                texture_id: tex.id.clone(),
+                texture_dimensions: (
+                    l.tileset_dimensions.0 * l.tile_dimensions.0,
+                    l.tileset_dimensions.1 * l.tile_dimensions.1,
+                ),
+                tile_dimensions: l.tile_dimensions,
+                bytes: Rc::new(RefCell::new(tex_file)),
+            };
+
+            l.tileset = tex_name.clone();
+
+            tilemaps.insert(tex_name, tileset);
+        }
+
+        self.handle_event(EditorEvent::LoadSpecFromData(map, tilemaps));
+
+        Ok(())
     }
 }
 
@@ -227,6 +285,10 @@ impl ApplicationStateEx for Editor {
         log::info!("handling state event: {:?}", event);
 
         match event {
+            EditorEvent::MoveLayer(from, to) => {
+                self.state.tile_map.layers.swap(from, to);
+                self.state.layer_caret_positions.swap(from, to);
+            }
             EditorEvent::HandleError(error) => {
                 self.state.errors.push((error, web_time::Instant::now()));
             }
@@ -357,112 +419,118 @@ impl ApplicationStateEx for Editor {
                     }
                 }
             }
-            EditorEvent::LoadSpec => {
-                if let Some(folder) = self.ctx.platform.pick_folder() {
-                    let result = pollster::block_on(async {
-                        let map = match self
+            EditorEvent::LoadSpecFromData(map, tilemaps) => {
+                let bar = ScrollBarParams {
+                    width: 16.0,
+                    color: Color::WHITE,
+                    position: Some(0.0),
+                    margin: 8.0,
+                };
+
+                let current_layer = if map.layers.len() > 0 { Some(0) } else { None };
+
+                self.state = EditorState {
+                    loaded_tilesets: tilemaps,
+                    current_layer,
+                    layer_caret_positions: vec![None; map.layers.len()],
+                    tile_map: map,
+                    tileset_view_scroll_x: bar,
+                    tileset_view_scroll_y: bar,
+                    tilemap_view_scroll_x: bar,
+                    tilemap_view_scroll_y: bar,
+                    brush: Brush::None,
+                    errors: self.state.errors.clone(),
+                };
+            }
+            EditorEvent::LoadSpecFromFolder(folder) => {
+                let result = pollster::block_on(async {
+                    let mut new_loaded_tilesets = HashMap::new();
+                    let map = match self
+                        .ctx
+                        .platform
+                        .load_file(&FileDescriptor {
+                            path: folder.clone(),
+                            name: "tilemap".to_string(),
+                            extension: Some("json".to_string()),
+                        })
+                        .await
+                    {
+                        Ok(file) => file,
+                        Err(_) => {
+                            return Err(format!("Could not load tilemap.json in: {}", folder));
+                        }
+                    };
+
+                    let mut map: TileMapSpecification = match serde_json::from_slice(&map.bytes) {
+                        Ok(map) => map,
+                        Err(_) => {
+                            return Err(format!("Could not parse tilemap.json in: {}", folder));
+                        }
+                    };
+
+                    for l in map.layers.iter_mut() {
+                        let tex_file = match self
                             .ctx
                             .platform
                             .load_file(&FileDescriptor {
                                 path: folder.clone(),
-                                name: "tilemap".to_string(),
-                                extension: Some("json".to_string()),
+                                name: l.tileset.clone(),
+                                extension: None,
                             })
                             .await
                         {
                             Ok(file) => file,
                             Err(_) => {
-                                return Err(format!("Could not load tilemap.json in: {}", folder));
+                                return Err(format!(
+                                    "Could not load tileset {} in: {}",
+                                    l.tileset, folder
+                                ));
                             }
                         };
 
-                        let mut map: TileMapSpecification = match serde_json::from_slice(&map.bytes)
+                        let tex = match self
+                            .ctx
+                            .rm
+                            .load_texture_from_bytes(&tex_file.bytes, Sampling::Nearest)
                         {
-                            Ok(map) => map,
+                            Ok(tex) => tex,
                             Err(_) => {
-                                return Err(format!("Could not parse tilemap.json in: {}", folder));
+                                return Err(format!(
+                                    "Could not process tileset texture for {} in: {}",
+                                    l.tileset, folder
+                                ));
                             }
                         };
 
-                        for l in map.layers.iter_mut() {
-                            let tex_file = match self
-                                .ctx
-                                .platform
-                                .load_file(&FileDescriptor {
-                                    path: folder.clone(),
-                                    name: l.tileset.clone(),
-                                    extension: None,
-                                })
-                                .await
-                            {
-                                Ok(file) => file,
-                                Err(_) => {
-                                    return Err(format!(
-                                        "Could not load tileset {} in: {}",
-                                        l.tileset, folder
-                                    ));
-                                }
-                            };
-
-                            let tex = match self
-                                .ctx
-                                .rm
-                                .load_texture_from_bytes(&tex_file.bytes, Sampling::Nearest)
-                            {
-                                Ok(tex) => tex,
-                                Err(_) => {
-                                    return Err(format!(
-                                        "Could not process tileset texture for {} in: {}",
-                                        l.tileset, folder
-                                    ));
-                                }
-                            };
-
-                            let tileset = LoadedTileSet {
-                                name: tex_file.descriptor.name.clone(),
-                                extension: tex_file.descriptor.extension,
-                                texture_id: tex.id.clone(),
-                                texture_dimensions: (
-                                    l.tileset_dimensions.0 * l.tile_dimensions.0,
-                                    l.tileset_dimensions.1 * l.tile_dimensions.1,
-                                ),
-                                tile_dimensions: l.tile_dimensions,
-                                bytes: Rc::new(RefCell::new(tex_file.bytes)),
-                            };
-                            l.tileset = tex_file.descriptor.name.clone();
-                            self.state
-                                .loaded_tilesets
-                                .insert(tex_file.descriptor.name, tileset);
-                        }
-
-                        let bar = ScrollBarParams {
-                            width: 16.0,
-                            color: Color::WHITE,
-                            position: Some(0.0),
-                            margin: 8.0,
+                        let tileset = LoadedTileSet {
+                            name: tex_file.descriptor.name.clone(),
+                            extension: tex_file.descriptor.extension,
+                            texture_id: tex.id.clone(),
+                            texture_dimensions: (
+                                l.tileset_dimensions.0 * l.tile_dimensions.0,
+                                l.tileset_dimensions.1 * l.tile_dimensions.1,
+                            ),
+                            tile_dimensions: l.tile_dimensions,
+                            bytes: Rc::new(RefCell::new(tex_file.bytes)),
                         };
 
-                        let current_layer = if map.layers.len() > 0 { Some(0) } else { None };
+                        l.tileset = tex_file.descriptor.name.clone();
 
-                        self.state = EditorState {
-                            loaded_tilesets: self.state.loaded_tilesets.clone(),
-                            current_layer,
-                            layer_caret_positions: vec![None; map.layers.len()],
-                            tile_map: map,
-                            tileset_view_scroll_x: bar,
-                            tileset_view_scroll_y: bar,
-                            tilemap_view_scroll_x: bar,
-                            tilemap_view_scroll_y: bar,
-                            brush: Brush::None,
-                            errors: self.state.errors.clone(),
-                        };
-
-                        Ok(())
-                    });
-
-                    if let Err(err) = result {
-                        self.handle_event(EditorEvent::HandleError(err));
+                        new_loaded_tilesets.insert(tex_file.descriptor.name, tileset);
                     }
+
+                    self.handle_event(EditorEvent::LoadSpecFromData(map, new_loaded_tilesets));
+
+                    Ok(())
+                });
+
+                if let Err(err) = result {
+                    self.handle_event(EditorEvent::HandleError(err));
+                }
+            }
+            EditorEvent::TryLoadSpec => {
+                if let Some(folder) = self.ctx.platform.pick_folder() {
+                    self.handle_event(EditorEvent::LoadSpecFromFolder(folder));
                 };
             }
             EditorEvent::SaveSpec => {
@@ -484,6 +552,7 @@ impl ApplicationStateEx for Editor {
                             .get(&l.tileset)
                             .map(|ts| ts.extension.clone())
                             .flatten()
+                            .map(|ext| format!(".{}", ext))
                             .unwrap_or_default()
                     );
                 });

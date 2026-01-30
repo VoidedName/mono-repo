@@ -78,7 +78,7 @@ pub fn layers(
         ctx.text_metrics.clone(),
         EventHandler::new(|_, e| match e {
             ButtonAction::Clicked => {
-                vec![EditorEvent::LoadSpec]
+                vec![EditorEvent::TryLoadSpec]
             }
         }),
         world.clone(),
@@ -156,6 +156,36 @@ pub fn layers(
                         world.clone(),
                     );
 
+                    let layer_up = btn(
+                        move |_| "▲".to_string(),
+                        UI_FONT,
+                        UI_FONT_SIZE,
+                        move |state: &EditorState| idx + 1 == state.tile_map.layers.len(),
+                        |_| Color::WHITE,
+                        |_| Color::TRANSPARENT,
+                        |_| Color::WHITE,
+                        metrics.clone(),
+                        EventHandler::new(move |_, e| match e {
+                            ButtonAction::Clicked => vec![EditorEvent::MoveLayer(idx, idx + 1)],
+                        }),
+                        world.clone(),
+                    );
+
+                    let layer_down = btn(
+                        move |_| "▼".to_string(),
+                        UI_FONT,
+                        UI_FONT_SIZE,
+                        move |_| idx == 0,
+                        |_| Color::WHITE,
+                        |_| Color::TRANSPARENT,
+                        |_| Color::WHITE,
+                        metrics.clone(),
+                        EventHandler::new(move |_, e| match e {
+                            ButtonAction::Clicked => vec![EditorEvent::MoveLayer(idx, idx - 1)],
+                        }),
+                        world.clone(),
+                    );
+
                     let remove = btn(
                         |_| "X".to_string(),
                         UI_FONT,
@@ -175,10 +205,12 @@ pub fn layers(
                         let layer = FlexChild::new(layer).into_rc_refcell();
                         let layer_name = FlexChild::weighted(layer_name, 1.0).into_rc_refcell();
                         let remove = FlexChild::new(remove).into_rc_refcell();
+                        let layer_up = FlexChild::new(layer_up).into_rc_refcell();
+                        let layer_down = FlexChild::new(layer_down).into_rc_refcell();
                         params!(FlexParams {
                             direction: FlexDirection::Row,
                             force_orthogonal_same_size: false,
-                            children: vec![ layer.clone(), layer_name.clone(), remove.clone()],
+                            children: vec![layer.clone(), layer_up.clone(), layer_down.clone(), layer_name.clone(), remove.clone()],
                         })
                     }, world.clone());
 
@@ -786,7 +818,6 @@ pub fn tileset(
         .rm
         .load_texture_from_bytes(empty_texture(), Sampling::Nearest)
         .expect("empty texture");
-
 
     let tileset_tex = Texture::new(
         params!(args<EditorState> =>

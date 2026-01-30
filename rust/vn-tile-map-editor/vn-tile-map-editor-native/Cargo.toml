@@ -6,6 +6,7 @@ edition = "2024"
 
 [features]
 debug_outlines = ["vn-tile-map-editor-logic/debug_outlines"]
+example_map = ["vn-tile-map-editor-logic/example_map"]
 
 [dependencies]
 vn-tile-map-editor-logic = { path = "../vn-tile-map-editor-logic" }

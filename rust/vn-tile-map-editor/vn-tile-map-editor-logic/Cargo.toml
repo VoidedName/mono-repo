@@ -8,6 +8,7 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 debug_outlines = ["vn-ui/debug_outlines"]
+example_map = []
 
 [dependencies]
 vn-tilemap = { path = "../../vn-tilemap" }

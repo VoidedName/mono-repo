@@ -12,14 +12,20 @@ pub async fn load_file(file_to_load: FileDescriptor) -> anyhow::Result<File, Fil
         path = path.with_added_extension(extension);
     }
 
-    let mut file = std::fs::File::open(path)
+    let mut file = std::fs::File::open(path.clone())
         .map_err(|e| FileLoadingError::GeneralError(format!("Failed to open file: {}", e)))?;
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer)
         .map_err(|e| FileLoadingError::GeneralError(format!("Failed to read file: {}", e)))?;
 
+    let (parent, name, extension) = divide_path(&path.to_string_lossy());
+
     Ok(File {
-        descriptor: file_to_load.clone(),
+        descriptor: FileDescriptor {
+            path: parent,
+            name,
+            extension,
+        },
         bytes: buffer,
     })
 }
