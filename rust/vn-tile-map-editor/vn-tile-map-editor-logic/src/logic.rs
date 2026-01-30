@@ -271,21 +271,19 @@ impl StateLogic<SceneRenderer> for MainLogic {
                         ApplicationEvent::LoadTileset(loaded_tilesets) => {
                             log::info!("Start loading tileset");
 
-                            let file = self.platform.pick_file(&[
-                                "png", "jpg"
-                            ]);
+                            let file = self.platform.pick_file(&["png", "jpg"]);
                             match file {
                                 Some(file) => {
                                     let tex = match self
                                         .resource_manager
-                                        .load_texture_from_bytes(&file.bytes, Sampling::Nearest) {
+                                        .load_texture_from_bytes(&file.bytes, Sampling::Nearest)
+                                    {
                                         Ok(tex) => tex,
                                         Err(e) => {
                                             log::error!("Failed to load texture: {}", e);
                                             new_menu.set_error(e.to_string());
-                                            self.app_state = Some(ApplicationState::NewLayerMenu(
-                                                new_menu,
-                                            ));
+                                            self.app_state =
+                                                Some(ApplicationState::NewLayerMenu(new_menu));
                                             return;
                                         }
                                     };

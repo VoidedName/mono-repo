@@ -96,6 +96,7 @@ impl PlatformHooks for NativePlatformHooks {
     fn pick_folder(&self) -> Option<String> {
         pollster::block_on(async {
             AsyncFileDialog::new()
+                .set_can_create_directories(true)
                 .pick_folder()
                 .await
                 .map(|path| path.path().to_string_lossy().to_string())
