@@ -1,6 +1,6 @@
 [package]
 name = "vn-tile-map-editor-native"
-version = "0.1.0"
+version = "0.1.01"
 edition = "2024"
 
 
