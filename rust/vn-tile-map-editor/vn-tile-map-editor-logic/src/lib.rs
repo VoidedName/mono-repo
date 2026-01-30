@@ -8,14 +8,14 @@ use vn_wgpu_window::init_with_logic;
 pub const UI_FONT: &str = "jetbrains-bold";
 pub const UI_FONT_SIZE: f32 = 16.0;
 
-pub fn init(new_fn: Box<dyn PlatformHooks>) -> anyhow::Result<()> {
+pub fn init(new_fn: impl PlatformHooks + 'static) -> anyhow::Result<()> {
     log::info!("Initializing Tile Map Editor!");
 
     let new_fn = Rc::new(new_fn);
 
     init_with_logic(
         "Voided Names' Tile Map Editor".to_string(),
-        (1280.0*2.0, 720.0*2.0),
+        (1280.0 * 2.0, 720.0 * 2.0),
         move |a, b| {
             let new_fn = new_fn.clone();
             async move { MainLogic::new(new_fn.clone(), a, b).await }

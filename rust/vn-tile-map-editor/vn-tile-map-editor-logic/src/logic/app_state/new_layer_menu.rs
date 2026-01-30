@@ -1,5 +1,5 @@
 use crate::logic::app_state::{ApplicationStateEx, ListParams, btn, label, list};
-use crate::logic::{ApplicationContext, ApplicationEvent};
+use crate::logic::{ApplicationContext, ApplicationEvent, PlatformHooks};
 use crate::{UI_FONT, UI_FONT_SIZE};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -24,24 +24,24 @@ pub enum NewLayerEvent {
     ScrollY(f32),
 }
 
-pub struct NewLayerMenu {
+pub struct NewLayerMenu<Platform: PlatformHooks> {
     #[allow(unused)]
     ui: RefCell<Box<dyn Element<State = NewLayerState, Message = NewLayerEvent>>>,
     #[allow(unused)]
     state: NewLayerState,
     #[allow(unused)]
-    ctx: ApplicationContext,
+    ctx: ApplicationContext<Platform>,
     event_manager: Rc<RefCell<EventManager>>,
 }
 
-impl NewLayerMenu {
+impl<Platform: PlatformHooks> NewLayerMenu<Platform> {
     pub fn set_error(&mut self, error: String) {
         self.state.error = Some(error)
     }
 }
 
-impl NewLayerMenu {
-    pub fn new(existing_tileset_names: Vec<String>, ctx: ApplicationContext) -> Self {
+impl<Platform: PlatformHooks> NewLayerMenu<Platform> {
+    pub fn new(existing_tileset_names: Vec<String>, ctx: ApplicationContext<Platform>) -> Self {
         let world = Rc::new(RefCell::new(ElementWorld::new()));
 
         let title = label(
@@ -281,10 +281,10 @@ impl NewLayerMenu {
     }
 }
 
-impl ApplicationStateEx for NewLayerMenu {
+impl<Platform: PlatformHooks + 'static> ApplicationStateEx for NewLayerMenu<Platform> {
     type StateEvent = NewLayerEvent;
     type State = NewLayerState;
-    type ApplicationEvent = ApplicationEvent;
+    type ApplicationEvent = ApplicationEvent<Platform>;
 
     fn ui(&self) -> &RefCell<Box<dyn Element<State = Self::State, Message = Self::StateEvent>>> {
         &self.ui

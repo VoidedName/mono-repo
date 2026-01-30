@@ -1,4 +1,4 @@
-use crate::logic::{ApplicationContext, TextMetric};
+use crate::logic::{ApplicationContext, PlatformHooks, TextMetric};
 use crate::{UI_FONT, UI_FONT_SIZE};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -190,8 +190,7 @@ where
     input
 }
 
-pub fn suppress_enter_key<T>() -> fn(ElementId, &InteractionEvent) -> (Vec<T>, bool)
-{
+pub fn suppress_enter_key<T>() -> fn(ElementId, &InteractionEvent) -> (Vec<T>, bool) {
     |_, event| match event.kind {
         InteractionEventKind::Keyboard(KeyEvent {
             logical_key: winit::keyboard::Key::Named(winit::keyboard::NamedKey::Enter),
@@ -295,8 +294,8 @@ where
     ))
 }
 
-pub fn with_fps<State: 'static, Message: Clone + 'static>(
-    ctx: &ApplicationContext,
+pub fn with_fps<State: 'static, Message: Clone + 'static, Platform: PlatformHooks>(
+    ctx: &ApplicationContext<Platform>,
     layout: Box<dyn Element<State = State, Message = Message>>,
     world: Rc<RefCell<ElementWorld>>,
 ) -> Box<dyn Element<State = State, Message = Message>> {

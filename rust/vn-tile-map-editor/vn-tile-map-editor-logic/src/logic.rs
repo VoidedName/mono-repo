@@ -116,6 +116,8 @@ pub struct File {
 }
 
 pub trait PlatformHooks {
+    fn block_on<T>(future: impl Future<Output = T>) -> T;
+
     fn load_asset(
         &self,
         path: String,
@@ -135,32 +137,35 @@ pub trait PlatformHooks {
     fn save_file(&self, file: File) -> anyhow::Result<()>;
 }
 
-pub struct EditorCallback<Msg> {
-    pub call: Box<dyn Fn(&mut Editor, Msg)>,
+pub struct EditorCallback<Msg, Platform: PlatformHooks> {
+    pub call: Box<dyn Fn(&mut Editor<Platform>, Msg)>,
 }
 
-pub enum ApplicationEvent {
+pub enum ApplicationEvent<Platform: PlatformHooks> {
     TilesetLoaded(TryLoadTileSetResult),
     TilesetReuse(String),
     TilesetLoadCanceled,
     LoadTileset(Vec<String>),
-    NewLayer(Vec<String>, EditorCallback<Option<TryLoadTileSetResult>>),
+    NewLayer(
+        Vec<String>,
+        EditorCallback<Option<TryLoadTileSetResult>, Platform>,
+    ),
 }
 
-pub struct MainLogic {
+pub struct MainLogic<Platform: PlatformHooks> {
     pub resource_manager: Rc<ResourceManager>,
     pub graphics_context: Rc<GraphicsContext>,
     fps_stats: Rc<RefCell<FpsStats>>,
     size: (u32, u32),
     mouse_position: (f32, f32),
     #[allow(unused)]
-    platform: Rc<Box<dyn PlatformHooks>>,
-    app_state: Option<ApplicationState>,
+    platform: Rc<Platform>,
+    app_state: Option<ApplicationState<Platform>>,
 }
 
-pub struct ApplicationContext {
+pub struct ApplicationContext<Platform: PlatformHooks> {
     #[allow(unused)]
-    platform: Rc<Box<dyn PlatformHooks>>,
+    platform: Rc<Platform>,
     #[allow(unused)]
     gv: Rc<GraphicsContext>,
     #[allow(unused)]
@@ -171,9 +176,9 @@ pub struct ApplicationContext {
     stats: Rc<RefCell<FpsStats>>,
 }
 
-impl MainLogic {
+impl<Platform: PlatformHooks + 'static> MainLogic<Platform> {
     pub(crate) async fn new(
-        platform: Rc<Box<dyn PlatformHooks>>,
+        platform: Rc<Platform>,
         graphics_context: Rc<GraphicsContext>,
         resource_manager: Rc<ResourceManager>,
     ) -> anyhow::Result<Self> {
@@ -212,7 +217,7 @@ impl MainLogic {
     }
 }
 
-impl StateLogic<SceneRenderer> for MainLogic {
+impl<Platform: PlatformHooks + 'static> StateLogic<SceneRenderer> for MainLogic<Platform> {
     fn process_events(&mut self) {
         self.app_state = Some(match self.app_state.take().unwrap() {
             ApplicationState::Editor(mut editor) => {
@@ -288,7 +293,7 @@ impl StateLogic<SceneRenderer> for MainLogic {
                                         }
                                     };
 
-                                    ApplicationState::LoadTileSetMenu(pollster::block_on(async {
+                                    ApplicationState::LoadTileSetMenu(Platform::block_on(async {
                                         LoadTileSetMenuStateWithEditorMemory {
                                             editor_callback: new_menu.editor_callback,
                                             new_layer_menu: new_menu.menu,

@@ -2,7 +2,11 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
-use vn_ui::{DynamicDimension, DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld, EventHandler, InteractionEvent, InteractionEventKind, SizeConstraints, StateToParams, StateToParamsArgs, UiContext, into_box_impl, MouseButton};
+use vn_ui::{
+    DynamicDimension, DynamicSize, Element, ElementId, ElementImpl, ElementSize, ElementWorld,
+    EventHandler, InteractionEvent, InteractionEventKind, MouseButton, SizeConstraints,
+    StateToParams, StateToParamsArgs, UiContext, into_box_impl,
+};
 
 pub struct GridParams<State, Message: Clone> {
     pub rows: u32,
@@ -198,7 +202,10 @@ impl<State: 'static, Message: Clone + 'static> ElementImpl for Grid<State, Messa
             .event_handler
             .handle(self.id, event, || match event.kind {
                 InteractionEventKind::MouseDown {
-                    local_y, local_x, button, ..
+                    local_y,
+                    local_x,
+                    button,
+                    ..
                 } => {
                     let x = ((local_x + self.offset.0) / params.grid_size.0) as u32;
                     let y = ((local_y + self.offset.1) / params.grid_size.1) as u32;

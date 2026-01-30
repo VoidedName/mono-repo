@@ -2,7 +2,9 @@ use crate::logic::app_state::editor_ui::{editor, layers, tileset};
 use crate::logic::app_state::{
     ApplicationStateEx, LoadedTileSet, TryLoadTileSetResult, label, with_fps,
 };
-use crate::logic::{ApplicationContext, ApplicationEvent, EditorCallback, File, FileDescriptor};
+use crate::logic::{
+    ApplicationContext, ApplicationEvent, EditorCallback, File, FileDescriptor, PlatformHooks,
+};
 use crate::{UI_FONT, UI_FONT_SIZE};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -62,16 +64,16 @@ pub enum Brush {
     None,
 }
 
-pub struct Editor {
+pub struct Editor<Platform: PlatformHooks> {
     #[allow(unused)]
-    ctx: ApplicationContext,
+    ctx: ApplicationContext<Platform>,
     ui: RefCell<Box<dyn Element<State = EditorState, Message = EditorEvent>>>,
     state: EditorState,
     event_manager: Rc<RefCell<EventManager>>,
 }
 
-impl Editor {
-    pub async fn new(ctx: ApplicationContext) -> anyhow::Result<Self> {
+impl<Platform: PlatformHooks + 'static> Editor<Platform> {
+    pub async fn new(ctx: ApplicationContext<Platform>) -> anyhow::Result<Self> {
         let world = Rc::new(RefCell::new(ElementWorld::new()));
 
         let title = label(
@@ -260,10 +262,10 @@ impl Editor {
     }
 }
 
-impl ApplicationStateEx for Editor {
+impl<Platform: PlatformHooks + 'static> ApplicationStateEx for Editor<Platform> {
     type StateEvent = EditorEvent;
     type State = EditorState;
-    type ApplicationEvent = ApplicationEvent;
+    type ApplicationEvent = ApplicationEvent<Platform>;
 
     fn ui(&self) -> &RefCell<Box<dyn Element<State = Self::State, Message = Self::StateEvent>>> {
         &self.ui
@@ -445,7 +447,7 @@ impl ApplicationStateEx for Editor {
                 };
             }
             EditorEvent::LoadSpecFromFolder(folder) => {
-                let result = pollster::block_on(async {
+                let result = Platform::block_on(async {
                     let mut new_loaded_tilesets = HashMap::new();
                     let map = match self
                         .ctx

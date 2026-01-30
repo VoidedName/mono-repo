@@ -6,7 +6,7 @@ use crate::logic::app_state::{
     ApplicationStateEx, Input, LoadedTileSet, TextFieldState, TryLoadTileSetResult, btn, input,
     label, labelled_input, suppress_enter_key,
 };
-use crate::logic::{ApplicationContext, ApplicationEvent, Grid, GridParams};
+use crate::logic::{ApplicationContext, ApplicationEvent, Grid, GridParams, PlatformHooks};
 use crate::{UI_FONT, UI_FONT_SIZE};
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -76,17 +76,17 @@ pub enum LoadTileSetMenuEvent {
     TexturePreviewScrollY(f32),
 }
 
-pub struct LoadTileSetMenu {
+pub struct LoadTileSetMenu<Platform: PlatformHooks> {
     #[allow(unused)]
-    ctx: ApplicationContext,
+    ctx: ApplicationContext<Platform>,
     ui: RefCell<Box<dyn Element<State = LoadTileSetMenuState, Message = LoadTileSetMenuEvent>>>,
     state: LoadTileSetMenuState,
     event_manager: Rc<RefCell<EventManager>>,
 }
 
-impl LoadTileSetMenu {
+impl<Platform: PlatformHooks> LoadTileSetMenu<Platform> {
     pub async fn new(
-        ctx: ApplicationContext,
+        ctx: ApplicationContext<Platform>,
         loaded_texture: LoadedTexture,
         already_loaded_tilesets: Vec<String>,
     ) -> anyhow::Result<Self> {
@@ -488,10 +488,10 @@ impl LoadTileSetMenu {
     }
 }
 
-impl ApplicationStateEx for LoadTileSetMenu {
+impl<Platform: PlatformHooks + 'static> ApplicationStateEx for LoadTileSetMenu<Platform> {
     type StateEvent = LoadTileSetMenuEvent;
     type State = LoadTileSetMenuState;
-    type ApplicationEvent = ApplicationEvent;
+    type ApplicationEvent = ApplicationEvent<Platform>;
 
     fn ui(&self) -> &RefCell<Box<dyn Element<State = Self::State, Message = Self::StateEvent>>> {
         &self.ui

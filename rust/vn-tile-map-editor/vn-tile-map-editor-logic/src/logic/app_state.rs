@@ -16,7 +16,7 @@ pub mod new_layer_menu;
 pub use new_layer_menu::*;
 
 pub mod ui_helper;
-use crate::logic::{ApplicationEvent, EditorCallback};
+use crate::logic::{ApplicationEvent, EditorCallback, PlatformHooks};
 pub use ui_helper::*;
 use vn_scene::{Scene, TextureId};
 use vn_ui::InteractionEventKind::MouseScroll;
@@ -40,7 +40,7 @@ pub trait ApplicationStateEx {
 
     fn process_events(&mut self) -> Option<Self::ApplicationEvent> {
         self.update();
-        
+
         let events = self.event_manager().borrow_mut().process_events();
 
         let mut ctx = UiContext {
@@ -198,29 +198,29 @@ impl Debug for LoadedTileSet {
     }
 }
 
-pub struct LoadTileSetMenuStateWithEditorMemory {
-    pub menu: LoadTileSetMenu,
-    pub new_layer_menu: NewLayerMenu,
-    pub editor: Editor,
-    pub editor_callback: EditorCallback<Option<TryLoadTileSetResult>>,
+pub struct LoadTileSetMenuStateWithEditorMemory<Platform: PlatformHooks> {
+    pub menu: LoadTileSetMenu<Platform>,
+    pub new_layer_menu: NewLayerMenu<Platform>,
+    pub editor: Editor<Platform>,
+    pub editor_callback: EditorCallback<Option<TryLoadTileSetResult>, Platform>,
 }
 
-pub struct NewLayerMenuStateWithEditorMemory {
-    pub menu: NewLayerMenu,
-    pub editor: Editor,
-    pub editor_callback: EditorCallback<Option<TryLoadTileSetResult>>,
+pub struct NewLayerMenuStateWithEditorMemory<Platform: PlatformHooks> {
+    pub menu: NewLayerMenu<Platform>,
+    pub editor: Editor<Platform>,
+    pub editor_callback: EditorCallback<Option<TryLoadTileSetResult>, Platform>,
 }
 
-impl NewLayerMenuStateWithEditorMemory {
+impl<Platform: PlatformHooks> NewLayerMenuStateWithEditorMemory<Platform> {
     pub fn set_error(&mut self, error: String) {
         self.menu.set_error(error);
     }
 }
 
-pub enum ApplicationState {
-    Editor(Editor),
-    NewLayerMenu(NewLayerMenuStateWithEditorMemory),
-    LoadTileSetMenu(LoadTileSetMenuStateWithEditorMemory),
+pub enum ApplicationState<Platform: PlatformHooks> {
+    Editor(Editor<Platform>),
+    NewLayerMenu(NewLayerMenuStateWithEditorMemory<Platform>),
+    LoadTileSetMenu(LoadTileSetMenuStateWithEditorMemory<Platform>),
 }
 
 macro_rules! dispatch {
@@ -233,8 +233,8 @@ macro_rules! dispatch {
     };
 }
 
-impl ApplicationState {
-    pub fn process_events(&mut self) -> Option<ApplicationEvent> {
+impl<Platform: PlatformHooks + 'static> ApplicationState<Platform> {
+    pub fn process_events(&mut self) -> Option<ApplicationEvent<Platform>> {
         dispatch!(self, inner, inner.process_events())
     }
 
@@ -268,10 +268,12 @@ impl ApplicationState {
     }
 }
 
-impl ApplicationStateEx for LoadTileSetMenuStateWithEditorMemory {
+impl<Platform: PlatformHooks + 'static> ApplicationStateEx
+    for LoadTileSetMenuStateWithEditorMemory<Platform>
+{
     type StateEvent = LoadTileSetMenuEvent;
     type State = LoadTileSetMenuState;
-    type ApplicationEvent = ApplicationEvent;
+    type ApplicationEvent = ApplicationEvent<Platform>;
 
     fn ui(&self) -> &RefCell<Box<dyn Element<State = Self::State, Message = Self::StateEvent>>> {
         self.menu.ui()
@@ -299,10 +301,12 @@ impl ApplicationStateEx for LoadTileSetMenuStateWithEditorMemory {
     }
 }
 
-impl ApplicationStateEx for NewLayerMenuStateWithEditorMemory {
+impl<Platform: PlatformHooks + 'static> ApplicationStateEx
+    for NewLayerMenuStateWithEditorMemory<Platform>
+{
     type StateEvent = NewLayerEvent;
     type State = NewLayerState;
-    type ApplicationEvent = ApplicationEvent;
+    type ApplicationEvent = ApplicationEvent<Platform>;
 
     fn ui(&self) -> &RefCell<Box<dyn Element<State = Self::State, Message = Self::StateEvent>>> {
         self.menu.ui()

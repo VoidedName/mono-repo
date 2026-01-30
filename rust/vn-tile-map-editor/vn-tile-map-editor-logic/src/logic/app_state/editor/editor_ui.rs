@@ -2,7 +2,7 @@ use crate::logic::app_state::{
     Brush, EditorEvent, EditorState, Input, TextFieldState, btn, empty_texture, input, label,
     labelled_input, suppress_enter_key,
 };
-use crate::logic::{ApplicationContext, Grid, GridEvent, GridParams};
+use crate::logic::{ApplicationContext, Grid, GridEvent, GridParams, PlatformHooks};
 use crate::{UI_FONT, UI_FONT_SIZE};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -12,8 +12,8 @@ use vn_tilemap::{TileMap, TileMapParams};
 use vn_ui::*;
 use vn_wgpu_window::resource_manager::Sampling;
 
-pub fn layers(
-    ctx: &ApplicationContext,
+pub fn layers<Platform: PlatformHooks>(
+    ctx: &ApplicationContext<Platform>,
     world: Rc<RefCell<ElementWorld>>,
 ) -> Box<dyn Element<State = EditorState, Message = EditorEvent>> {
     let title = label(
@@ -296,8 +296,8 @@ pub fn layers(
     .into()
 }
 
-pub fn editor(
-    ctx: &ApplicationContext,
+pub fn editor<Platform: PlatformHooks>(
+    ctx: &ApplicationContext<Platform>,
     world: Rc<RefCell<ElementWorld>>,
 ) -> Box<dyn Element<State = EditorState, Message = EditorEvent>> {
     let title = label(
@@ -793,8 +793,8 @@ pub fn editor(
     )
 }
 
-pub fn tileset(
-    ctx: &ApplicationContext,
+pub fn tileset<Platform: PlatformHooks>(
+    ctx: &ApplicationContext<Platform>,
     world: Rc<RefCell<ElementWorld>>,
 ) -> Box<dyn Element<State = EditorState, Message = EditorEvent>> {
     let title = label(

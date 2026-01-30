@@ -48,6 +48,10 @@ fn divide_path(path: &str) -> (String, String, Option<String>) {
 
 struct NativePlatformHooks;
 impl PlatformHooks for NativePlatformHooks {
+    fn block_on<T>(future: impl Future<Output = T>) -> T {
+        pollster::block_on(future)
+    }
+
     fn load_asset(
         &self,
         path: String,
@@ -137,5 +141,5 @@ fn main() {
         log_style
     );
 
-    vn_tile_map_editor_logic::init(Box::new(NativePlatformHooks)).expect("Failed to initialize!");
+    vn_tile_map_editor_logic::init(NativePlatformHooks).expect("Failed to initialize!");
 }
