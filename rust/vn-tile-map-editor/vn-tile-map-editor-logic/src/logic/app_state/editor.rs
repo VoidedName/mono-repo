@@ -10,8 +10,9 @@ use std::rc::Rc;
 use vn_scene::Color;
 use vn_tilemap::{TileMapLayerMapSpecification, TileMapLayerSpecification, TileMapSpecification};
 use vn_ui::{
-    AnchorExt, AnchorLocation, AnchorParams, Element, ElementWorld, Empty, EventManager, Flex,
-    FlexChild, FlexDirection, FlexParams, PaddingExt, PaddingParams, ScrollBarParams, params,
+    AnchorExt, AnchorLocation, AnchorParams, CardExt, CardParams, Conditional, ConditionalParams,
+    Element, ElementWorld, Empty, EventManager, Flex, FlexChild, FlexDirection, FlexParams,
+    PaddingExt, PaddingParams, ScrollBarParams, Stack, bottom, params,
 };
 use vn_wgpu_window::resource_manager::Sampling;
 
@@ -28,6 +29,7 @@ pub struct EditorState {
     tilemap_view_scroll_y: ScrollBarParams,
     layer_caret_positions: Vec<Option<usize>>,
     brush: Brush,
+    errors: Vec<(String, web_time::Instant)>,
 }
 
 #[derive(Debug, Clone)]
@@ -47,6 +49,7 @@ pub enum EditorEvent {
     TileBrushSelect(Brush),
     Brushing(u32, u32),
     ChangeTilemapSize(u32, u32),
+    HandleError(String),
 }
 
 #[derive(Debug, Clone)]
@@ -87,6 +90,39 @@ impl Editor {
         let layers = layers(&ctx, world.clone());
         let editor = editor(&ctx, world.clone());
         let tileset = tileset(&ctx, world.clone());
+        let error = label(
+            |state: &EditorState| {
+                state
+                    .errors
+                    .iter()
+                    .map(|(e, _)| e.clone())
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            },
+            UI_FONT,
+            UI_FONT_SIZE,
+            Color::RED,
+            ctx.text_metrics.clone(),
+            world.clone(),
+        )
+        .padding(params!(PaddingParams::uniform(25.0)), world.clone())
+        .card(
+            params!(CardParams {
+                border_color: Color::RED,
+                border_size: 2.0,
+                corner_radius: 5.0,
+                background_color: Color::BLACK
+            }),
+            world.clone(),
+        )
+        .padding(params!(PaddingParams::uniform(25.0)), world.clone())
+        .anchor(bottom!(), world.clone());
+
+        let error = Conditional::new(
+            error.into(),
+            params!(args<EditorState> => ConditionalParams { show: !args.state.errors.is_empty() }),
+            world.clone(),
+        );
 
         let ui = Flex::new(
             {
@@ -131,6 +167,8 @@ impl Editor {
             world.clone(),
         );
 
+        let ui = Stack::new(vec![Box::new(ui), Box::new(error)], world.clone());
+
         let scroll_bar = ScrollBarParams {
             width: 16.0,
             color: Color::WHITE,
@@ -155,6 +193,7 @@ impl Editor {
                 tileset_view_scroll_y: scroll_bar,
                 tilemap_view_scroll_y: scroll_bar,
                 tilemap_view_scroll_x: scroll_bar,
+                errors: Vec::new(),
             },
             event_manager: Rc::new(RefCell::new(EventManager::new())),
         })
@@ -178,10 +217,19 @@ impl ApplicationStateEx for Editor {
         self.event_manager.clone()
     }
 
+    fn update(&mut self) {
+        self.state
+            .errors
+            .retain(|(_, time)| time.elapsed().as_millis() < 5000);
+    }
+
     fn handle_event(&mut self, event: Self::StateEvent) -> Option<Self::ApplicationEvent> {
         log::info!("handling state event: {:?}", event);
 
         match event {
+            EditorEvent::HandleError(error) => {
+                self.state.errors.push((error, web_time::Instant::now()));
+            }
             EditorEvent::TileBrushSelect(brush) => self.state.brush = brush,
             EditorEvent::Brushing(x, y) => {
                 if let Some(layer) = self.state.current_layer {
@@ -310,10 +358,9 @@ impl ApplicationStateEx for Editor {
                 }
             }
             EditorEvent::LoadSpec => {
-                // todo: !!!!!error handling!!!!!
                 if let Some(folder) = self.ctx.platform.pick_folder() {
-                    pollster::block_on(async {
-                        let map = self
+                    let result = pollster::block_on(async {
+                        let map = match self
                             .ctx
                             .platform
                             .load_file(&FileDescriptor {
@@ -322,13 +369,23 @@ impl ApplicationStateEx for Editor {
                                 extension: Some("json".to_string()),
                             })
                             .await
-                            .expect("failed to load tilemap spec");
+                        {
+                            Ok(file) => file,
+                            Err(_) => {
+                                return Err(format!("Could not load tilemap.json in: {}", folder));
+                            }
+                        };
 
-                        let mut map: TileMapSpecification = serde_json::from_slice(&map.bytes)
-                            .expect("failed to deserialize tilemap spec");
+                        let mut map: TileMapSpecification = match serde_json::from_slice(&map.bytes)
+                        {
+                            Ok(map) => map,
+                            Err(_) => {
+                                return Err(format!("Could not parse tilemap.json in: {}", folder));
+                            }
+                        };
 
                         for l in map.layers.iter_mut() {
-                            let tex_file = self
+                            let tex_file = match self
                                 .ctx
                                 .platform
                                 .load_file(&FileDescriptor {
@@ -337,13 +394,29 @@ impl ApplicationStateEx for Editor {
                                     extension: None,
                                 })
                                 .await
-                                .expect("failed to load tileset spec");
+                            {
+                                Ok(file) => file,
+                                Err(_) => {
+                                    return Err(format!(
+                                        "Could not load tileset {} in: {}",
+                                        l.tileset, folder
+                                    ));
+                                }
+                            };
 
-                            let tex = self
+                            let tex = match self
                                 .ctx
                                 .rm
                                 .load_texture_from_bytes(&tex_file.bytes, Sampling::Nearest)
-                                .expect("failed to load tileset texture");
+                            {
+                                Ok(tex) => tex,
+                                Err(_) => {
+                                    return Err(format!(
+                                        "Could not process tileset texture for {} in: {}",
+                                        l.tileset, folder
+                                    ));
+                                }
+                            };
 
                             let tileset = LoadedTileSet {
                                 name: tex_file.descriptor.name.clone(),
@@ -369,11 +442,7 @@ impl ApplicationStateEx for Editor {
                             margin: 8.0,
                         };
 
-                        let current_layer = if map.layers.len() > 0 {
-                            Some(0)
-                        } else {
-                            None
-                        };
+                        let current_layer = if map.layers.len() > 0 { Some(0) } else { None };
 
                         self.state = EditorState {
                             loaded_tilesets: self.state.loaded_tilesets.clone(),
@@ -385,8 +454,15 @@ impl ApplicationStateEx for Editor {
                             tilemap_view_scroll_x: bar,
                             tilemap_view_scroll_y: bar,
                             brush: Brush::None,
+                            errors: self.state.errors.clone(),
                         };
-                    })
+
+                        Ok(())
+                    });
+
+                    if let Err(err) = result {
+                        self.handle_event(EditorEvent::HandleError(err));
+                    }
                 };
             }
             EditorEvent::SaveSpec => {
@@ -414,8 +490,8 @@ impl ApplicationStateEx for Editor {
 
                 let path = self.ctx.platform.pick_folder();
                 if let Some(path) = path {
-                    // todo: deal with errors
-                    self.ctx
+                    if self
+                        .ctx
                         .platform
                         .save_file(File {
                             descriptor: FileDescriptor {
@@ -425,9 +501,18 @@ impl ApplicationStateEx for Editor {
                             },
                             bytes: serde_json::to_vec(&map).unwrap(),
                         })
-                        .expect("failed to save tilemap spec");
+                        .is_err()
+                    {
+                        self.handle_event(EditorEvent::HandleError(format!(
+                            "Failed to save tilemap.json in: {}",
+                            path
+                        )));
+                        return None;
+                    }
+
                     for ts in tilesets {
-                        self.ctx
+                        if self
+                            .ctx
                             .platform
                             .save_file(File {
                                 descriptor: FileDescriptor {
@@ -437,7 +522,14 @@ impl ApplicationStateEx for Editor {
                                 },
                                 bytes: ts.bytes.borrow().clone(),
                             })
-                            .expect("failed to save tileset spec");
+                            .is_err()
+                        {
+                            self.handle_event(EditorEvent::HandleError(format!(
+                                "Failed to save tileset {} in: {}",
+                                ts.name, path
+                            )));
+                            return None;
+                        }
                     }
                 }
             }

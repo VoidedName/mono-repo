@@ -36,7 +36,11 @@ pub trait ApplicationStateEx {
     fn event_manager(&self) -> Rc<RefCell<EventManager>>;
     fn handle_event(&mut self, event: Self::StateEvent) -> Option<Self::ApplicationEvent>;
 
+    fn update(&mut self) {}
+
     fn process_events(&mut self) -> Option<Self::ApplicationEvent> {
+        self.update();
+        
         let events = self.event_manager().borrow_mut().process_events();
 
         let mut ctx = UiContext {

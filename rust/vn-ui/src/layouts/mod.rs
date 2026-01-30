@@ -6,6 +6,7 @@ mod padding;
 mod prefer_size;
 mod scroll_area;
 mod stack;
+mod conditional;
 
 pub use anchor::*;
 pub use fill::*;
@@ -15,3 +16,4 @@ pub use padding::*;
 pub use prefer_size::*;
 pub use scroll_area::*;
 pub use stack::*;
+pub use conditional::*;
