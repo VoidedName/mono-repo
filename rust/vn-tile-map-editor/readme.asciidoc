@@ -28,13 +28,13 @@ To run the editor natively, navigate to the `rust/vn-tile-map-editor` directory 
 [source,bash]
 ----
 # Run with default features
-cargo run -p --release vn-tile-map-editor-native
+cargo run --release -p vn-tile-map-editor-native
 
 # Run with example map loaded
-cargo run -p --release vn-tile-map-editor-native --features example_map
+cargo run --release -p vn-tile-map-editor-native --features example_map
 
 # Run with debug outlines enabled
-cargo run -p --release vn-tile-map-editor-native --features debug_outlines
+cargo run --release -p vn-tile-map-editor-native --features debug_outlines
 ----
 
 == Usage
