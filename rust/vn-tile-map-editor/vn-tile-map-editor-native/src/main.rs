@@ -67,13 +67,6 @@ impl PlatformHooks for NativePlatformHooks {
         })
     }
 
-    fn load_file(
-        &self,
-        file: &FileDescriptor,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<File, FileLoadingError>>>> {
-        Box::pin(load_file(file.clone()))
-    }
-
     fn exit(&self) {
         std::process::exit(0);
     }
@@ -90,41 +83,19 @@ impl PlatformHooks for NativePlatformHooks {
                 });
 
             match path {
-                Some((parent, name, extension)) => self
-                    .load_file(&FileDescriptor {
-                        path: parent,
-                        name,
-                        extension,
-                    })
-                    .await
-                    .ok(),
+                Some((parent, name, extension)) => load_file(FileDescriptor {
+                    path: parent,
+                    name,
+                    extension,
+                })
+                .await
+                .ok(),
                 None => None,
             }
         })
     }
 
-    fn pick_folder(&self) -> Option<String> {
-        pollster::block_on(async {
-            AsyncFileDialog::new()
-                .set_can_create_directories(true)
-                .pick_folder()
-                .await
-                .map(|path| path.path().to_string_lossy().to_string())
-        })
-    }
-
-    fn save_file(&self, file: File) -> anyhow::Result<()> {
-        let path = std::path::Path::new(&file.descriptor.path);
-        let mut path = path.join(file.descriptor.name);
-        if let Some(extension) = &file.descriptor.extension {
-            path = path.with_added_extension(extension);
-        }
-
-        std::fs::write(path, file.bytes)?;
-        Ok(())
-    }
-
-    fn save(&self, extensions: &[&str], data: &[u8]) -> anyhow::Result<()> {
+    fn save_file(&self, extensions: &[&str], data: &[u8]) -> anyhow::Result<()> {
         let path = pollster::block_on(async {
             AsyncFileDialog::new()
                 .add_filter("filter", extensions)

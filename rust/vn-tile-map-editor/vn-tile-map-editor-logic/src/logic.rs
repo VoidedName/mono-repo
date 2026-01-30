@@ -123,20 +123,11 @@ pub trait PlatformHooks {
         path: String,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<Vec<u8>, FileLoadingError>>>>;
 
-    fn load_file(
-        &self,
-        file: &FileDescriptor,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<File, FileLoadingError>>>>;
-
     fn exit(&self);
 
     fn pick_file(&self, extensions: &[&str]) -> Option<File>;
 
-    fn pick_folder(&self) -> Option<String>;
-
-    fn save_file(&self, file: File) -> anyhow::Result<()>;
-
-    fn save(&self, extensions: &[&str], bytes: &[u8]) -> anyhow::Result<()>;
+    fn save_file(&self, extensions: &[&str], bytes: &[u8]) -> anyhow::Result<()>;
 }
 
 pub struct EditorCallback<Msg, Platform: PlatformHooks> {

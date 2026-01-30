@@ -3,11 +3,14 @@ use crate::logic::app_state::{
     ApplicationStateEx, LoadedTileSet, TryLoadTileSetResult, label, with_fps,
 };
 use crate::logic::{
-    ApplicationContext, ApplicationEvent, EditorCallback, File, FileDescriptor, PlatformHooks,
+    ApplicationContext, ApplicationEvent, EditorCallback, PlatformHooks,
 };
 use crate::{UI_FONT, UI_FONT_SIZE};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::fmt::Debug;
+use std::io::Read;
+use std::path::Path;
 use std::rc::Rc;
 use vn_scene::Color;
 use vn_tilemap::{TileMapLayerMapSpecification, TileMapLayerSpecification, TileMapSpecification};
@@ -34,6 +37,15 @@ pub struct EditorState {
     errors: Vec<(String, web_time::Instant)>,
 }
 
+#[derive(Clone)]
+pub struct Archive(pub Vec<u8>);
+
+impl Debug for Archive {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Archive({:?})", self.0.len())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum EditorEvent {
     TilesetViewScrollX(f32),
@@ -52,7 +64,7 @@ pub enum EditorEvent {
     Brushing(u32, u32),
     ChangeTilemapSize(u32, u32),
     HandleError(String),
-    LoadSpecFromFolder(String),
+    LoadSpecFromArchive(Archive),
     MoveLayer(usize, usize),
     LoadSpecFromData(TileMapSpecification, HashMap<String, LoadedTileSet>),
 }
@@ -220,43 +232,13 @@ impl<Platform: PlatformHooks + 'static> Editor<Platform> {
 
     #[cfg(feature = "example_map")]
     async fn load_example_map(&mut self) -> anyhow::Result<()> {
-        let map = self
+        let archive = self
             .ctx
             .platform
-            .load_asset("example_map/tilemap.json".to_string())
+            .load_asset("example_map.tar".to_string())
             .await?;
-        let mut map: TileMapSpecification = serde_json::from_slice(&map)?;
-        let mut tilemaps = HashMap::new();
 
-        for l in map.layers.iter_mut() {
-            let asset = format!("example_map/{}", l.tileset);
-            let tex_file = self.ctx.platform.load_asset(asset.clone()).await?;
-
-            let tex = self
-                .ctx
-                .rm
-                .load_texture_from_bytes(&tex_file, Sampling::Nearest)?;
-
-            let tex_name = l.tileset.strip_suffix(".png").unwrap().to_string();
-
-            let tileset = LoadedTileSet {
-                name: tex_name.clone(),
-                extension: Some("png".to_string()),
-                texture_id: tex.id.clone(),
-                texture_dimensions: (
-                    l.tileset_dimensions.0 * l.tile_dimensions.0,
-                    l.tileset_dimensions.1 * l.tile_dimensions.1,
-                ),
-                tile_dimensions: l.tile_dimensions,
-                bytes: Rc::new(RefCell::new(tex_file)),
-            };
-
-            l.tileset = tex_name.clone();
-
-            tilemaps.insert(tex_name, tileset);
-        }
-
-        self.handle_event(EditorEvent::LoadSpecFromData(map, tilemaps));
+        self.handle_event(EditorEvent::LoadSpecFromArchive(Archive(archive)));
 
         Ok(())
     }
@@ -446,95 +428,158 @@ impl<Platform: PlatformHooks + 'static> ApplicationStateEx for Editor<Platform> 
                     errors: self.state.errors.clone(),
                 };
             }
-            EditorEvent::LoadSpecFromFolder(folder) => {
-                let result = Platform::block_on(async {
-                    let mut new_loaded_tilesets = HashMap::new();
-                    let map = match self
-                        .ctx
-                        .platform
-                        .load_file(&FileDescriptor {
-                            path: folder.clone(),
-                            name: "tilemap".to_string(),
-                            extension: Some("json".to_string()),
-                        })
-                        .await
-                    {
-                        Ok(file) => file,
-                        Err(_) => {
-                            return Err(format!("Could not load tilemap.json in: {}", folder));
+            EditorEvent::LoadSpecFromArchive(data) => {
+                let mut archive = tar::Archive::new(data.0.as_slice());
+                let mut files = HashMap::new();
+
+                match archive.entries() {
+                    Ok(entries) => {
+                        for entry in entries {
+                            let mut entry = match entry {
+                                Ok(entry) => entry,
+                                Err(e) => {
+                                    self.handle_event(EditorEvent::HandleError(format!(
+                                        "Failed to get tar archive entry: {}",
+                                        e
+                                    )));
+                                    return None;
+                                }
+                            };
+
+                            let mut data = Vec::new();
+
+                            match entry.read_to_end(&mut data) {
+                                Ok(_) => {},
+                                Err(e) => {
+                                    self.handle_event(EditorEvent::HandleError(format!(
+                                        "Failed to read tar archive entry: {}",
+                                        e
+                                    )));
+                                    return None;
+                                }
+                            }
+
+                            let path = match entry.path() {
+                                Ok(path) => path,
+                                Err(e) => {
+                                    self.handle_event(EditorEvent::HandleError(format!(
+                                        "Failed to get tar archive entry path: {}",
+                                        e
+                                    )));
+                                    return None;
+                                }
+                            };
+
+                            let name = match path.file_stem() {
+                                Some(name) => name.to_string_lossy().to_string(),
+                                None => {
+                                    self.handle_event(EditorEvent::HandleError(
+                                        "Tar archive entry has no file stem".to_string(),
+                                    ));
+                                    return None;
+                                }
+                            };
+
+                            let extension = path.extension().map(|e| e.to_string_lossy().to_string());
+
+                            files.insert((name, extension), data);
+                        }
+                    },
+                    Err(e) => {
+                        self.handle_event(EditorEvent::HandleError(format!(
+                            "Failed to get tar archive entries: {}",
+                            e
+                        )));
+                        return None;
+                    }
+                };
+
+                let mut loaded_tilesets = HashMap::new();
+                let map = match files.get(&("tilemap".to_string(), Some("json".to_string()))) {
+                    Some(map) => map,
+                    None => {
+                        self.handle_event(EditorEvent::HandleError(
+                            "No tilemap found in archive".to_string(),
+                        ));
+                        return None;
+                    }
+                };
+
+                let mut map: TileMapSpecification = match serde_json::from_slice(&map) {
+                    Ok(map) => map,
+                    Err(e) => {
+                        self.handle_event(EditorEvent::HandleError(format!(
+                            "Failed to parse tilemap: {}",
+                            e
+                        )));
+                        return None;
+                    }
+                };
+
+                for l in map.layers.iter_mut() {
+                    let path = Path::new(&l.tileset);
+                    let name = match path.file_stem() {
+                        Some(name) => name.to_string_lossy().to_string(),
+                        None => {
+                            self.handle_event(EditorEvent::HandleError(
+                                "Tileset has no file name".to_string(),
+                            ));
+                            return None;
                         }
                     };
+                    let extension = path.extension().map(|e| e.to_string_lossy().to_string());
 
-                    let mut map: TileMapSpecification = match serde_json::from_slice(&map.bytes) {
-                        Ok(map) => map,
-                        Err(_) => {
-                            return Err(format!("Could not parse tilemap.json in: {}", folder));
-                        }
-                    };
+                    l.tileset = name.clone();
 
-                    for l in map.layers.iter_mut() {
-                        let tex_file = match self
-                            .ctx
-                            .platform
-                            .load_file(&FileDescriptor {
-                                path: folder.clone(),
-                                name: l.tileset.clone(),
-                                extension: None,
-                            })
-                            .await
-                        {
-                            Ok(file) => file,
-                            Err(_) => {
-                                return Err(format!(
-                                    "Could not load tileset {} in: {}",
-                                    l.tileset, folder
-                                ));
+                    if !loaded_tilesets.contains_key(&name) {
+                        let tileset = match files.remove(&(name.clone(), extension.clone())) {
+                            Some(tileset) => tileset,
+                            None => {
+                                self.handle_event(EditorEvent::HandleError(format!(
+                                    "Tileset {} not found in archive",
+                                    name
+                                )));
+                                return None;
                             }
                         };
 
                         let tex = match self
                             .ctx
                             .rm
-                            .load_texture_from_bytes(&tex_file.bytes, Sampling::Nearest)
+                            .load_texture_from_bytes(&tileset, Sampling::Nearest)
                         {
                             Ok(tex) => tex,
                             Err(_) => {
-                                return Err(format!(
-                                    "Could not process tileset texture for {} in: {}",
-                                    l.tileset, folder
-                                ));
+                                self.handle_event(EditorEvent::HandleError(format!(
+                                    "Failed to load tileset {}",
+                                    name
+                                )));
+                                return None;
                             }
                         };
 
-                        let tileset = LoadedTileSet {
-                            name: tex_file.descriptor.name.clone(),
-                            extension: tex_file.descriptor.extension,
-                            texture_id: tex.id.clone(),
-                            texture_dimensions: (
-                                l.tileset_dimensions.0 * l.tile_dimensions.0,
-                                l.tileset_dimensions.1 * l.tile_dimensions.1,
-                            ),
-                            tile_dimensions: l.tile_dimensions,
-                            bytes: Rc::new(RefCell::new(tex_file.bytes)),
-                        };
-
-                        l.tileset = tex_file.descriptor.name.clone();
-
-                        new_loaded_tilesets.insert(tex_file.descriptor.name, tileset);
+                        loaded_tilesets.insert(
+                            name.clone(),
+                            LoadedTileSet {
+                                name: name.clone(),
+                                extension,
+                                texture_id: tex.id.clone(),
+                                texture_dimensions: (
+                                    l.tileset_dimensions.0 * l.tile_dimensions.0,
+                                    l.tileset_dimensions.1 * l.tile_dimensions.1,
+                                ),
+                                tile_dimensions: l.tile_dimensions,
+                                bytes: Rc::new(RefCell::new(tileset)),
+                            },
+                        );
                     }
-
-                    self.handle_event(EditorEvent::LoadSpecFromData(map, new_loaded_tilesets));
-
-                    Ok(())
-                });
-
-                if let Err(err) = result {
-                    self.handle_event(EditorEvent::HandleError(err));
                 }
+
+                self.handle_event(EditorEvent::LoadSpecFromData(map, loaded_tilesets));
             }
             EditorEvent::TryLoadSpec => {
-                if let Some(folder) = self.ctx.platform.pick_folder() {
-                    self.handle_event(EditorEvent::LoadSpecFromFolder(folder));
+                if let Some(file) = self.ctx.platform.pick_file(&["tar"]) {
+                    self.handle_event(EditorEvent::LoadSpecFromArchive(Archive(file.bytes)));
                 };
             }
             EditorEvent::SaveSpec => {
@@ -609,7 +654,7 @@ impl<Platform: PlatformHooks + 'static> ApplicationStateEx for Editor<Platform> 
                     }
                 };
 
-                match self.ctx.platform.save(&["tar"], data.as_slice()) {
+                match self.ctx.platform.save_file(&["tar"], data.as_slice()) {
                     Ok(_) => {}
                     Err(e) => {
                         self.handle_event(EditorEvent::HandleError(format!(
