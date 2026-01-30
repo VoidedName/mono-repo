@@ -179,6 +179,7 @@ impl Editor {
             margin: 8.0,
         };
 
+        #[allow(unused_mut)]
         let mut s = Self {
             ui: RefCell::new(with_fps(&ctx, Box::new(ui), world.clone())),
             ctx,
@@ -215,6 +216,7 @@ impl Editor {
         Ok(s)
     }
 
+    #[cfg(feature = "example_map")]
     async fn load_example_map(&mut self) -> anyhow::Result<()> {
         let map = self
             .ctx
