@@ -1,9 +1,0 @@
-[package]
-name = "vn-ui-animation"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-vn-utils = { path = "../vn-utils" }
-web-time = { workspace = true }
-log = { workspace = true }
