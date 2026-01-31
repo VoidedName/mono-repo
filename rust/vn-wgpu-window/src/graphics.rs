@@ -1,7 +1,6 @@
 use crate::errors::RenderError;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::Arc;
 use wgpu::TextureFormat;
 use winit::window::Window;
 
@@ -18,12 +17,13 @@ pub struct GraphicsContext {
     pub config: RefCell<wgpu::SurfaceConfiguration>,
     /// Indicates if the surface is ready for rendering (e.g., after the first resize).
     pub surface_ready_for_rendering: RefCell<bool>,
-    pub window: Arc<Window>,
+    pub window: Rc<Window>,
 }
 
 impl GraphicsContext {
     /// Creates a new graphics context for the given window.
-    pub async fn new(window: Arc<Window>) -> anyhow::Result<Self> {
+    pub async fn new(window: Window) -> anyhow::Result<Self> {
+        let window = Rc::new(window);
         let size = window.inner_size();
 
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
@@ -88,9 +88,9 @@ impl GraphicsContext {
         Ok(Self {
             wgpu: Rc::new(WgpuContext { device, queue }),
             surface,
+            window,
             config: RefCell::new(config),
             surface_ready_for_rendering: RefCell::new(false),
-            window,
         })
     }
 

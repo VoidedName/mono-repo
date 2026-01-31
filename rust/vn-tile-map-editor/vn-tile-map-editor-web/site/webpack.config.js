@@ -9,14 +9,29 @@ module.exports = {
         publicPath: "/",
     },
     mode: "development",
+
     experiments: {
         asyncWebAssembly: true,
     },
+
+    optimization: {
+        splitChunks: false,
+        runtimeChunk: false,
+    },
+
+    resolve: {
+        symlinks: false,
+    },
+
     plugins: [
         new CopyPlugin({
-            patterns: [{ from: "index.html" }, { from: "../../assets", to: "assets"}],
+            patterns: [
+                { from: "index.html" },
+                { from: "../../assets", to: "assets" }
+            ],
         }),
     ],
+
     devServer: {
         client: {
             overlay: false,

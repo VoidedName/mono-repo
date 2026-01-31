@@ -4,7 +4,6 @@ use crate::resource_manager::ResourceManager;
 use crate::scene_renderer::SceneRenderer;
 use crate::{GraphicsContext, UiEvent};
 use std::rc::Rc;
-use std::sync::Arc;
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalSize;
 use winit::event::{MouseScrollDelta, WindowEvent};
@@ -13,7 +12,8 @@ use winit::window::{Window, WindowId};
 
 pub struct App<FNew, FRet, T: StateLogic<SceneRenderer>>
 where
-    FNew: Fn(EventDispatcher<T, SceneRenderer>, Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet + 'static,
+    FNew: Fn(EventDispatcher<T, SceneRenderer>, Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet
+        + 'static,
     FRet: Future<Output = anyhow::Result<T>>,
 {
     proxy: winit::event_loop::EventLoopProxy<UiEvent<RenderingContext<T>, T::Event>>,
@@ -25,13 +25,12 @@ where
 
 impl<FNew, FRet, T: StateLogic<SceneRenderer>> App<FNew, FRet, T>
 where
-    FNew: Fn(EventDispatcher<T, SceneRenderer>, Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet + 'static,
+    FNew: Fn(EventDispatcher<T, SceneRenderer>, Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet
+        + 'static,
     FRet: Future<Output = anyhow::Result<T>>,
 {
     pub fn new(
-        event_loop: &winit::event_loop::EventLoop<
-            UiEvent<RenderingContext<T>, T::Event>,
-        >,
+        event_loop: &winit::event_loop::EventLoop<UiEvent<RenderingContext<T>, T::Event>>,
         title: String,
         size: (f32, f32),
         new_fn: FNew,
@@ -54,7 +53,8 @@ where
 impl<FNew, FRet, T: StateLogic<SceneRenderer>>
     ApplicationHandler<UiEvent<RenderingContext<T>, T::Event>> for App<FNew, FRet, T>
 where
-    FNew: Fn(EventDispatcher<T, SceneRenderer>, Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet + 'static,
+    FNew: Fn(EventDispatcher<T, SceneRenderer>, Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet
+        + 'static,
     FRet: Future<Output = anyhow::Result<T>>,
 {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -75,21 +75,31 @@ where
 
             const CANVAS_ID: &str = "canvas";
 
-            let window = wgpu::web_sys::window().unwrap();
-            let document = window.document().unwrap();
-            let canvas = document
+            let canvas = web_sys::window()
+                .unwrap()
+                .document()
+                .unwrap()
                 .get_element_by_id(CANVAS_ID)
-                .expect("Failed to find canvas!");
-            let canvas: web_sys::HtmlCanvasElement = canvas.unchecked_into();
+                .unwrap()
+                .dyn_into::<web_sys::HtmlCanvasElement>()
+                .unwrap();
+
+            log::info!("Canvas element: {:?}", canvas);
+
             window_attributes = window_attributes.with_canvas(Some(canvas));
         }
 
-        let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
+        let window = event_loop.create_window(window_attributes).unwrap();
 
         #[cfg(not(target_arch = "wasm32"))]
         {
             self.state = Some(
-                pollster::block_on(RenderingContext::new(self.proxy.clone(), window, self.new_fn.clone())).unwrap(),
+                pollster::block_on(RenderingContext::new(
+                    self.proxy.clone(),
+                    window,
+                    self.new_fn.clone(),
+                ))
+                .unwrap(),
             );
         }
 

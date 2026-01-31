@@ -28,21 +28,13 @@ impl<T: StateLogic<R>, R: Renderer + 'static> EventDispatcher<T, R> {
     }
 }
 
-// pub trait EventSink <T: StateLogic<R>, R: Renderer>{
-//     fn send_event(&self, event: T::Event) {
-//         self.send_raw_event(UiEvent::Event(event))
-//     }
-//
-//     fn send_raw_event(&self, event: UiEvent<T, T::Event>);
-// }
-
 impl<T: StateLogic<SceneRenderer>> RenderingContext<T, SceneRenderer> {
     /// Creates a new rendering context for the given window.
     pub async fn new<FNew, FRet>(
         proxy: winit::event_loop::EventLoopProxy<
             UiEvent<Self, T::Event>,
         >,
-        window: std::sync::Arc<Window>,
+        window: Window,
         new_fn: Rc<FNew>,
     ) -> anyhow::Result<Self>
     where
