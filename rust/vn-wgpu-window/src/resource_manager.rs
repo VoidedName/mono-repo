@@ -7,6 +7,7 @@ use std::fmt;
 use std::rc::Rc;
 use ttf_parser::GlyphId;
 use vn_utils::result::MonoResult;
+use crate::GraphicsContext;
 
 /// Manages textures, fonts, and cached text rendering.
 pub struct ResourceManager {
@@ -43,14 +44,14 @@ pub enum Sampling {
 }
 
 impl ResourceManager {
-    pub fn new(wgpu: Rc<WgpuContext>, fallback_font: &[u8]) -> Self {
+    pub fn new(context: Rc<GraphicsContext>, fallback_font: &[u8]) -> Self {
         let fallback_font = Rc::new(Font::new(fallback_font.to_vec()));
-        let texture_atlas = TextureAtlasCatalog::new(&wgpu.device, 2048, 2048);
+        let texture_atlas = TextureAtlasCatalog::new(&context.wgpu.device, 2048, 2048);
         let textures = RefCell::new(HashMap::new());
 
         Self {
-            text_renderer: RefCell::new(TextRenderer::new(&wgpu.device)),
-            wgpu,
+            text_renderer: RefCell::new(TextRenderer::new(&context)),
+            wgpu: context.wgpu.clone(),
             textures,
             fonts: RefCell::new(HashMap::new()),
             fallback_font,

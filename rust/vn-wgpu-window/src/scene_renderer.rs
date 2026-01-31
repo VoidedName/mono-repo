@@ -200,7 +200,7 @@ impl SceneRenderer {
         let instance_buffer_capacity = 1024;
         let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Instance Buffer"),
-            size: (instance_buffer_capacity * std::mem::size_of::<_TexturePrimitive>()) as u64,
+            size: (instance_buffer_capacity * size_of::<_TexturePrimitive>()) as u64,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -208,7 +208,7 @@ impl SceneRenderer {
         let box_instance_buffer_capacity = 1024;
         let box_instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Box Instance Buffer"),
-            size: (box_instance_buffer_capacity * std::mem::size_of::<BoxPrimitive>()) as u64,
+            size: (box_instance_buffer_capacity * size_of::<BoxPrimitive>()) as u64,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -277,7 +277,7 @@ impl SceneRenderer {
                     .create_buffer(&wgpu::BufferDescriptor {
                         label: Some("Box Instance Buffer"),
                         size: (self.box_instance_buffer_capacity.get()
-                            * std::mem::size_of::<BoxPrimitive>())
+                            * size_of::<BoxPrimitive>())
                             as u64,
                         usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                         mapped_at_creation: false,
@@ -286,7 +286,7 @@ impl SceneRenderer {
         }
 
         let offset_bytes =
-            (self.box_instance_buffer_offset.get() * std::mem::size_of::<BoxPrimitive>()) as u64;
+            (self.box_instance_buffer_offset.get() * size_of::<BoxPrimitive>()) as u64;
 
         graphics_context.queue().write_buffer(
             &self.box_instance_buffer.borrow(),
@@ -305,7 +305,7 @@ impl SceneRenderer {
         &'a self,
         graphics_context: &GraphicsContext,
         render_pass: &mut wgpu::RenderPass<'a>,
-        images: &[crate::primitives::ImagePrimitive],
+        images: &[ImagePrimitive],
     ) {
         if images.is_empty() {
             return;
@@ -347,7 +347,7 @@ impl SceneRenderer {
         &'a self,
         graphics_context: &GraphicsContext,
         render_pass: &mut wgpu::RenderPass<'a>,
-        texts: &[crate::primitives::TextPrimitive],
+        texts: &[TextPrimitive],
     ) {
         if texts.is_empty() {
             return;
@@ -429,7 +429,7 @@ impl SceneRenderer {
                     .create_buffer(&wgpu::BufferDescriptor {
                         label: Some("Instance Buffer"),
                         size: (self.instance_buffer_capacity.get()
-                            * std::mem::size_of::<_TexturePrimitive>())
+                            * size_of::<_TexturePrimitive>())
                             as u64,
                         usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                         mapped_at_creation: false,
@@ -438,7 +438,7 @@ impl SceneRenderer {
         }
 
         let offset_bytes =
-            (self.instance_buffer_offset.get() * std::mem::size_of::<_TexturePrimitive>()) as u64;
+            (self.instance_buffer_offset.get() * size_of::<_TexturePrimitive>()) as u64;
 
         graphics_context.queue().write_buffer(
             &self.instance_buffer.borrow(),
@@ -481,6 +481,9 @@ impl Renderer for SceneRenderer {
         graphics_context: &GraphicsContext,
         scene: &Self::RenderTarget,
     ) -> Result<(), wgpu::SurfaceError> {
+        // TODO: Consider caching and reusing previous render passes for identical scenes
+        // TODO: Consider using some sort of scene diff to only rerender affected areas
+
         let (output, view, mut encoder) = Self::begin_render_frame(graphics_context)?;
         self.update_globals(graphics_context);
 

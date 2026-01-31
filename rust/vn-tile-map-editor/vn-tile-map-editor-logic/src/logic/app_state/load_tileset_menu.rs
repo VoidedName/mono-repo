@@ -85,7 +85,7 @@ pub struct LoadTileSetMenu<Platform: PlatformHooks> {
 }
 
 impl<Platform: PlatformHooks> LoadTileSetMenu<Platform> {
-    pub async fn new(
+    pub fn new(
         ctx: ApplicationContext<Platform>,
         loaded_texture: LoadedTexture,
         already_loaded_tilesets: Vec<String>,

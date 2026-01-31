@@ -3,7 +3,12 @@ resolver = "3"
 members = [
     "vn-tile-map-editor-logic",
     "vn-tile-map-editor-native",
+    "vn-tile-map-editor-web",
 ]
+
+[profile.release]
+lto = true
+opt-level = 3
 
 [workspace.dependencies]
 log = "0.4.29"

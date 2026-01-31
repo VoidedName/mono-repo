@@ -2,6 +2,7 @@ use crate::errors::RenderError;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
+use wgpu::TextureFormat;
 use winit::window::Window;
 
 /// Wraps the core wgpu device and queue.
@@ -60,12 +61,9 @@ impl GraphicsContext {
             .await?;
 
         let surface_capabilities = surface.get_capabilities(&adapter);
-        let surface_format = surface_capabilities
-            .formats
-            .iter()
-            .copied()
-            .find(|format| format.is_srgb())
-            .unwrap_or(surface_capabilities.formats[0]);
+        let surface_format = TextureFormat::Rgba8Unorm;
+
+        log::info!("Surface format: {:?}", surface_format);
 
         let alpha_mode = if surface_capabilities
             .alpha_modes

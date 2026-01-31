@@ -48,10 +48,6 @@ fn divide_path(path: &str) -> (String, String, Option<String>) {
 
 struct NativePlatformHooks;
 impl PlatformHooks for NativePlatformHooks {
-    fn block_on<T>(future: impl Future<Output = T>) -> T {
-        pollster::block_on(future)
-    }
-
     fn load_asset(
         &self,
         path: String,

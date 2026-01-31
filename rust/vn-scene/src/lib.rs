@@ -108,7 +108,7 @@ impl Color {
 
 /// A simple 2D rectangle defined by position and size.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable, Interpolatable)]
+#[derive(Debug, Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable, Interpolatable)]
 pub struct Rect {
     pub position: [f32; 2],
     pub size: [f32; 2],
@@ -187,7 +187,7 @@ impl RectBuilder {
 
 /// Represents a 2D transformation including translation, rotation, scale, and origin.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable, Interpolatable)]
+#[derive(Debug, Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable, Interpolatable)]
 pub struct Transform {
     pub translation: [f32; 2],
     /// Rotation in radians.
@@ -269,7 +269,7 @@ pub trait Scene {
 }
 
 /// A collection of primitives to be rendered together.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Layer {
     pub boxes: Vec<BoxPrimitiveData>,
     pub images: Vec<ImagePrimitiveData>,
@@ -295,7 +295,7 @@ impl Layer {
 }
 
 // These are data-only versions of primitives to be used in the trait
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BoxPrimitiveData {
     pub transform: Transform,
     pub size: [f32; 2],
@@ -306,7 +306,7 @@ pub struct BoxPrimitiveData {
     pub clip_rect: Rect,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ImagePrimitiveData {
     pub transform: Transform,
     /// Render Size
@@ -319,7 +319,7 @@ pub struct ImagePrimitiveData {
     pub uv_rect: Rect,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TextPrimitiveData {
     pub transform: Transform,
     pub tint: Color,
@@ -327,7 +327,7 @@ pub struct TextPrimitiveData {
     pub clip_rect: Rect,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct GlyphInstanceData {
     pub texture_id: TextureId,
     pub position: [f32; 2],

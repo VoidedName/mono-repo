@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
-use std::time::Instant;
+use web_time::Instant;
 use winit::event::ElementState;
 use winit::event::KeyEvent;
 use winit::event::MouseButton;

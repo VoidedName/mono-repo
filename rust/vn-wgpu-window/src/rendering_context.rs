@@ -28,7 +28,7 @@ impl<T: StateLogic<SceneRenderer>> RenderingContext<T, SceneRenderer> {
     {
         let context = Rc::new(GraphicsContext::new(window).await?);
         let resource_manager = Rc::new(ResourceManager::new(
-            context.wgpu.clone(),
+            context.clone(),
             include_bytes!("../src/text/fonts/JetBrainsMono-Regular.ttf"),
         ));
 

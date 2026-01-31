@@ -1,3 +1,4 @@
+use std::rc::Rc;
 use crate::graphics::{GraphicsContext, VertexDescription};
 use crate::pipeline_builder::PipelineBuilder;
 use crate::primitives::QUAD_VERTICES;
@@ -43,12 +44,12 @@ pub struct TextRenderer {
 }
 
 impl TextRenderer {
-    pub fn new(device: &wgpu::Device) -> Self {
+    pub fn new(context: &Rc<GraphicsContext>) -> Self {
         let shader =
-            device.create_shader_module(wgpu::include_wgsl!("../shaders/text_shader.wgsl"));
+            context.wgpu.device.create_shader_module(wgpu::include_wgsl!("../shaders/text_shader.wgsl"));
 
         let globals_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            context.wgpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Text Globals Bind Group Layout"),
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
@@ -63,7 +64,7 @@ impl TextRenderer {
             });
 
         let glyph_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            context.wgpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Glyph Bind Group Layout"),
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
@@ -78,7 +79,7 @@ impl TextRenderer {
             });
 
         let segment_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            context.wgpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Segment Bind Group Layout"),
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
@@ -92,7 +93,7 @@ impl TextRenderer {
                 }],
             });
 
-        let pipeline = PipelineBuilder::new(device, wgpu::TextureFormat::Rgba8UnormSrgb)
+        let pipeline = PipelineBuilder::new(&context.wgpu.device, context.config.borrow().format)
             .label("Text Pipeline")
             .shader(&shader)
             .blend(wgpu::BlendState {
@@ -118,13 +119,13 @@ impl TextRenderer {
             .build()
             .expect("Failed to build text pipeline");
 
-        let quad_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let quad_vertex_buffer = context.wgpu.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Text Quad Vertex Buffer"),
             contents: bytemuck::cast_slice(&QUAD_VERTICES),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        let globals_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        let globals_buffer = context.wgpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Text Globals Buffer"),
             size: size_of::<Globals>() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
@@ -132,7 +133,7 @@ impl TextRenderer {
         });
 
         let glyph_buffer_capacity = 128;
-        let glyph_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        let glyph_buffer = context.wgpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Text Glyph Buffer"),
             size: (glyph_buffer_capacity * size_of::<GpuGlyph>()) as u64,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
@@ -140,14 +141,14 @@ impl TextRenderer {
         });
 
         let segment_buffer_capacity = 1024;
-        let segment_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        let segment_buffer = context.wgpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Text Segment Buffer"),
             size: (segment_buffer_capacity * size_of::<GpuSegment>()) as u64,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
-        let globals_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let globals_bind_group = context.wgpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Text Globals Bind Group"),
             layout: &globals_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
@@ -156,7 +157,7 @@ impl TextRenderer {
             }],
         });
 
-        let glyph_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let glyph_bind_group = context.wgpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Text Glyph Bind Group"),
             layout: &glyph_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
@@ -165,7 +166,7 @@ impl TextRenderer {
             }],
         });
 
-        let segment_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let segment_bind_group = context.wgpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Text Segment Bind Group"),
             layout: &segment_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
@@ -275,7 +276,7 @@ impl TextRenderer {
             self.glyph_buffer_capacity = glyph_instances.len().next_power_of_two();
             self.glyph_buffer = device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("Text Glyph Buffer"),
-                size: (self.glyph_buffer_capacity * std::mem::size_of::<GpuGlyph>()) as u64,
+                size: (self.glyph_buffer_capacity * size_of::<GpuGlyph>()) as u64,
                 usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
@@ -293,7 +294,7 @@ impl TextRenderer {
             self.segment_buffer_capacity = all_segments.len().next_power_of_two();
             self.segment_buffer = device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("Text Segment Buffer"),
-                size: (self.segment_buffer_capacity * std::mem::size_of::<GpuSegment>()) as u64,
+                size: (self.segment_buffer_capacity * size_of::<GpuSegment>()) as u64,
                 usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });

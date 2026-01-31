@@ -3,7 +3,7 @@ use vn_scene::{BoxPrimitiveData, ImagePrimitiveData, Layer, Scene, TextPrimitive
 pub type SceneSize = (f32, f32);
 
 /// Represents the entire scene to be rendered, consisting of multiple layers.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct WgpuScene {
     layers: Vec<Layer>,
     active_layers: Vec<usize>,
