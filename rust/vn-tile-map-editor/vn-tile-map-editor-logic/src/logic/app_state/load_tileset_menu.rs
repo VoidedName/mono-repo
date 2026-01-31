@@ -76,7 +76,7 @@ pub enum LoadTileSetMenuEvent {
     TexturePreviewScrollY(f32),
 }
 
-pub struct LoadTileSetMenu<Platform: PlatformHooks> {
+pub struct LoadTileSetMenu<Platform: PlatformHooks + 'static> {
     #[allow(unused)]
     ctx: ApplicationContext<Platform>,
     ui: RefCell<Box<dyn Element<State = LoadTileSetMenuState, Message = LoadTileSetMenuEvent>>>,

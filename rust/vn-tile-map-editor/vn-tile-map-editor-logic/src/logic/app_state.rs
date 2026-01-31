@@ -211,14 +211,14 @@ impl Debug for LoadedTileSet {
     }
 }
 
-pub struct LoadTileSetMenuStateWithEditorMemory<Platform: PlatformHooks> {
+pub struct LoadTileSetMenuStateWithEditorMemory<Platform: PlatformHooks + 'static> {
     pub menu: LoadTileSetMenu<Platform>,
     pub new_layer_menu: NewLayerMenu<Platform>,
     pub editor: Editor<Platform>,
     pub editor_callback: EditorCallback<Option<TryLoadTileSetResult>, Platform>,
 }
 
-pub struct NewLayerMenuStateWithEditorMemory<Platform: PlatformHooks> {
+pub struct NewLayerMenuStateWithEditorMemory<Platform: PlatformHooks + 'static> {
     pub menu: NewLayerMenu<Platform>,
     pub editor: Editor<Platform>,
     pub editor_callback: EditorCallback<Option<TryLoadTileSetResult>, Platform>,
@@ -230,7 +230,7 @@ impl<Platform: PlatformHooks> NewLayerMenuStateWithEditorMemory<Platform> {
     }
 }
 
-pub enum ApplicationState<Platform: PlatformHooks> {
+pub enum ApplicationState<Platform: PlatformHooks + 'static> {
     Editor(Editor<Platform>),
     NewLayerMenu(NewLayerMenuStateWithEditorMemory<Platform>),
     LoadTileSetMenu(LoadTileSetMenuStateWithEditorMemory<Platform>),

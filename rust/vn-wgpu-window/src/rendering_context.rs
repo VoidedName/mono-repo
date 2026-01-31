@@ -1,8 +1,8 @@
-use crate::Renderer;
 use crate::graphics::GraphicsContext;
 use crate::logic::StateLogic;
 use crate::resource_manager::ResourceManager;
 use crate::scene_renderer::SceneRenderer;
+use crate::{Renderer, UiEvent};
 use std::rc::Rc;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
@@ -16,14 +16,38 @@ pub struct RenderingContext<T: StateLogic<R>, R: Renderer = SceneRenderer> {
     pub logic: T,
 }
 
+pub struct EventDispatcher<T: StateLogic<R>, R: Renderer + 'static> {
+    proxy: winit::event_loop::EventLoopProxy<UiEvent<RenderingContext<T, R>, T::Event>>,
+}
+
+impl<T: StateLogic<R>, R: Renderer + 'static> EventDispatcher<T, R> {
+    pub fn send_event(&self, event: T::Event) {
+        if let Err(_) = self.proxy.send_event(UiEvent::Event(event)) {
+            log::error!("Failed to send event");
+        }
+    }
+}
+
+// pub trait EventSink <T: StateLogic<R>, R: Renderer>{
+//     fn send_event(&self, event: T::Event) {
+//         self.send_raw_event(UiEvent::Event(event))
+//     }
+//
+//     fn send_raw_event(&self, event: UiEvent<T, T::Event>);
+// }
+
 impl<T: StateLogic<SceneRenderer>> RenderingContext<T, SceneRenderer> {
     /// Creates a new rendering context for the given window.
     pub async fn new<FNew, FRet>(
+        proxy: winit::event_loop::EventLoopProxy<
+            UiEvent<Self, T::Event>,
+        >,
         window: std::sync::Arc<Window>,
         new_fn: Rc<FNew>,
     ) -> anyhow::Result<Self>
     where
-        FNew: Fn(Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet + 'static,
+        FNew: Fn(EventDispatcher<T, SceneRenderer>, Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet
+            + 'static,
         FRet: Future<Output = anyhow::Result<T>>,
     {
         let context = Rc::new(GraphicsContext::new(window).await?);
@@ -34,7 +58,14 @@ impl<T: StateLogic<SceneRenderer>> RenderingContext<T, SceneRenderer> {
 
         let renderer = SceneRenderer::new(context.clone(), resource_manager.clone());
 
-        let logic = new_fn(context.clone(), resource_manager.clone()).await?;
+        let dispatcher = EventDispatcher { proxy };
+
+        let logic = new_fn(
+            dispatcher,
+            context.clone(),
+            resource_manager.clone(),
+        )
+        .await?;
 
         Ok(Self {
             context,
@@ -102,5 +133,9 @@ impl<T: StateLogic<R>, R: Renderer> RenderingContext<T, R> {
         self.renderer.render(&self.context, &render_target)?;
 
         Ok(())
+    }
+
+    pub fn handle_event(logic: &mut T, event: T::Event) {
+        logic.handle_event(event);
     }
 }

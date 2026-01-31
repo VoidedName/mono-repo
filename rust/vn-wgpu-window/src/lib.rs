@@ -27,6 +27,12 @@ pub use scene_renderer::SceneRenderer;
 pub use texture::Texture;
 
 use winit::event_loop::EventLoop;
+use crate::rendering_context::EventDispatcher;
+
+pub enum UiEvent<T, Event> {
+    Context(T),
+    Event(Event),
+}
 
 pub fn init_with_logic<FNew, FRet, T: StateLogic<SceneRenderer>>(
     title: String,
@@ -34,15 +40,14 @@ pub fn init_with_logic<FNew, FRet, T: StateLogic<SceneRenderer>>(
     new_fn: FNew,
 ) -> anyhow::Result<()>
 where
-    FNew: Fn(std::rc::Rc<GraphicsContext>, std::rc::Rc<resource_manager::ResourceManager>) -> FRet
+    FNew: Fn(EventDispatcher<T, SceneRenderer>, std::rc::Rc<GraphicsContext>, std::rc::Rc<resource_manager::ResourceManager>) -> FRet
         + 'static,
     FRet: Future<Output = anyhow::Result<T>>,
 {
     log::info!("Initializing window");
 
-    let event_loop = EventLoop::<RenderingContext<T>>::with_user_event().build()?;
+    let event_loop = EventLoop::<UiEvent<RenderingContext<T>, T::Event>>::with_user_event().build()?;
     let mut app = App::new(
-        #[cfg(target_arch = "wasm32")]
         &event_loop,
         title,
         size,

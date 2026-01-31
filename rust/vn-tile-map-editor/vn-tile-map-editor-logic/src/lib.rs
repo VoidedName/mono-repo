@@ -16,11 +16,11 @@ pub fn init<P: PlatformHooks + 'static>(platform: P) -> anyhow::Result<()> {
     init_with_logic(
         "Voided Names' Tile Map Editor".to_string(),
         (1280.0 * 2.0, 720.0 * 2.0),
-        move |a, b| {
+        move |dispatcher, gc, rm| {
             let platform = platform.clone();
             async move {
                 {
-                    let r = MainLogic::new(platform.clone(), a, b).await;
+                    let r = MainLogic::new(Rc::new(dispatcher), platform.clone(), gc, rm).await;
                     P::has_initialized();
                     r
                 }

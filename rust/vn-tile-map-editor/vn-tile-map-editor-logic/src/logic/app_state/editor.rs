@@ -3,7 +3,7 @@ use crate::logic::app_state::{
     ApplicationStateEx, LoadedTileSet, TryLoadTileSetResult, label, with_fps,
 };
 use crate::logic::{
-    ApplicationContext, ApplicationEvent, EditorCallback, PlatformHooks,
+    ApplicationContext, ApplicationEvent, EditorCallback, PlatformHooks, StateLogicDeferredEvent,
 };
 use crate::{UI_FONT, UI_FONT_SIZE};
 use std::cell::RefCell;
@@ -76,7 +76,7 @@ pub enum Brush {
     None,
 }
 
-pub struct Editor<Platform: PlatformHooks> {
+pub struct Editor<Platform: PlatformHooks + 'static> {
     #[allow(unused)]
     ctx: ApplicationContext<Platform>,
     ui: RefCell<Box<dyn Element<State = EditorState, Message = EditorEvent>>>,
@@ -449,7 +449,7 @@ impl<Platform: PlatformHooks + 'static> ApplicationStateEx for Editor<Platform> 
                             let mut data = Vec::new();
 
                             match entry.read_to_end(&mut data) {
-                                Ok(_) => {},
+                                Ok(_) => {}
                                 Err(e) => {
                                     self.handle_event(EditorEvent::HandleError(format!(
                                         "Failed to read tar archive entry: {}",
@@ -480,11 +480,12 @@ impl<Platform: PlatformHooks + 'static> ApplicationStateEx for Editor<Platform> 
                                 }
                             };
 
-                            let extension = path.extension().map(|e| e.to_string_lossy().to_string());
+                            let extension =
+                                path.extension().map(|e| e.to_string_lossy().to_string());
 
                             files.insert((name, extension), data);
                         }
-                    },
+                    }
                     Err(e) => {
                         self.handle_event(EditorEvent::HandleError(format!(
                             "Failed to get tar archive entries: {}",
@@ -578,9 +579,15 @@ impl<Platform: PlatformHooks + 'static> ApplicationStateEx for Editor<Platform> 
                 self.handle_event(EditorEvent::LoadSpecFromData(map, loaded_tilesets));
             }
             EditorEvent::TryLoadSpec => {
-                if let Some(file) = self.ctx.platform.pick_file(&["tar"]) {
-                    self.handle_event(EditorEvent::LoadSpecFromArchive(Archive(file.bytes)));
-                };
+                let dispatcher = self.ctx.dispatcher.clone();
+                let file = self.ctx.platform.pick_file(&["tar"]);
+                self.ctx.platform.execute_async(async move {
+                    if let Some(file) = file.await {
+                        dispatcher.send_event(StateLogicDeferredEvent::Editor(
+                            EditorEvent::LoadSpecFromArchive(Archive(file.bytes)),
+                        ));
+                    };
+                });
             }
             EditorEvent::SaveSpec => {
                 let tilesets = self
@@ -654,16 +661,21 @@ impl<Platform: PlatformHooks + 'static> ApplicationStateEx for Editor<Platform> 
                     }
                 };
 
-                match self.ctx.platform.save_file(&["tar"], data.as_slice()) {
-                    Ok(_) => {}
-                    Err(e) => {
-                        self.handle_event(EditorEvent::HandleError(format!(
-                            "Failed to save tar archive: {}",
-                            e
-                        )));
-                        return None;
+                let dispatcher = self.ctx.dispatcher.clone();
+                let save = self.ctx.platform.save_file("tilemap.tar",&["tar"], data.as_slice());
+                self.ctx.platform.execute_async(async move {
+                    match save.await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            dispatcher.send_event(StateLogicDeferredEvent::Editor(
+                                EditorEvent::HandleError(format!(
+                                    "Failed to save tar archive: {}",
+                                    e
+                                )),
+                            ));
+                        }
                     }
-                }
+                });
             }
         }
 

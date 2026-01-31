@@ -46,8 +46,14 @@ fn divide_path(path: &str) -> (String, String, Option<String>) {
     )
 }
 
-struct NativePlatformHooks;
+#[derive(Clone, Debug)]
+struct NativePlatformHooks {}
+
 impl PlatformHooks for NativePlatformHooks {
+    fn execute_async(&self, f: impl Future<Output = ()> + 'static) {
+        pollster::block_on(f)
+    }
+
     fn load_asset(
         &self,
         path: String,
@@ -67,10 +73,11 @@ impl PlatformHooks for NativePlatformHooks {
         std::process::exit(0);
     }
 
-    fn pick_file(&self, extensions: &[&str]) -> Option<File> {
-        pollster::block_on(async {
+    fn pick_file(&self, extensions: &[&str]) -> Pin<Box<dyn Future<Output = Option<File>>>> {
+        let extensions = extensions.into_iter().cloned().map(String::from).collect::<Vec<_>>();
+        Box::pin(async move {
             let path = AsyncFileDialog::new()
-                .add_filter("filter", extensions)
+                .add_filter("filter", &extensions)
                 .pick_file()
                 .await
                 .map(|path| {
@@ -86,24 +93,36 @@ impl PlatformHooks for NativePlatformHooks {
                 })
                 .await
                 .ok(),
+
                 None => None,
             }
         })
     }
 
-    fn save_file(&self, extensions: &[&str], data: &[u8]) -> anyhow::Result<()> {
-        let path = pollster::block_on(async {
-            AsyncFileDialog::new()
-                .add_filter("filter", extensions)
-                .save_file()
-                .await
-                .map(|path| path.path().to_string_lossy().to_string())
-        });
+    fn save_file(
+        &self,
+        suggested_name: &str,
+        extensions: &[&str],
+        data: &[u8],
+    ) -> Pin<Box<dyn Future<Output = anyhow::Result<()>>>> {
+        let extensions = extensions.into_iter().cloned().map(String::from).collect::<Vec<_>>();
+        let data = data.to_vec();
+        let name = suggested_name.to_string();
+        
+        Box::pin(async move {
+            let path =
+                AsyncFileDialog::new()
+                    .add_filter("filter", &extensions)
+                    .set_file_name(&name)
+                    .save_file()
+                    .await
+                    .map(|path| path.path().to_string_lossy().to_string());
 
-        match path {
-            None => Err(anyhow::anyhow!("No file selected")),
-            Some(path) => Ok(std::fs::write(path, data)?),
-        }
+            match path {
+                None => Err(anyhow::anyhow!("No file selected")),
+                Some(path) => Ok(std::fs::write(path, data)?),
+            }
+        })
     }
 }
 
@@ -123,5 +142,5 @@ fn main() {
         log_style
     );
 
-    vn_tile_map_editor_logic::init(NativePlatformHooks).expect("Failed to initialize!");
+    vn_tile_map_editor_logic::init(NativePlatformHooks {}).expect("Failed to initialize!");
 }

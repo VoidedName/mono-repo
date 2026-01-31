@@ -21,3 +21,4 @@ log = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 js-sys = { workspace = true }
 anyhow = { workspace = true }
+rfd = { workspace = true }

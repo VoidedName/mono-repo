@@ -1,8 +1,8 @@
-use crate::GraphicsContext;
 use crate::logic::StateLogic;
-use crate::rendering_context::RenderingContext;
+use crate::rendering_context::{EventDispatcher, RenderingContext};
 use crate::resource_manager::ResourceManager;
 use crate::scene_renderer::SceneRenderer;
+use crate::{GraphicsContext, UiEvent};
 use std::rc::Rc;
 use std::sync::Arc;
 use winit::application::ApplicationHandler;
@@ -13,11 +13,10 @@ use winit::window::{Window, WindowId};
 
 pub struct App<FNew, FRet, T: StateLogic<SceneRenderer>>
 where
-    FNew: Fn(Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet + 'static,
+    FNew: Fn(EventDispatcher<T, SceneRenderer>, Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet + 'static,
     FRet: Future<Output = anyhow::Result<T>>,
 {
-    #[cfg(target_arch = "wasm32")]
-    proxy: Option<winit::event_loop::EventLoopProxy<RenderingContext<T>>>,
+    proxy: winit::event_loop::EventLoopProxy<UiEvent<RenderingContext<T>, T::Event>>,
     state: Option<RenderingContext<T>>,
     new_fn: Rc<FNew>,
     title: String,
@@ -26,12 +25,12 @@ where
 
 impl<FNew, FRet, T: StateLogic<SceneRenderer>> App<FNew, FRet, T>
 where
-    FNew: Fn(Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet + 'static,
+    FNew: Fn(EventDispatcher<T, SceneRenderer>, Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet + 'static,
     FRet: Future<Output = anyhow::Result<T>>,
 {
     pub fn new(
-        #[cfg(target_arch = "wasm32")] event_loop: &winit::event_loop::EventLoop<
-            RenderingContext<T>,
+        event_loop: &winit::event_loop::EventLoop<
+            UiEvent<RenderingContext<T>, T::Event>,
         >,
         title: String,
         size: (f32, f32),
@@ -40,11 +39,9 @@ where
     where
         FRet: Future<Output = anyhow::Result<T>>,
     {
-        #[cfg(target_arch = "wasm32")]
-        let proxy = Some(event_loop.create_proxy());
+        let proxy = event_loop.create_proxy();
 
         Self {
-            #[cfg(target_arch = "wasm32")]
             proxy,
             state: None,
             new_fn: Rc::new(new_fn),
@@ -54,10 +51,10 @@ where
     }
 }
 
-impl<FNew, FRet, T: StateLogic<SceneRenderer>> ApplicationHandler<RenderingContext<T>>
-    for App<FNew, FRet, T>
+impl<FNew, FRet, T: StateLogic<SceneRenderer>>
+    ApplicationHandler<UiEvent<RenderingContext<T>, T::Event>> for App<FNew, FRet, T>
 where
-    FNew: Fn(Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet + 'static,
+    FNew: Fn(EventDispatcher<T, SceneRenderer>, Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet + 'static,
     FRet: Future<Output = anyhow::Result<T>>,
 {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -92,43 +89,53 @@ where
         #[cfg(not(target_arch = "wasm32"))]
         {
             self.state = Some(
-                pollster::block_on(RenderingContext::new(window, self.new_fn.clone())).unwrap(),
+                pollster::block_on(RenderingContext::new(self.proxy.clone(), window, self.new_fn.clone())).unwrap(),
             );
         }
 
         #[cfg(target_arch = "wasm32")]
         {
             let new_fn = self.new_fn.clone();
-
-            if let Some(proxy) = self.proxy.take() {
-                wasm_bindgen_futures::spawn_local(async move {
-                    assert!(
-                        // send_event sends it to user_event
-                        proxy
-                            .send_event(
-                                RenderingContext::new(window, new_fn)
-                                    .await
-                                    .expect("Failed to create canvas!")
-                            )
-                            .is_ok()
-                    )
-                });
-            }
+            let proxy = self.proxy.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                assert!(
+                    // send_event sends it to user_event
+                    proxy
+                        .send_event(UiEvent::Context(
+                            RenderingContext::new(proxy.clone(), window, new_fn)
+                                .await
+                                .expect("Failed to create canvas!")
+                        ))
+                        .is_ok()
+                )
+            });
         }
     }
 
     #[allow(unused_mut)]
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, mut event: RenderingContext<T>) {
-        #[cfg(target_arch = "wasm32")]
-        {
-            event.context.window.request_redraw();
-            event.resize(
-                event.context.window.inner_size().width,
-                event.context.window.inner_size().height,
-            );
+    fn user_event(
+        &mut self,
+        _event_loop: &ActiveEventLoop,
+        mut event: UiEvent<RenderingContext<T>, T::Event>,
+    ) {
+        match event {
+            UiEvent::Context(mut state) => {
+                #[cfg(target_arch = "wasm32")]
+                {
+                    state.context.window.request_redraw();
+                    state.resize(
+                        state.context.window.inner_size().width,
+                        state.context.window.inner_size().height,
+                    );
+                }
+                self.state = Some(state);
+            }
+            UiEvent::Event(event) => {
+                if let Some(state) = &mut self.state {
+                    T::handle_event(&mut state.logic, event);
+                }
+            }
         }
-
-        self.state = Some(event);
     }
 
     fn window_event(

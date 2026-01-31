@@ -24,7 +24,7 @@ pub enum NewLayerEvent {
     ScrollY(f32),
 }
 
-pub struct NewLayerMenu<Platform: PlatformHooks> {
+pub struct NewLayerMenu<Platform: PlatformHooks + 'static> {
     #[allow(unused)]
     ui: RefCell<Box<dyn Element<State = NewLayerState, Message = NewLayerEvent>>>,
     #[allow(unused)]
