@@ -205,7 +205,7 @@ impl<State, Message: Clone> ElementImpl for TextField<State, Message> {
             self.id,
             scene.current_layer_id(),
             clip,
-            |ctx| {
+            |_| {
                 let clip_rect = clip;
                 if let Some(layout) = &self.layout {
                     for (i, line) in layout.lines.iter().enumerate() {

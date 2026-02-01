@@ -549,7 +549,8 @@ pub fn editor<Platform: PlatformHooks>(
                     vec![]
                 }
                 TextFieldAction::CaretMove(new_caret) => {
-                    tilemap_width_controller.borrow_mut().caret = Some(new_caret);
+                    let mut controller = tilemap_width_controller.borrow_mut();
+                    controller.caret = Some(new_caret.min(controller.text.len()));
                     vec![]
                 }
             }
@@ -588,7 +589,9 @@ pub fn editor<Platform: PlatformHooks>(
                     vec![]
                 }
                 TextFieldAction::CaretMove(new_caret) => {
-                    tilemap_height_controller.borrow_mut().caret = Some(new_caret);
+                    let mut controller = tilemap_height_controller.borrow_mut();
+
+                    controller.caret = Some(new_caret.min(controller.text.len()));
                     vec![]
                 }
             }
