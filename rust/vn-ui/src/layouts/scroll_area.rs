@@ -145,14 +145,16 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
 
             size.shrink_by(shrink_by)
         };
-
+        
+        let clip = Rect {
+            position: origin.to_array(),
+            size: size.to_array(),
+        }.intersect(&ctx.clip_rect);
+        
         ctx.with_hitbox_hierarchy(
             self.id,
             scene.current_layer_id(),
-            Rect {
-                position: origin.to_array(),
-                size: size.to_array(),
-            },
+            clip,
             |ctx| {
                 let child_origin = (
                     origin.0
@@ -172,7 +174,7 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
                 let clip_rect = Rect {
                     position: [origin.0, origin.1],
                     size: [self.viewport_size.width, self.viewport_size.height],
-                };
+                }.intersect(&ctx.clip_rect);
 
                 ctx.with_clipping(clip_rect, |ctx| {
                     self.child

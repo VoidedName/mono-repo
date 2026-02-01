@@ -1,5 +1,16 @@
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use vn_ui_animation_macros::Interpolatable;
+
+fn hash_f32<H: Hasher>(state: &mut H, f: f32) {
+    f.to_bits().hash(state);
+}
+
+fn hash_f32_slice<H: Hasher>(state: &mut H, slice: &[f32]) {
+    for &f in slice {
+        hash_f32(state, f);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Interpolatable)]
 pub struct TextureId(#[interpolate_snappy = "snap_middle"] pub Rc<u32>);
@@ -18,6 +29,17 @@ pub struct Color {
     pub g: f32,
     pub b: f32,
     pub a: f32,
+}
+
+impl Eq for Color {}
+
+impl Hash for Color {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        hash_f32(state, self.r);
+        hash_f32(state, self.g);
+        hash_f32(state, self.b);
+        hash_f32(state, self.a);
+    }
 }
 
 impl Color {
@@ -79,6 +101,10 @@ impl Color {
 
     /// Returns a new color with the specified opacity, adjusting RGB values for premultiplied alpha.
     pub fn with_alpha(self, opacity: f32) -> Self {
+        if opacity == 0.0 || self.a == 0.0 {
+            return Self::TRANSPARENT;
+        }
+
         Self {
             r: self.r / self.a * opacity,
             g: self.g / self.a * opacity,
@@ -114,6 +140,15 @@ pub struct Rect {
     pub size: [f32; 2],
 }
 
+impl Eq for Rect {}
+
+impl Hash for Rect {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        hash_f32_slice(state, &self.position);
+        hash_f32_slice(state, &self.size);
+    }
+}
+
 impl Rect {
     pub fn contains(&self, point: [f32; 2]) -> bool {
         point[0] >= self.position[0]
@@ -131,9 +166,35 @@ impl Rect {
         let width = (x2 - x1).max(0.0);
         let height = (y2 - y1).max(0.0);
 
-        Self {
+        let s = Self {
             position: [x1, y1],
             size: [width, height],
+        };
+
+        if !s.position[0].is_finite()
+            || !s.position[1].is_finite()
+            || !s.size[0].is_finite()
+            || !s.size[1].is_finite()
+        {
+            panic!("Invalid rect: {:?}", self);
+        }
+
+        s
+    }
+
+    pub fn intersects(&self, other: &Self) -> bool {
+        self.intersect(other).size != [0.0, 0.0]
+    }
+
+    pub fn union(&self, other: &Self) -> Self {
+        let x1 = self.position[0].min(other.position[0]);
+        let y1 = self.position[1].min(other.position[1]);
+        let x2 = (self.position[0] + self.size[0]).max(other.position[0] + other.size[0]);
+        let y2 = (self.position[1] + self.size[1]).max(other.position[1] + other.size[1]);
+
+        Self {
+            position: [x1, y1],
+            size: [x2 - x1, y2 - y1],
         }
     }
 
@@ -195,6 +256,17 @@ pub struct Transform {
     pub scale: [f32; 2],
     /// The pivot point for rotation and scaling, typically in normalized coordinates [0, 1].
     pub origin: [f32; 2],
+}
+
+impl Eq for Transform {}
+
+impl Hash for Transform {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        hash_f32_slice(state, &self.translation);
+        hash_f32(state, self.rotation);
+        hash_f32_slice(state, &self.scale);
+        hash_f32_slice(state, &self.origin);
+    }
 }
 
 impl Transform {
@@ -306,6 +378,20 @@ pub struct BoxPrimitiveData {
     pub clip_rect: Rect,
 }
 
+impl Eq for BoxPrimitiveData {}
+
+impl Hash for BoxPrimitiveData {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.transform.hash(state);
+        hash_f32_slice(state, &self.size);
+        self.color.hash(state);
+        self.border_color.hash(state);
+        hash_f32(state, self.border_thickness);
+        hash_f32(state, self.border_radius);
+        self.clip_rect.hash(state);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImagePrimitiveData {
     pub transform: Transform,
@@ -319,12 +405,36 @@ pub struct ImagePrimitiveData {
     pub uv_rect: Rect,
 }
 
+impl Eq for ImagePrimitiveData {}
+
+impl Hash for ImagePrimitiveData {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.transform.hash(state);
+        hash_f32_slice(state, &self.size);
+        self.tint.hash(state);
+        self.texture_id.hash(state);
+        self.clip_rect.hash(state);
+        self.uv_rect.hash(state);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct TextPrimitiveData {
     pub transform: Transform,
     pub tint: Color,
     pub glyphs: Vec<GlyphInstanceData>,
     pub clip_rect: Rect,
+}
+
+impl Eq for TextPrimitiveData {}
+
+impl Hash for TextPrimitiveData {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.transform.hash(state);
+        self.tint.hash(state);
+        self.glyphs.hash(state);
+        self.clip_rect.hash(state);
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -334,6 +444,17 @@ pub struct GlyphInstanceData {
     pub size: [f32; 2],
     /// NDC coordinates.
     pub uv_rect: Rect,
+}
+
+impl Eq for GlyphInstanceData {}
+
+impl Hash for GlyphInstanceData {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.texture_id.hash(state);
+        hash_f32_slice(state, &self.position);
+        hash_f32_slice(state, &self.size);
+        self.uv_rect.hash(state);
+    }
 }
 
 #[derive(Debug, Clone)]

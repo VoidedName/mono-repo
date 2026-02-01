@@ -90,7 +90,7 @@ impl FpsStats {
 
         let elapsed = key_frame_time.map(|t| t.elapsed()).unwrap().as_secs_f32();
 
-        if elapsed >= 0.1 {
+        if elapsed >= 0.5 {
             let fps = *self.frame_count.borrow() as f32 / elapsed;
             self.current_fps.borrow_mut().replace(fps);
             *key_frame_time = Some(Instant::now());

@@ -58,7 +58,7 @@ impl<State, Message> ElementImpl for ExtendedHitbox<State, Message> {
             Rect {
                 position: origin.to_array(),
                 size: size.to_array(),
-            },
+            }.intersect(&ctx.clip_rect),
             |ctx| {
                 self.element.draw(ctx, state, origin, size, canvas);
             },

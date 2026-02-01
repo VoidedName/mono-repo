@@ -130,13 +130,16 @@ impl<State: 'static, Message: 'static> ElementImpl for ToolTip<State, Message> {
             id: self.id,
             ctx,
         });
+
+        let clip = Rect {
+            position: origin.to_array(),
+            size: size.to_array(),
+        }.intersect(&ctx.clip_rect);
+
         ctx.with_hitbox_hierarchy(
             self.id,
             canvas.current_layer_id(),
-            Rect {
-                position: origin.to_array(),
-                size: size.to_array(),
-            },
+            clip,
             |ctx| {
                 self.element.draw(ctx, state, origin, size, canvas);
                 if self.show_tooltip {

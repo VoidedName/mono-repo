@@ -7,10 +7,14 @@ use crate::resource_manager::ResourceManager;
 use crate::scene::WgpuScene;
 use crate::texture::TextureId;
 use crate::{GlyphInstance, ImagePrimitive, Renderer, TextPrimitive, Texture};
+use similar::algorithms::{Capture, Compact, Replace};
+use similar::DiffOp;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
+use std::hash::Hash;
+use std::ops::{Index, Range};
 use std::rc::Rc;
-use vn_scene::Scene;
+use vn_scene::{Rect, Scene};
 use wgpu::include_wgsl;
 use wgpu::util::DeviceExt;
 
@@ -35,6 +39,7 @@ struct Pipeline {
 pub struct SceneRenderer {
     resource_manager: Rc<ResourceManager>,
     globals: GlobalResources,
+    clear_pipeline: wgpu::RenderPipeline,
     box_pipeline: Pipeline,
     texture_pipeline: Pipeline,
     instance_buffer: RefCell<wgpu::Buffer>,
@@ -44,6 +49,8 @@ pub struct SceneRenderer {
     box_instance_buffer_capacity: Cell<usize>,
     box_instance_buffer_offset: Cell<usize>,
     batch: RefCell<Vec<_TexturePrimitive>>,
+    previous_scene: Option<Box<dyn Scene>>,
+    backing_texture: RefCell<Option<Texture>>,
 }
 
 impl SceneRenderer {
@@ -98,33 +105,54 @@ impl SceneRenderer {
             graphics_context.device(),
             graphics_context.config.borrow().format,
         )
-        .label("Box Pipeline")
-        .shader(&box_shader)
-        .blend(wgpu::BlendState {
-            color: wgpu::BlendComponent {
-                src_factor: wgpu::BlendFactor::SrcAlpha,
-                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                operation: wgpu::BlendOperation::Add,
-            },
-            alpha: wgpu::BlendComponent {
-                src_factor: wgpu::BlendFactor::One,
-                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                operation: wgpu::BlendOperation::Add,
-            },
-        })
-        .add_vertex_layout(Vertex::vertex_description(
-            None,
-            None,
-            wgpu::VertexStepMode::Vertex,
-        ))
-        .add_vertex_layout(BoxPrimitive::vertex_description(
-            Some(Globals::location_count()),
-            None,
-            wgpu::VertexStepMode::Instance,
-        ))
-        .add_bind_group_layout(&globals_bind_group_layout)
-        .build()
-        .expect("Failed to build box pipeline");
+            .label("Box Pipeline")
+            .shader(&box_shader)
+            .blend(wgpu::BlendState {
+                color: wgpu::BlendComponent {
+                    src_factor: wgpu::BlendFactor::SrcAlpha,
+                    dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                    operation: wgpu::BlendOperation::Add,
+                },
+                alpha: wgpu::BlendComponent {
+                    src_factor: wgpu::BlendFactor::One,
+                    dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                    operation: wgpu::BlendOperation::Add,
+                },
+            })
+            .add_vertex_layout(Vertex::vertex_description(
+                None,
+                None,
+                wgpu::VertexStepMode::Vertex,
+            ))
+            .add_vertex_layout(BoxPrimitive::vertex_description(
+                Some(Globals::location_count()),
+                None,
+                wgpu::VertexStepMode::Instance,
+            ))
+            .add_bind_group_layout(&globals_bind_group_layout)
+            .build()
+            .expect("Failed to build box pipeline");
+
+        let clear_pipeline = PipelineBuilder::new(
+            graphics_context.device(),
+            graphics_context.config.borrow().format,
+        )
+            .label("Clear Pipeline")
+            .shader(&box_shader)
+            .blend(wgpu::BlendState::REPLACE)
+            .add_vertex_layout(Vertex::vertex_description(
+                None,
+                None,
+                wgpu::VertexStepMode::Vertex,
+            ))
+            .add_vertex_layout(BoxPrimitive::vertex_description(
+                Some(Globals::location_count()),
+                None,
+                wgpu::VertexStepMode::Instance,
+            ))
+            .add_bind_group_layout(&globals_bind_group_layout)
+            .build()
+            .expect("Failed to build clear pipeline");
 
         let texture_shader = graphics_context
             .device()
@@ -159,34 +187,34 @@ impl SceneRenderer {
             graphics_context.device(),
             graphics_context.config.borrow().format,
         )
-        .label("Texture Pipeline")
-        .shader(&texture_shader)
-        .blend(wgpu::BlendState {
-            color: wgpu::BlendComponent {
-                src_factor: wgpu::BlendFactor::SrcAlpha,
-                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                operation: wgpu::BlendOperation::Add,
-            },
-            alpha: wgpu::BlendComponent {
-                src_factor: wgpu::BlendFactor::One,
-                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                operation: wgpu::BlendOperation::Add,
-            },
-        })
-        .add_vertex_layout(Vertex::vertex_description(
-            None,
-            None,
-            wgpu::VertexStepMode::Vertex,
-        ))
-        .add_vertex_layout(_TexturePrimitive::vertex_description(
-            Some(Globals::location_count()),
-            None,
-            wgpu::VertexStepMode::Instance,
-        ))
-        .add_bind_group_layout(&globals_bind_group_layout)
-        .add_bind_group_layout(&texture_bind_group_layout)
-        .build()
-        .expect("Failed to build texture pipeline");
+            .label("Texture Pipeline")
+            .shader(&texture_shader)
+            .blend(wgpu::BlendState {
+                color: wgpu::BlendComponent {
+                    src_factor: wgpu::BlendFactor::SrcAlpha,
+                    dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                    operation: wgpu::BlendOperation::Add,
+                },
+                alpha: wgpu::BlendComponent {
+                    src_factor: wgpu::BlendFactor::One,
+                    dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                    operation: wgpu::BlendOperation::Add,
+                },
+            })
+            .add_vertex_layout(Vertex::vertex_description(
+                None,
+                None,
+                wgpu::VertexStepMode::Vertex,
+            ))
+            .add_vertex_layout(_TexturePrimitive::vertex_description(
+                Some(Globals::location_count()),
+                None,
+                wgpu::VertexStepMode::Instance,
+            ))
+            .add_bind_group_layout(&globals_bind_group_layout)
+            .add_bind_group_layout(&texture_bind_group_layout)
+            .build()
+            .expect("Failed to build texture pipeline");
 
         let quad_vertex_buffer =
             graphics_context
@@ -214,12 +242,14 @@ impl SceneRenderer {
         });
 
         Self {
+            previous_scene: None,
             resource_manager,
             globals: GlobalResources {
                 quad_vertex_buffer,
                 globals_buffer,
                 globals_bind_group,
             },
+            clear_pipeline,
             box_pipeline: Pipeline {
                 pipeline: box_pipeline,
                 bind_group_layouts: vec![globals_bind_group_layout.clone()],
@@ -235,6 +265,7 @@ impl SceneRenderer {
             box_instance_buffer_capacity: Cell::new(box_instance_buffer_capacity),
             box_instance_buffer_offset: Cell::new(0),
             batch: RefCell::new(Vec::new()),
+            backing_texture: RefCell::new(None),
         }
     }
 
@@ -276,8 +307,7 @@ impl SceneRenderer {
                     .device()
                     .create_buffer(&wgpu::BufferDescriptor {
                         label: Some("Box Instance Buffer"),
-                        size: (self.box_instance_buffer_capacity.get()
-                            * size_of::<BoxPrimitive>())
+                        size: (self.box_instance_buffer_capacity.get() * size_of::<BoxPrimitive>())
                             as u64,
                         usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                         mapped_at_creation: false,
@@ -428,8 +458,7 @@ impl SceneRenderer {
                     .device()
                     .create_buffer(&wgpu::BufferDescriptor {
                         label: Some("Instance Buffer"),
-                        size: (self.instance_buffer_capacity.get()
-                            * size_of::<_TexturePrimitive>())
+                        size: (self.instance_buffer_capacity.get() * size_of::<_TexturePrimitive>())
                             as u64,
                         usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                         mapped_at_creation: false,
@@ -473,6 +502,45 @@ impl SceneRenderer {
     }
 }
 
+fn diff<Old, New>(
+    old: &Old,
+    old_range: Range<usize>,
+    new: &New,
+    new_range: Range<usize>,
+) -> Vec<DiffOp>
+where
+    Old: Index<usize> + ?Sized,
+    New: Index<usize> + ?Sized,
+    Old::Output: Hash + Eq,
+    New::Output: PartialEq<Old::Output> + Hash + Eq,
+{
+    let mut d = Compact::new(Replace::new(Capture::new()), old, new);
+    similar::algorithms::lcs::diff(&mut d, old, old_range, new, new_range).unwrap();
+    d.into_inner().into_inner().into_ops()
+}
+
+fn padded_zip<T: Default + Clone>(left: Vec<T>, right: Vec<T>) -> impl Iterator<Item=(T, T)> {
+    let max_len = left.len().max(right.len());
+    left.into_iter()
+        .chain(std::iter::repeat(Default::default()))
+        .take(max_len)
+        .zip(
+            right
+                .into_iter()
+                .chain(std::iter::repeat(Default::default()))
+                .take(max_len),
+        )
+}
+
+fn unified_clip_rect<T, F>(start: Option<Rect>, data: &[T], rect: F) -> Option<Rect>
+where
+    F: Fn(&T) -> Rect,
+{
+    data.iter().fold(start, |acc, x| {
+        acc.map(|r| Rect::union(&r, &rect(x))).or(Some(rect(x)))
+    })
+}
+
 impl Renderer for SceneRenderer {
     type RenderTarget = WgpuScene;
 
@@ -483,8 +551,102 @@ impl Renderer for SceneRenderer {
     ) -> Result<(), wgpu::SurfaceError> {
         // TODO: Consider caching and reusing previous render passes for identical scenes
         // TODO: Consider using some sort of scene diff to only rerender affected areas
+        let scene = Box::new(scene.clone());
 
-        let (output, view, mut encoder) = Self::begin_render_frame(graphics_context)?;
+        let mut invalidated_rect = None;
+
+        if let Some(previous_scene) = &self.previous_scene {
+            if previous_scene.layers() == scene.layers() {
+                return Ok(());
+            }
+
+            let left: Vec<_> = previous_scene.layers().iter().cloned().collect();
+            let right: Vec<_> = scene.layers().iter().cloned().collect();
+
+            macro_rules! compute_rect {
+                ($old:expr, $new:expr) => {
+                    for x in diff($old, 0..$old.len(), $new, 0..$new.len()) {
+                        match x {
+                            DiffOp::Delete {
+                                old_index, old_len, ..
+                            } => {
+                                invalidated_rect = unified_clip_rect(
+                                    invalidated_rect,
+                                    &$old[old_index..old_index + old_len],
+                                    |b| b.clip_rect,
+                                );
+                            }
+                            DiffOp::Insert {
+                                new_index, new_len, ..
+                            } => {
+                                invalidated_rect = unified_clip_rect(
+                                    invalidated_rect,
+                                    &$new[new_index..new_index + new_len],
+                                    |b| b.clip_rect,
+                                );
+                            }
+                            DiffOp::Replace {
+                                old_index,
+                                old_len,
+                                new_index,
+                                new_len,
+                            } => {
+                                invalidated_rect = unified_clip_rect(
+                                    invalidated_rect,
+                                    &$old[old_index..old_index + old_len],
+                                    |b| b.clip_rect,
+                                );
+                                invalidated_rect = unified_clip_rect(
+                                    invalidated_rect,
+                                    &$new[new_index..new_index + new_len],
+                                    |b| b.clip_rect,
+                                );
+                            }
+                            _ => {}
+                        }
+                    }
+                };
+            }
+
+            for (l, r) in padded_zip(left, right) {
+                compute_rect!(&l.boxes, &r.boxes);
+                compute_rect!(&l.images, &r.images);
+                compute_rect!(&l.texts, &r.texts);
+            }
+        }
+
+        let screen_rect = Rect {
+            position: [0.0, 0.0],
+            size: [scene.scene_size().0, scene.scene_size().1],
+        };
+
+        let mut invalidated_rect = invalidated_rect
+            .map(|r| r.intersect(&screen_rect))
+            .unwrap_or(screen_rect);
+
+        invalidated_rect.position[0] = invalidated_rect.position[0].floor();
+        invalidated_rect.position[1] = invalidated_rect.position[1].floor();
+        invalidated_rect.size[0] = invalidated_rect.size[0].ceil();
+        invalidated_rect.size[1] = invalidated_rect.size[1].ceil();
+
+        if invalidated_rect != screen_rect {
+            log::info!("Invalidated rect: {:?}", invalidated_rect);
+        }
+
+        let (output, _view, mut encoder) = Self::begin_render_frame(graphics_context)?;
+
+        // Ensure backing texture exists and matches screen size
+        let (width, height) = graphics_context.size();
+        let mut backing_texture_ref = self.backing_texture.borrow_mut();
+        if backing_texture_ref.as_ref().map(|t| t.size) != Some((width, height)) {
+            *backing_texture_ref = Some(Texture::create_render_target(
+                graphics_context.device(),
+                (width, height),
+                Some("Backing Texture"),
+            ));
+        }
+        let backing_texture = backing_texture_ref.as_ref().unwrap();
+
         self.update_globals(graphics_context);
 
         self.instance_buffer_offset.set(0);
@@ -492,26 +654,64 @@ impl Renderer for SceneRenderer {
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Render Pass"),
+                label: Some("Backing Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
+                    view: &backing_texture.view,
                     resolve_target: None,
                     depth_slice: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.0,
-                            g: 0.0,
-                            b: 0.0,
-                            a: 1.0,
-                        }),
+                        load: if invalidated_rect == screen_rect || self.previous_scene.is_none() {
+                            wgpu::LoadOp::Clear(wgpu::Color { r: 0.0, g: 0.0, b: 0.0, a: 0.0 })
+                        } else {
+                            wgpu::LoadOp::Load
+                        },
                         store: wgpu::StoreOp::Store,
                     },
-                })],
+                },
+                )],
                 depth_stencil_attachment: None,
                 occlusion_query_set: None,
                 timestamp_writes: None,
                 multiview_mask: None,
             });
+
+            render_pass.set_scissor_rect(
+                invalidated_rect.position[0] as u32,
+                invalidated_rect.position[1] as u32,
+                invalidated_rect.size[0].max(1.0) as u32,
+                invalidated_rect.size[1].max(1.0) as u32,
+            );
+
+            if invalidated_rect != screen_rect && self.previous_scene.is_some() {
+                render_pass.set_pipeline(&self.clear_pipeline);
+                self.globals.set(&mut render_pass);
+
+                let clear_box = BoxPrimitive {
+                    common: PrimitiveProperties {
+                        transform: vn_scene::Transform::DEFAULT,
+                        clip_area: screen_rect,
+                    },
+                    size: screen_rect.size,
+                    color: crate::primitives::color::Color::TRANSPARENT,
+                    border_color: crate::primitives::color::Color::TRANSPARENT,
+                    border_thickness: 0.0,
+                    corner_radius: 0.0,
+                };
+
+                let offset = self.box_instance_buffer_offset.get();
+                graphics_context.queue().write_buffer(
+                    &self.box_instance_buffer.borrow(),
+                    (offset * size_of::<BoxPrimitive>()) as u64,
+                    bytemuck::cast_slice(&[clear_box]),
+                );
+
+                render_pass.set_vertex_buffer(1, self.box_instance_buffer.borrow().slice(..));
+                render_pass.draw(
+                    0..QUAD_VERTICES.len() as u32,
+                    offset as u32..(offset + 1) as u32,
+                );
+                self.box_instance_buffer_offset.set(offset + 1);
+            }
 
             for layer in scene.layers() {
                 self.render_boxes(
@@ -520,16 +720,25 @@ impl Renderer for SceneRenderer {
                     &layer
                         .boxes
                         .iter()
-                        .map(|b| BoxPrimitive {
-                            common: PrimitiveProperties {
-                                transform: b.transform,
-                                clip_area: b.clip_rect,
-                            },
-                            size: b.size,
-                            color: b.color,
-                            border_color: b.border_color,
-                            border_thickness: b.border_thickness,
-                            corner_radius: b.border_radius,
+                        .filter_map(|b| {
+                            let intersection = invalidated_rect.intersect(&b.clip_rect);
+                            let invalidated = (intersection.size[0] + intersection.size[1]) != 0.0;
+
+                            if invalidated {
+                                Some(BoxPrimitive {
+                                    common: PrimitiveProperties {
+                                        transform: b.transform,
+                                        clip_area: intersection,
+                                    },
+                                    size: b.size,
+                                    color: b.color,
+                                    border_color: b.border_color,
+                                    border_thickness: b.border_thickness,
+                                    corner_radius: b.border_radius,
+                                })
+                            } else {
+                                None
+                            }
                         })
                         .collect::<Vec<_>>(),
                 );
@@ -539,15 +748,24 @@ impl Renderer for SceneRenderer {
                     &layer
                         .images
                         .iter()
-                        .map(|i| ImagePrimitive {
-                            common: PrimitiveProperties {
-                                transform: i.transform,
-                                clip_area: i.clip_rect,
-                            },
-                            size: i.size,
-                            uv_rect: i.uv_rect,
-                            texture: i.texture_id.clone(),
-                            tint: i.tint,
+                        .filter_map(|i| {
+                            let intersection = invalidated_rect.intersect(&i.clip_rect);
+                            let invalidated = (intersection.size[0] + intersection.size[1]) != 0.0;
+
+                            if invalidated {
+                                Some(ImagePrimitive {
+                                    common: PrimitiveProperties {
+                                        transform: i.transform,
+                                        clip_area: intersection,
+                                    },
+                                    size: i.size,
+                                    uv_rect: i.uv_rect,
+                                    texture: i.texture_id.clone(),
+                                    tint: i.tint,
+                                })
+                            } else {
+                                None
+                            }
                         })
                         .collect::<Vec<_>>(),
                 );
@@ -557,27 +775,61 @@ impl Renderer for SceneRenderer {
                     &layer
                         .texts
                         .iter()
-                        .map(|t| TextPrimitive {
-                            common: PrimitiveProperties {
-                                transform: t.transform,
-                                clip_area: t.clip_rect,
-                            },
-                            glyphs: t
-                                .glyphs
-                                .iter()
-                                .map(|g| GlyphInstance {
-                                    texture: g.texture_id.clone(),
-                                    position: g.position,
-                                    size: g.size,
-                                    uv_rect: g.uv_rect,
+                        .filter_map(|t| {
+                            let intersection = invalidated_rect.intersect(&t.clip_rect);
+                            let invalidated = (intersection.size[0] + intersection.size[1]) != 0.0;
+
+                            if invalidated {
+                                Some(TextPrimitive {
+                                    common: PrimitiveProperties {
+                                        transform: t.transform,
+                                        clip_area: intersection,
+                                    },
+                                    glyphs: t
+                                        .glyphs
+                                        .iter()
+                                        .map(|g| GlyphInstance {
+                                            texture: g.texture_id.clone(),
+                                            position: g.position,
+                                            size: g.size,
+                                            uv_rect: g.uv_rect,
+                                        })
+                                        .collect(),
+                                    tint: t.tint,
                                 })
-                                .collect(),
-                            tint: t.tint,
+                            } else {
+                                None
+                            }
                         })
                         .collect::<Vec<_>>(),
                 );
             }
         }
+
+        // Copy backing texture to swapchain
+        {
+            encoder.copy_texture_to_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &backing_texture.texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                wgpu::TexelCopyTextureInfo {
+                    texture: &output.texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                wgpu::Extent3d {
+                    width,
+                    height,
+                    depth_or_array_layers: 1,
+                },
+            );
+        }
+
+        self.previous_scene.replace(scene);
 
         graphics_context
             .queue()

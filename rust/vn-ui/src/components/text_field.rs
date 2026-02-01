@@ -196,16 +196,17 @@ impl<State, Message: Clone> ElementImpl for TextField<State, Message> {
             .unwrap_or(2.0);
 
         let caret_space = caret_width;
+        let clip = Rect {
+            position: origin.to_array(),
+            size: size.to_array(),
+        }.intersect(&ctx.clip_rect);
 
         ctx.with_hitbox_hierarchy(
             self.id,
             scene.current_layer_id(),
-            Rect {
-                position: origin.to_array(),
-                size: size.to_array(),
-            },
+            clip,
             |ctx| {
-                let clip_rect = ctx.clip_rect;
+                let clip_rect = clip;
                 if let Some(layout) = &self.layout {
                     for (i, line) in layout.lines.iter().enumerate() {
                         let line_y_offset = i as f32 * self.line_height;

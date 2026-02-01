@@ -24,6 +24,7 @@ pollster = "0.4.0"
 console_error_panic_hook = "0.1.7"
 console_log = "1.0.0"
 wasm-bindgen = "0.2.108"
+similar = { version = "2.7.0", features = ["wasm32_web_time"] }
 wasm-bindgen-futures = "0.4.58"
 web-sys = { version = "0.3.85", features = [
     "Document",

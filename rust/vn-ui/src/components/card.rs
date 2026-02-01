@@ -4,8 +4,9 @@ use crate::{
 };
 use std::cell::RefCell;
 use std::rc::Rc;
-use vn_scene::{BoxPrimitiveData, Color, Scene, Transform};
+use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
 use vn_ui_animation_macros::Interpolatable;
+use crate::utils::ToArray;
 
 #[derive(Clone, Copy, Interpolatable)]
 pub struct CardParams {
@@ -100,6 +101,11 @@ impl<State, Message> ElementImpl for Card<State, Message> {
             ctx,
         });
 
+        let clip = Rect {
+            position: origin.to_array(),
+            size: size.to_array(),
+        }.intersect(&ctx.clip_rect);
+
         canvas.add_box(BoxPrimitiveData {
             transform: Transform {
                 translation: [origin.0, origin.1],
@@ -110,7 +116,7 @@ impl<State, Message> ElementImpl for Card<State, Message> {
             border_color: params.border_color,
             border_thickness: params.border_size,
             border_radius: params.corner_radius,
-            clip_rect: ctx.clip_rect,
+            clip_rect: clip,
         });
 
         let padding = params.border_size;

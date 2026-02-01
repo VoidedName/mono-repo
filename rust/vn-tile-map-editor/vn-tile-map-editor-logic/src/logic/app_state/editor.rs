@@ -662,7 +662,10 @@ impl<Platform: PlatformHooks + 'static> ApplicationStateEx for Editor<Platform> 
                 };
 
                 let dispatcher = self.ctx.dispatcher.clone();
-                let save = self.ctx.platform.save_file("tilemap.tar",&["tar"], data.as_slice());
+                let save = self
+                    .ctx
+                    .platform
+                    .save_file("tilemap.tar", &["tar"], data.as_slice());
                 self.ctx.platform.execute_async(async move {
                     match save.await {
                         Ok(_) => {}

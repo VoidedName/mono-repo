@@ -92,13 +92,15 @@ impl<State, Message: Clone> ElementImpl for Button<State, Message> {
         let background = params.background;
         let border_color = params.border_color;
 
+        let clip = Rect {
+            position: origin.to_array(),
+            size: size.to_array(),
+        }.intersect(&ctx.clip_rect);
+
         ctx.with_hitbox_hierarchy(
             self.id,
             canvas.current_layer_id(),
-            Rect {
-                position: origin.to_array(),
-                size: size.to_array(),
-            },
+            clip,
             |ctx| {
                 canvas.add_box(BoxPrimitiveData {
                     transform: Transform {
@@ -110,7 +112,7 @@ impl<State, Message: Clone> ElementImpl for Button<State, Message> {
                     border_color,
                     border_thickness: params.border_width,
                     border_radius: params.corner_radius,
-                    clip_rect: ctx.clip_rect,
+                    clip_rect: clip,
                 });
 
                 let margin = params.border_width * 2.0;

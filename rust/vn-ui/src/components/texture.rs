@@ -7,6 +7,7 @@ use std::rc::Rc;
 use vn_scene::{Color, ImagePrimitiveData, Rect, Scene, TextureId, Transform};
 use vn_ui_animation::Interpolatable;
 use vn_ui_animation_macros::Interpolatable;
+use crate::utils::ToArray;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FitStrategy {
@@ -212,6 +213,11 @@ impl<State, Message> ElementImpl for Texture<State, Message> {
         }
         .rotate(rotation);
 
+        let clip = Rect {
+            position: origin.to_array(),
+            size: size.to_array(),
+        }.intersect(&ctx.clip_rect);
+
         canvas.add_image(ImagePrimitiveData {
             transform: Transform {
                 translation: [
@@ -226,7 +232,7 @@ impl<State, Message> ElementImpl for Texture<State, Message> {
             tint: params.tint,
             texture_id: params.texture_id,
             uv_rect: params.uv_rect,
-            clip_rect: ctx.clip_rect,
+            clip_rect: clip,
         });
     }
 
