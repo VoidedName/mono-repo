@@ -5,6 +5,7 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::pin::Pin;
 use vn_tile_map_editor_logic::logic::{File, FileDescriptor, FileLoadingError, PlatformHooks};
+use vn_wgpu_window::WgpuScene;
 
 pub async fn load_file(file_to_load: FileDescriptor) -> anyhow::Result<File, FileLoadingError> {
     let mut path = PathBuf::from(&file_to_load.path).join(&file_to_load.name);
@@ -74,7 +75,11 @@ impl PlatformHooks for NativePlatformHooks {
     }
 
     fn pick_file(&self, extensions: &[&str]) -> Pin<Box<dyn Future<Output = Option<File>>>> {
-        let extensions = extensions.into_iter().cloned().map(String::from).collect::<Vec<_>>();
+        let extensions = extensions
+            .into_iter()
+            .cloned()
+            .map(String::from)
+            .collect::<Vec<_>>();
         Box::pin(async move {
             let path = AsyncFileDialog::new()
                 .add_filter("filter", &extensions)
@@ -105,18 +110,21 @@ impl PlatformHooks for NativePlatformHooks {
         extensions: &[&str],
         data: &[u8],
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<()>>>> {
-        let extensions = extensions.into_iter().cloned().map(String::from).collect::<Vec<_>>();
+        let extensions = extensions
+            .into_iter()
+            .cloned()
+            .map(String::from)
+            .collect::<Vec<_>>();
         let data = data.to_vec();
         let name = suggested_name.to_string();
-        
+
         Box::pin(async move {
-            let path =
-                AsyncFileDialog::new()
-                    .add_filter("filter", &extensions)
-                    .set_file_name(&name)
-                    .save_file()
-                    .await
-                    .map(|path| path.path().to_string_lossy().to_string());
+            let path = AsyncFileDialog::new()
+                .add_filter("filter", &extensions)
+                .set_file_name(&name)
+                .save_file()
+                .await
+                .map(|path| path.path().to_string_lossy().to_string());
 
             match path {
                 None => Err(anyhow::anyhow!("No file selected")),
@@ -142,5 +150,6 @@ fn main() {
         log_style
     );
 
-    vn_tile_map_editor_logic::init(NativePlatformHooks {}).expect("Failed to initialize!");
+    vn_tile_map_editor_logic::init::<WgpuScene, NativePlatformHooks>(NativePlatformHooks {})
+        .expect("Failed to initialize!");
 }

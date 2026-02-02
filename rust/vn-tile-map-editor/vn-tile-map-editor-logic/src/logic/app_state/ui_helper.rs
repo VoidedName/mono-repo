@@ -2,7 +2,7 @@ use crate::logic::{ApplicationContext, PlatformHooks, TextMetric};
 use crate::{UI_FONT, UI_FONT_SIZE};
 use std::cell::RefCell;
 use std::rc::Rc;
-use vn_scene::Color;
+use vn_scene::{CloneableScene, Color, ConstructableScene};
 use vn_ui::*;
 
 pub struct Input<State: 'static, Event: Clone + 'static> {
@@ -294,8 +294,13 @@ where
     ))
 }
 
-pub fn with_fps<State: 'static, Message: Clone + 'static, Platform: PlatformHooks>(
-    ctx: &ApplicationContext<Platform>,
+pub fn with_fps<
+    S: CloneableScene + ConstructableScene,
+    State: 'static,
+    Message: Clone + 'static,
+    Platform: PlatformHooks,
+>(
+    ctx: &ApplicationContext<S, Platform>,
     layout: Box<dyn Element<State = State, Message = Message>>,
     world: Rc<RefCell<ElementWorld>>,
 ) -> Box<dyn Element<State = State, Message = Message>> {

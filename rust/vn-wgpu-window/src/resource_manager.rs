@@ -1,3 +1,4 @@
+use crate::GraphicsContext;
 use crate::graphics::WgpuContext;
 use crate::text::{Font, FontFaceTrueScale, TextRenderer};
 use crate::texture::{Texture, TextureAtlasCatalog, TextureAtlasKey, TextureId};
@@ -7,7 +8,6 @@ use std::fmt;
 use std::rc::Rc;
 use ttf_parser::GlyphId;
 use vn_utils::result::MonoResult;
-use crate::GraphicsContext;
 
 /// Manages textures, fonts, and cached text rendering.
 pub struct ResourceManager {

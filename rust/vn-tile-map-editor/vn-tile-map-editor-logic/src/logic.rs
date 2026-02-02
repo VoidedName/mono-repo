@@ -21,6 +21,7 @@ use winit::event_loop::ActiveEventLoop;
 pub mod app_state;
 pub mod grid;
 pub use grid::*;
+use vn_scene::{CloneableScene, ConstructableScene};
 use vn_wgpu_window::rendering_context::EventDispatcher;
 
 pub struct TextMetric {
@@ -147,11 +148,17 @@ pub trait PlatformHooks: Debug {
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<()>>>>;
 }
 
-pub struct EditorCallback<Msg, Platform: PlatformHooks + 'static> {
-    pub call: Box<dyn Fn(&mut Editor<Platform>, Msg)>,
+pub struct EditorCallback<
+    Msg,
+    S: CloneableScene + ConstructableScene + 'static,
+    Platform: PlatformHooks + 'static,
+> {
+    pub call: Box<dyn Fn(&mut Editor<S, Platform>, Msg)>,
 }
 
-impl<Msg, Platform: PlatformHooks + 'static> Debug for EditorCallback<Msg, Platform> {
+impl<Msg, S: CloneableScene + ConstructableScene, Platform: PlatformHooks + 'static> Debug
+    for EditorCallback<Msg, S, Platform>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("EditorCallback")
             .field("call", &"<closure>")
@@ -159,20 +166,25 @@ impl<Msg, Platform: PlatformHooks + 'static> Debug for EditorCallback<Msg, Platf
     }
 }
 
-pub enum ApplicationEvent<Platform: PlatformHooks + 'static> {
+pub enum ApplicationEvent<
+    S: CloneableScene + ConstructableScene + 'static,
+    Platform: PlatformHooks + 'static,
+> {
     TilesetLoaded(TryLoadTileSetResult),
     TilesetReuse(String),
     TilesetLoadCanceled,
     LoadTileset(Vec<String>),
     NewLayer(
         Vec<String>,
-        EditorCallback<Option<TryLoadTileSetResult>, Platform>,
+        EditorCallback<Option<TryLoadTileSetResult>, S, Platform>,
     ),
-    UpdateState(ApplicationState<Platform>),
+    UpdateState(ApplicationState<S, Platform>),
     LoadTilesetFromFile(Option<File>, Vec<String>),
 }
 
-impl<Platform: PlatformHooks + 'static> Debug for ApplicationEvent<Platform> {
+impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks + 'static> Debug
+    for ApplicationEvent<S, Platform>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ApplicationEvent::TilesetLoaded(result) => {
@@ -193,17 +205,19 @@ impl<Platform: PlatformHooks + 'static> Debug for ApplicationEvent<Platform> {
             ApplicationEvent::UpdateState(state) => {
                 f.debug_tuple("UpdateState").field(&state.name()).finish()
             }
-            ApplicationEvent::LoadTilesetFromFile(file, loaded_tilesets) => {
-                f.debug_tuple("LoadTilesetFromFile")
-                    .field(file)
-                    .field(loaded_tilesets)
-                    .finish()
-            }
+            ApplicationEvent::LoadTilesetFromFile(file, loaded_tilesets) => f
+                .debug_tuple("LoadTilesetFromFile")
+                .field(file)
+                .field(loaded_tilesets)
+                .finish(),
         }
     }
 }
 
-pub struct MainLogic<Platform: PlatformHooks + 'static> {
+pub struct MainLogic<
+    S: CloneableScene + ConstructableScene + 'static,
+    Platform: PlatformHooks + 'static,
+> {
     pub resource_manager: Rc<ResourceManager>,
     pub graphics_context: Rc<GraphicsContext>,
     fps_stats: Rc<RefCell<FpsStats>>,
@@ -211,11 +225,14 @@ pub struct MainLogic<Platform: PlatformHooks + 'static> {
     mouse_position: (f32, f32),
     #[allow(unused)]
     platform: Rc<Platform>,
-    app_state: Option<ApplicationState<Platform>>,
-    dispatcher: Rc<EventDispatcher<MainLogic<Platform>, SceneRenderer>>,
+    app_state: Option<ApplicationState<S, Platform>>,
+    dispatcher: Rc<EventDispatcher<MainLogic<S, Platform>, SceneRenderer<S>>>,
 }
 
-pub struct ApplicationContext<Platform: PlatformHooks + 'static> {
+pub struct ApplicationContext<
+    S: CloneableScene + ConstructableScene + 'static,
+    Platform: PlatformHooks + 'static,
+> {
     #[allow(unused)]
     platform: Rc<Platform>,
     #[allow(unused)]
@@ -226,12 +243,14 @@ pub struct ApplicationContext<Platform: PlatformHooks + 'static> {
     text_metrics: Rc<TextMetric>,
     #[allow(unused)]
     stats: Rc<RefCell<FpsStats>>,
-    dispatcher: Rc<EventDispatcher<MainLogic<Platform>, SceneRenderer>>,
+    dispatcher: Rc<EventDispatcher<MainLogic<S, Platform>, SceneRenderer<S>>>,
 }
 
-impl<Platform: PlatformHooks + 'static> MainLogic<Platform> {
+impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks + 'static>
+    MainLogic<S, Platform>
+{
     pub(crate) async fn new(
-        dispatcher: Rc<EventDispatcher<MainLogic<Platform>, SceneRenderer>>,
+        dispatcher: Rc<EventDispatcher<MainLogic<S, Platform>, SceneRenderer<S>>>,
         platform: Rc<Platform>,
         graphics_context: Rc<GraphicsContext>,
         resource_manager: Rc<ResourceManager>,
@@ -270,20 +289,23 @@ impl<Platform: PlatformHooks + 'static> MainLogic<Platform> {
         })
     }
 
-    pub fn update_state(&mut self, new_state: ApplicationState<Platform>) {
+    pub fn update_state(&mut self, new_state: ApplicationState<S, Platform>) {
         self.app_state = Some(new_state);
     }
 }
 
 #[derive(Debug)]
-pub enum StateLogicDeferredEvent<Platform: PlatformHooks + 'static> {
-    ApplicationEvent(ApplicationEvent<Platform>),
+pub enum StateLogicDeferredEvent<
+    S: CloneableScene + ConstructableScene + 'static,
+    Platform: PlatformHooks + 'static,
+> {
+    ApplicationEvent(ApplicationEvent<S, Platform>),
     Editor(EditorEvent),
     NewLayer(NewLayerEvent),
     LoadTileSetMenu(LoadTileSetMenuEvent),
 }
 
-impl<T: PlatformHooks> ApplicationState<T> {
+impl<S: CloneableScene + ConstructableScene, T: PlatformHooks> ApplicationState<S, T> {
     pub fn name(&self) -> &'static str {
         match self {
             ApplicationState::Editor(_) => "Editor",
@@ -293,8 +315,10 @@ impl<T: PlatformHooks> ApplicationState<T> {
     }
 }
 
-impl<Platform: PlatformHooks + 'static> StateLogic<SceneRenderer> for MainLogic<Platform> {
-    type Event = StateLogicDeferredEvent<Platform>;
+impl<S: CloneableScene + ConstructableScene + 'static, Platform: PlatformHooks + 'static>
+    StateLogic<SceneRenderer<S>> for MainLogic<S, Platform>
+{
+    type Event = StateLogicDeferredEvent<S, Platform>;
 
     fn handle_event(&mut self, event: Self::Event) {
         match (self.app_state.as_mut(), event) {
@@ -317,13 +341,12 @@ impl<Platform: PlatformHooks + 'static> StateLogic<SceneRenderer> for MainLogic<
             ) => {
                 menu.handle_event(event);
             }
-            (None, event) => {
-                log::error!("Received event {:?} but no state is active", event);
+            (None, _) => {
+                log::error!("Received event but no state is active");
             }
-            (Some(invalid_state), event) => {
+            (Some(invalid_state), _) => {
                 log::error!(
-                    "Received event {:?} for state {:?}",
-                    event,
+                    "Received invalid event for state {:?}",
                     invalid_state.name()
                 );
             }
@@ -404,59 +427,63 @@ impl<Platform: PlatformHooks + 'static> StateLogic<SceneRenderer> for MainLogic<
                                     .update_state(ApplicationState::Editor(new_menu.editor));
                             }
 
-                            ApplicationEvent::LoadTilesetFromFile(file, loaded_tilesets) => match file {
-                                Some(file) => {
-                                    let tex = match self
-                                        .resource_manager
-                                        .load_texture_from_bytes(&file.bytes, Sampling::Nearest)
-                                    {
-                                        Ok(tex) => tex,
-                                        Err(e) => {
-                                            log::error!("Failed to load texture: {}", e);
-                                            new_menu.set_error(e.to_string());
-                                            self.app_state =
-                                                Some(ApplicationState::NewLayerMenu(new_menu));
-                                            return;
-                                        }
-                                    };
+                            ApplicationEvent::LoadTilesetFromFile(file, loaded_tilesets) => {
+                                match file {
+                                    Some(file) => {
+                                        let tex = match self
+                                            .resource_manager
+                                            .load_texture_from_bytes(&file.bytes, Sampling::Nearest)
+                                        {
+                                            Ok(tex) => tex,
+                                            Err(e) => {
+                                                log::error!("Failed to load texture: {}", e);
+                                                new_menu.set_error(e.to_string());
+                                                self.app_state =
+                                                    Some(ApplicationState::NewLayerMenu(new_menu));
+                                                return;
+                                            }
+                                        };
 
-                                    return {
-                                        self.update_state(ApplicationState::LoadTileSetMenu(
-                                            LoadTileSetMenuStateWithEditorMemory {
-                                                editor_callback: new_menu.editor_callback,
-                                                new_layer_menu: new_menu.menu,
-                                                menu: LoadTileSetMenu::new(
-                                                    ApplicationContext {
-                                                        dispatcher: self.dispatcher.clone(),
-                                                        platform: self.platform.clone(),
-                                                        gv: self.graphics_context.clone(),
-                                                        rm: self.resource_manager.clone(),
-                                                        text_metrics: Rc::new(TextMetric {
+                                        return {
+                                            self.update_state(ApplicationState::LoadTileSetMenu(
+                                                LoadTileSetMenuStateWithEditorMemory {
+                                                    editor_callback: new_menu.editor_callback,
+                                                    new_layer_menu: new_menu.menu,
+                                                    menu: LoadTileSetMenu::new(
+                                                        ApplicationContext {
+                                                            dispatcher: self.dispatcher.clone(),
+                                                            platform: self.platform.clone(),
+                                                            gv: self.graphics_context.clone(),
                                                             rm: self.resource_manager.clone(),
-                                                            gc: self.graphics_context.clone(),
-                                                        }),
-                                                        stats: self.fps_stats.clone(),
-                                                    },
-                                                    LoadedTexture {
-                                                        suggested_name: file
-                                                            .descriptor
-                                                            .name
-                                                            .clone(),
-                                                        extension: file.descriptor.extension,
-                                                        bytes: Rc::new(RefCell::new(file.bytes)),
-                                                        id: tex.id.clone(),
-                                                        dimensions: tex.size,
-                                                    },
-                                                    loaded_tilesets,
-                                                )
-                                                .expect("Loading tileset failed"),
-                                                editor: new_menu.editor,
-                                            },
-                                        ))
-                                    };
+                                                            text_metrics: Rc::new(TextMetric {
+                                                                rm: self.resource_manager.clone(),
+                                                                gc: self.graphics_context.clone(),
+                                                            }),
+                                                            stats: self.fps_stats.clone(),
+                                                        },
+                                                        LoadedTexture {
+                                                            suggested_name: file
+                                                                .descriptor
+                                                                .name
+                                                                .clone(),
+                                                            extension: file.descriptor.extension,
+                                                            bytes: Rc::new(RefCell::new(
+                                                                file.bytes,
+                                                            )),
+                                                            id: tex.id.clone(),
+                                                            dimensions: tex.size,
+                                                        },
+                                                        loaded_tilesets,
+                                                    )
+                                                    .expect("Loading tileset failed"),
+                                                    editor: new_menu.editor,
+                                                },
+                                            ))
+                                        };
+                                    }
+                                    None => {}
                                 }
-                                None => {}
-                            },
+                            }
                             ApplicationEvent::LoadTileset(loaded_tilesets) => {
                                 log::info!("Start loading tileset");
 
@@ -517,14 +544,14 @@ impl<Platform: PlatformHooks + 'static> StateLogic<SceneRenderer> for MainLogic<
         self.size = (width, height);
     }
 
-    fn render_target(&self) -> vn_wgpu_window::scene::WgpuScene {
+    fn render_target(&self) -> S {
         self.resource_manager.update();
         self.fps_stats.borrow_mut().tick();
 
         let scene = if let Some(state) = self.app_state.as_ref() {
             state.render_target((self.size.0 as f32, self.size.1 as f32))
         } else {
-            vn_wgpu_window::scene::WgpuScene::new((self.size.0 as f32, self.size.1 as f32))
+            S::new((self.size.0 as f32, self.size.1 as f32))
         };
 
         self.resource_manager.cleanup(60, 10000);

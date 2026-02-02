@@ -3,7 +3,7 @@ use crate::logic::{ApplicationContext, ApplicationEvent, PlatformHooks};
 use crate::{UI_FONT, UI_FONT_SIZE};
 use std::cell::RefCell;
 use std::rc::Rc;
-use vn_scene::Color;
+use vn_scene::{CloneableScene, Color, ConstructableScene};
 use vn_ui::*;
 
 pub struct NewLayerState {
@@ -24,24 +24,27 @@ pub enum NewLayerEvent {
     ScrollY(f32),
 }
 
-pub struct NewLayerMenu<Platform: PlatformHooks + 'static> {
+pub struct NewLayerMenu<
+    S: CloneableScene + ConstructableScene + 'static,
+    Platform: PlatformHooks + 'static,
+> {
     #[allow(unused)]
     ui: RefCell<Box<dyn Element<State = NewLayerState, Message = NewLayerEvent>>>,
     #[allow(unused)]
     state: NewLayerState,
     #[allow(unused)]
-    ctx: ApplicationContext<Platform>,
+    ctx: ApplicationContext<S, Platform>,
     event_manager: Rc<RefCell<EventManager>>,
 }
 
-impl<Platform: PlatformHooks> NewLayerMenu<Platform> {
+impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks> NewLayerMenu<S, Platform> {
     pub fn set_error(&mut self, error: String) {
         self.state.error = Some(error)
     }
 }
 
-impl<Platform: PlatformHooks> NewLayerMenu<Platform> {
-    pub fn new(existing_tileset_names: Vec<String>, ctx: ApplicationContext<Platform>) -> Self {
+impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks> NewLayerMenu<S, Platform> {
+    pub fn new(existing_tileset_names: Vec<String>, ctx: ApplicationContext<S, Platform>) -> Self {
         let world = Rc::new(RefCell::new(ElementWorld::new()));
 
         let title = label(
@@ -281,10 +284,13 @@ impl<Platform: PlatformHooks> NewLayerMenu<Platform> {
     }
 }
 
-impl<Platform: PlatformHooks + 'static> ApplicationStateEx for NewLayerMenu<Platform> {
+impl<S: CloneableScene + ConstructableScene + 'static, Platform: PlatformHooks + 'static>
+    ApplicationStateEx for NewLayerMenu<S, Platform>
+{
     type StateEvent = NewLayerEvent;
     type State = NewLayerState;
-    type ApplicationEvent = ApplicationEvent<Platform>;
+    type ApplicationEvent = ApplicationEvent<S, Platform>;
+    type Scene = S;
 
     fn ui(&self) -> &RefCell<Box<dyn Element<State = Self::State, Message = Self::StateEvent>>> {
         &self.ui

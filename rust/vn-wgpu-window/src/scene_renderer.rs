@@ -4,17 +4,16 @@ use crate::primitives::{
     _TexturePrimitive, BoxPrimitive, Globals, PrimitiveProperties, QUAD_VERTICES, Vertex,
 };
 use crate::resource_manager::ResourceManager;
-use crate::scene::WgpuScene;
 use crate::texture::TextureId;
 use crate::{GlyphInstance, ImagePrimitive, Renderer, TextPrimitive, Texture};
-use similar::algorithms::{Capture, Compact, Replace};
 use similar::DiffOp;
+use similar::algorithms::{Capture, Compact, Replace};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::{Index, Range};
 use std::rc::Rc;
-use vn_scene::{Rect, Scene};
+use vn_scene::{CloneableScene, Rect};
 use wgpu::include_wgsl;
 use wgpu::util::DeviceExt;
 
@@ -36,7 +35,7 @@ struct Pipeline {
     bind_group_layouts: Vec<wgpu::BindGroupLayout>,
 }
 
-pub struct SceneRenderer {
+pub struct SceneRenderer<S: CloneableScene> {
     resource_manager: Rc<ResourceManager>,
     globals: GlobalResources,
     clear_pipeline: wgpu::RenderPipeline,
@@ -49,226 +48,11 @@ pub struct SceneRenderer {
     box_instance_buffer_capacity: Cell<usize>,
     box_instance_buffer_offset: Cell<usize>,
     batch: RefCell<Vec<_TexturePrimitive>>,
-    previous_scene: Option<Box<dyn Scene>>,
+    previous_scene: Option<S>,
     backing_texture: RefCell<Option<Texture>>,
 }
 
-impl SceneRenderer {
-    pub fn new(
-        graphics_context: Rc<GraphicsContext>,
-        resource_manager: Rc<ResourceManager>,
-    ) -> Self {
-        let device = graphics_context.device();
-
-        let globals = {
-            let config = graphics_context.config.borrow();
-            Globals {
-                resolution: [config.width as f32, config.height as f32],
-            }
-        };
-
-        let globals_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Globals Buffer"),
-            contents: bytemuck::cast_slice(&[globals]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let globals_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Globals Bind Group Layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-            });
-
-        let globals_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Globals Bind Group"),
-            layout: &globals_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: globals_buffer.as_entire_binding(),
-            }],
-        });
-
-        let box_shader = graphics_context
-            .device()
-            .create_shader_module(include_wgsl!("shaders\\box_shader.wgsl"));
-
-        let box_pipeline = PipelineBuilder::new(
-            graphics_context.device(),
-            graphics_context.config.borrow().format,
-        )
-            .label("Box Pipeline")
-            .shader(&box_shader)
-            .blend(wgpu::BlendState {
-                color: wgpu::BlendComponent {
-                    src_factor: wgpu::BlendFactor::SrcAlpha,
-                    dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                    operation: wgpu::BlendOperation::Add,
-                },
-                alpha: wgpu::BlendComponent {
-                    src_factor: wgpu::BlendFactor::One,
-                    dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                    operation: wgpu::BlendOperation::Add,
-                },
-            })
-            .add_vertex_layout(Vertex::vertex_description(
-                None,
-                None,
-                wgpu::VertexStepMode::Vertex,
-            ))
-            .add_vertex_layout(BoxPrimitive::vertex_description(
-                Some(Globals::location_count()),
-                None,
-                wgpu::VertexStepMode::Instance,
-            ))
-            .add_bind_group_layout(&globals_bind_group_layout)
-            .build()
-            .expect("Failed to build box pipeline");
-
-        let clear_pipeline = PipelineBuilder::new(
-            graphics_context.device(),
-            graphics_context.config.borrow().format,
-        )
-            .label("Clear Pipeline")
-            .shader(&box_shader)
-            .blend(wgpu::BlendState::REPLACE)
-            .add_vertex_layout(Vertex::vertex_description(
-                None,
-                None,
-                wgpu::VertexStepMode::Vertex,
-            ))
-            .add_vertex_layout(BoxPrimitive::vertex_description(
-                Some(Globals::location_count()),
-                None,
-                wgpu::VertexStepMode::Instance,
-            ))
-            .add_bind_group_layout(&globals_bind_group_layout)
-            .build()
-            .expect("Failed to build clear pipeline");
-
-        let texture_shader = graphics_context
-            .device()
-            .create_shader_module(include_wgsl!("shaders\\texture_shader.wgsl"));
-
-        let texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Texture Bind Group Layout"),
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler {
-                            0: wgpu::SamplerBindingType::Filtering,
-                        },
-                        count: None,
-                    },
-                ],
-            });
-
-        let texture_pipeline = PipelineBuilder::new(
-            graphics_context.device(),
-            graphics_context.config.borrow().format,
-        )
-            .label("Texture Pipeline")
-            .shader(&texture_shader)
-            .blend(wgpu::BlendState {
-                color: wgpu::BlendComponent {
-                    src_factor: wgpu::BlendFactor::SrcAlpha,
-                    dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                    operation: wgpu::BlendOperation::Add,
-                },
-                alpha: wgpu::BlendComponent {
-                    src_factor: wgpu::BlendFactor::One,
-                    dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                    operation: wgpu::BlendOperation::Add,
-                },
-            })
-            .add_vertex_layout(Vertex::vertex_description(
-                None,
-                None,
-                wgpu::VertexStepMode::Vertex,
-            ))
-            .add_vertex_layout(_TexturePrimitive::vertex_description(
-                Some(Globals::location_count()),
-                None,
-                wgpu::VertexStepMode::Instance,
-            ))
-            .add_bind_group_layout(&globals_bind_group_layout)
-            .add_bind_group_layout(&texture_bind_group_layout)
-            .build()
-            .expect("Failed to build texture pipeline");
-
-        let quad_vertex_buffer =
-            graphics_context
-                .device()
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Quad Vertex Buffer"),
-                    contents: bytemuck::cast_slice(&QUAD_VERTICES),
-                    usage: wgpu::BufferUsages::VERTEX,
-                });
-
-        let instance_buffer_capacity = 1024;
-        let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Instance Buffer"),
-            size: (instance_buffer_capacity * size_of::<_TexturePrimitive>()) as u64,
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
-        let box_instance_buffer_capacity = 1024;
-        let box_instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Box Instance Buffer"),
-            size: (box_instance_buffer_capacity * size_of::<BoxPrimitive>()) as u64,
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
-        Self {
-            previous_scene: None,
-            resource_manager,
-            globals: GlobalResources {
-                quad_vertex_buffer,
-                globals_buffer,
-                globals_bind_group,
-            },
-            clear_pipeline,
-            box_pipeline: Pipeline {
-                pipeline: box_pipeline,
-                bind_group_layouts: vec![globals_bind_group_layout.clone()],
-            },
-            texture_pipeline: Pipeline {
-                pipeline: texture_pipeline,
-                bind_group_layouts: vec![globals_bind_group_layout, texture_bind_group_layout],
-            },
-            instance_buffer: RefCell::new(instance_buffer),
-            instance_buffer_capacity: Cell::new(instance_buffer_capacity),
-            instance_buffer_offset: Cell::new(0),
-            box_instance_buffer: RefCell::new(box_instance_buffer),
-            box_instance_buffer_capacity: Cell::new(box_instance_buffer_capacity),
-            box_instance_buffer_offset: Cell::new(0),
-            batch: RefCell::new(Vec::new()),
-            backing_texture: RefCell::new(None),
-        }
-    }
-
+impl<S: CloneableScene> SceneRenderer<S> {
     fn update_globals(&self, graphics_context: &GraphicsContext) {
         let globals = {
             let config = graphics_context.config.borrow();
@@ -519,7 +303,7 @@ where
     d.into_inner().into_inner().into_ops()
 }
 
-fn padded_zip<T: Default + Clone>(left: Vec<T>, right: Vec<T>) -> impl Iterator<Item=(T, T)> {
+fn padded_zip<T: Default + Clone>(left: Vec<T>, right: Vec<T>) -> impl Iterator<Item = (T, T)> {
     let max_len = left.len().max(right.len());
     left.into_iter()
         .chain(std::iter::repeat(Default::default()))
@@ -541,8 +325,220 @@ where
     })
 }
 
-impl Renderer for SceneRenderer {
-    type RenderTarget = WgpuScene;
+impl<S: CloneableScene> Renderer for SceneRenderer<S> {
+    type RenderTarget = S;
+
+    fn new(graphics_context: Rc<GraphicsContext>, resource_manager: Rc<ResourceManager>) -> Self {
+        let device = graphics_context.device();
+
+        let globals = {
+            let config = graphics_context.config.borrow();
+            Globals {
+                resolution: [config.width as f32, config.height as f32],
+            }
+        };
+
+        let globals_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Globals Buffer"),
+            contents: bytemuck::cast_slice(&[globals]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let globals_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Globals Bind Group Layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
+
+        let globals_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Globals Bind Group"),
+            layout: &globals_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: globals_buffer.as_entire_binding(),
+            }],
+        });
+
+        let box_shader = graphics_context
+            .device()
+            .create_shader_module(include_wgsl!("shaders\\box_shader.wgsl"));
+
+        let box_pipeline = PipelineBuilder::new(
+            graphics_context.device(),
+            graphics_context.config.borrow().format,
+        )
+        .label("Box Pipeline")
+        .shader(&box_shader)
+        .blend(wgpu::BlendState {
+            color: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::SrcAlpha,
+                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                operation: wgpu::BlendOperation::Add,
+            },
+            alpha: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::One,
+                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                operation: wgpu::BlendOperation::Add,
+            },
+        })
+        .add_vertex_layout(Vertex::vertex_description(
+            None,
+            None,
+            wgpu::VertexStepMode::Vertex,
+        ))
+        .add_vertex_layout(BoxPrimitive::vertex_description(
+            Some(Globals::location_count()),
+            None,
+            wgpu::VertexStepMode::Instance,
+        ))
+        .add_bind_group_layout(&globals_bind_group_layout)
+        .build()
+        .expect("Failed to build box pipeline");
+
+        let clear_pipeline = PipelineBuilder::new(
+            graphics_context.device(),
+            graphics_context.config.borrow().format,
+        )
+        .label("Clear Pipeline")
+        .shader(&box_shader)
+        .blend(wgpu::BlendState::REPLACE)
+        .add_vertex_layout(Vertex::vertex_description(
+            None,
+            None,
+            wgpu::VertexStepMode::Vertex,
+        ))
+        .add_vertex_layout(BoxPrimitive::vertex_description(
+            Some(Globals::location_count()),
+            None,
+            wgpu::VertexStepMode::Instance,
+        ))
+        .add_bind_group_layout(&globals_bind_group_layout)
+        .build()
+        .expect("Failed to build clear pipeline");
+
+        let texture_shader = graphics_context
+            .device()
+            .create_shader_module(include_wgsl!("shaders\\texture_shader.wgsl"));
+
+        let texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Texture Bind Group Layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler {
+                            0: wgpu::SamplerBindingType::Filtering,
+                        },
+                        count: None,
+                    },
+                ],
+            });
+
+        let texture_pipeline = PipelineBuilder::new(
+            graphics_context.device(),
+            graphics_context.config.borrow().format,
+        )
+        .label("Texture Pipeline")
+        .shader(&texture_shader)
+        .blend(wgpu::BlendState {
+            color: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::SrcAlpha,
+                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                operation: wgpu::BlendOperation::Add,
+            },
+            alpha: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::One,
+                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                operation: wgpu::BlendOperation::Add,
+            },
+        })
+        .add_vertex_layout(Vertex::vertex_description(
+            None,
+            None,
+            wgpu::VertexStepMode::Vertex,
+        ))
+        .add_vertex_layout(_TexturePrimitive::vertex_description(
+            Some(Globals::location_count()),
+            None,
+            wgpu::VertexStepMode::Instance,
+        ))
+        .add_bind_group_layout(&globals_bind_group_layout)
+        .add_bind_group_layout(&texture_bind_group_layout)
+        .build()
+        .expect("Failed to build texture pipeline");
+
+        let quad_vertex_buffer =
+            graphics_context
+                .device()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Quad Vertex Buffer"),
+                    contents: bytemuck::cast_slice(&QUAD_VERTICES),
+                    usage: wgpu::BufferUsages::VERTEX,
+                });
+
+        let instance_buffer_capacity = 1024;
+        let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Instance Buffer"),
+            size: (instance_buffer_capacity * size_of::<_TexturePrimitive>()) as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let box_instance_buffer_capacity = 1024;
+        let box_instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Box Instance Buffer"),
+            size: (box_instance_buffer_capacity * size_of::<BoxPrimitive>()) as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        Self {
+            previous_scene: None,
+            resource_manager,
+            globals: GlobalResources {
+                quad_vertex_buffer,
+                globals_buffer,
+                globals_bind_group,
+            },
+            clear_pipeline,
+            box_pipeline: Pipeline {
+                pipeline: box_pipeline,
+                bind_group_layouts: vec![globals_bind_group_layout.clone()],
+            },
+            texture_pipeline: Pipeline {
+                pipeline: texture_pipeline,
+                bind_group_layouts: vec![globals_bind_group_layout, texture_bind_group_layout],
+            },
+            instance_buffer: RefCell::new(instance_buffer),
+            instance_buffer_capacity: Cell::new(instance_buffer_capacity),
+            instance_buffer_offset: Cell::new(0),
+            box_instance_buffer: RefCell::new(box_instance_buffer),
+            box_instance_buffer_capacity: Cell::new(box_instance_buffer_capacity),
+            box_instance_buffer_offset: Cell::new(0),
+            batch: RefCell::new(Vec::new()),
+            backing_texture: RefCell::new(None),
+        }
+    }
 
     fn render(
         &mut self,
@@ -551,7 +547,7 @@ impl Renderer for SceneRenderer {
     ) -> Result<(), wgpu::SurfaceError> {
         // TODO: Consider caching and reusing previous render passes for identical scenes
         // TODO: Consider using some sort of scene diff to only rerender affected areas
-        let scene = Box::new(scene.clone());
+        let scene = scene.clone();
 
         let mut invalidated_rect = None;
 
@@ -657,14 +653,18 @@ impl Renderer for SceneRenderer {
                     depth_slice: None,
                     ops: wgpu::Operations {
                         load: if invalidated_rect == screen_rect || self.previous_scene.is_none() {
-                            wgpu::LoadOp::Clear(wgpu::Color { r: 0.0, g: 0.0, b: 0.0, a: 0.0 })
+                            wgpu::LoadOp::Clear(wgpu::Color {
+                                r: 0.0,
+                                g: 0.0,
+                                b: 0.0,
+                                a: 0.0,
+                            })
                         } else {
                             wgpu::LoadOp::Load
                         },
                         store: wgpu::StoreOp::Store,
                     },
-                },
-                )],
+                })],
                 depth_stencil_attachment: None,
                 occlusion_query_set: None,
                 timestamp_writes: None,

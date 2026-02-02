@@ -7,13 +7,13 @@ use crate::{UI_FONT, UI_FONT_SIZE};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use vn_scene::{Color, Rect};
+use vn_scene::{CloneableScene, Color, ConstructableScene, Rect};
 use vn_tilemap::{TileMap, TileMapParams};
 use vn_ui::*;
 use vn_wgpu_window::resource_manager::Sampling;
 
-pub fn layers<Platform: PlatformHooks>(
-    ctx: &ApplicationContext<Platform>,
+pub fn layers<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
+    ctx: &ApplicationContext<S, Platform>,
     world: Rc<RefCell<ElementWorld>>,
 ) -> Box<dyn Element<State = EditorState, Message = EditorEvent>> {
     let title = label(
@@ -296,8 +296,8 @@ pub fn layers<Platform: PlatformHooks>(
     .into()
 }
 
-pub fn editor<Platform: PlatformHooks>(
-    ctx: &ApplicationContext<Platform>,
+pub fn editor<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
+    ctx: &ApplicationContext<S, Platform>,
     world: Rc<RefCell<ElementWorld>>,
 ) -> Box<dyn Element<State = EditorState, Message = EditorEvent>> {
     let title = label(
@@ -796,8 +796,8 @@ pub fn editor<Platform: PlatformHooks>(
     )
 }
 
-pub fn tileset<Platform: PlatformHooks>(
-    ctx: &ApplicationContext<Platform>,
+pub fn tileset<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
+    ctx: &ApplicationContext<S, Platform>,
     world: Rc<RefCell<ElementWorld>>,
 ) -> Box<dyn Element<State = EditorState, Message = EditorEvent>> {
     let title = label(

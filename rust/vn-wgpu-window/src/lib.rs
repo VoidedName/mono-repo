@@ -26,33 +26,33 @@ pub use scene::WgpuScene;
 pub use scene_renderer::SceneRenderer;
 pub use texture::Texture;
 
-use winit::event_loop::EventLoop;
 use crate::rendering_context::EventDispatcher;
+use winit::event_loop::EventLoop;
 
 pub enum UiEvent<T, Event> {
     Context(T),
     Event(Event),
 }
 
-pub fn init_with_logic<FNew, FRet, T: StateLogic<SceneRenderer>>(
+pub fn init_with_logic<FNew, FRet, R: Renderer + 'static, T: StateLogic<R>>(
     title: String,
     size: (f32, f32),
     new_fn: FNew,
 ) -> anyhow::Result<()>
 where
-    FNew: Fn(EventDispatcher<T, SceneRenderer>, std::rc::Rc<GraphicsContext>, std::rc::Rc<resource_manager::ResourceManager>) -> FRet
+    FNew: Fn(
+            EventDispatcher<T, R>,
+            std::rc::Rc<GraphicsContext>,
+            std::rc::Rc<resource_manager::ResourceManager>,
+        ) -> FRet
         + 'static,
     FRet: Future<Output = anyhow::Result<T>>,
 {
     log::info!("Initializing window");
 
-    let event_loop = EventLoop::<UiEvent<RenderingContext<T>, T::Event>>::with_user_event().build()?;
-    let mut app = App::new(
-        &event_loop,
-        title,
-        size,
-        new_fn,
-    );
+    let event_loop =
+        EventLoop::<UiEvent<RenderingContext<T, R>, T::Event>>::with_user_event().build()?;
+    let mut app = App::new(&event_loop, title, size, new_fn);
 
     log::info!("Running the event loop!");
     event_loop.run_app(&mut app)?;

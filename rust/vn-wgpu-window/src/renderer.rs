@@ -1,9 +1,13 @@
 use crate::GraphicsContext;
+use crate::resource_manager::ResourceManager;
+use std::rc::Rc;
 
 /// A trait for types that can render a specific target using a [`GraphicsContext`].
 pub trait Renderer {
     /// The type that this renderer can draw.
     type RenderTarget;
+
+    fn new(context: Rc<GraphicsContext>, resource_manager: Rc<ResourceManager>) -> Self;
 
     /// Renders the target to the current surface.
     fn render(

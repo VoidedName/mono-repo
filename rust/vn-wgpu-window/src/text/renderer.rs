@@ -1,4 +1,3 @@
-use std::rc::Rc;
 use crate::graphics::{GraphicsContext, VertexDescription};
 use crate::pipeline_builder::PipelineBuilder;
 use crate::primitives::QUAD_VERTICES;
@@ -6,6 +5,7 @@ use crate::primitives::{Globals, Vertex};
 use crate::resource_manager::ResourceManager;
 use crate::text::{Font, FontFaceTrueScale};
 use bytemuck::{Pod, Zeroable};
+use std::rc::Rc;
 use ttf_parser::OutlineBuilder;
 use wgpu::util::DeviceExt;
 
@@ -45,53 +45,64 @@ pub struct TextRenderer {
 
 impl TextRenderer {
     pub fn new(context: &Rc<GraphicsContext>) -> Self {
-        let shader =
-            context.wgpu.device.create_shader_module(wgpu::include_wgsl!("../shaders/text_shader.wgsl"));
+        let shader = context
+            .wgpu
+            .device
+            .create_shader_module(wgpu::include_wgsl!("../shaders/text_shader.wgsl"));
 
         let globals_bind_group_layout =
-            context.wgpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Text Globals Bind Group Layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-            });
+            context
+                .wgpu
+                .device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Text Globals Bind Group Layout"),
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }],
+                });
 
         let glyph_bind_group_layout =
-            context.wgpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Glyph Bind Group Layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-            });
+            context
+                .wgpu
+                .device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Glyph Bind Group Layout"),
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }],
+                });
 
         let segment_bind_group_layout =
-            context.wgpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Segment Bind Group Layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-            });
+            context
+                .wgpu
+                .device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Segment Bind Group Layout"),
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }],
+                });
 
         let pipeline = PipelineBuilder::new(&context.wgpu.device, context.config.borrow().format)
             .label("Text Pipeline")
@@ -119,11 +130,15 @@ impl TextRenderer {
             .build()
             .expect("Failed to build text pipeline");
 
-        let quad_vertex_buffer = context.wgpu.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Text Quad Vertex Buffer"),
-            contents: bytemuck::cast_slice(&QUAD_VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
+        let quad_vertex_buffer =
+            context
+                .wgpu
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Text Quad Vertex Buffer"),
+                    contents: bytemuck::cast_slice(&QUAD_VERTICES),
+                    usage: wgpu::BufferUsages::VERTEX,
+                });
 
         let globals_buffer = context.wgpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Text Globals Buffer"),
@@ -148,32 +163,43 @@ impl TextRenderer {
             mapped_at_creation: false,
         });
 
-        let globals_bind_group = context.wgpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Text Globals Bind Group"),
-            layout: &globals_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: globals_buffer.as_entire_binding(),
-            }],
-        });
+        let globals_bind_group =
+            context
+                .wgpu
+                .device
+                .create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("Text Globals Bind Group"),
+                    layout: &globals_bind_group_layout,
+                    entries: &[wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: globals_buffer.as_entire_binding(),
+                    }],
+                });
 
-        let glyph_bind_group = context.wgpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Text Glyph Bind Group"),
-            layout: &glyph_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: glyph_buffer.as_entire_binding(),
-            }],
-        });
+        let glyph_bind_group = context
+            .wgpu
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Text Glyph Bind Group"),
+                layout: &glyph_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: glyph_buffer.as_entire_binding(),
+                }],
+            });
 
-        let segment_bind_group = context.wgpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Text Segment Bind Group"),
-            layout: &segment_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: segment_buffer.as_entire_binding(),
-            }],
-        });
+        let segment_bind_group =
+            context
+                .wgpu
+                .device
+                .create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("Text Segment Bind Group"),
+                    layout: &segment_bind_group_layout,
+                    entries: &[wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: segment_buffer.as_entire_binding(),
+                    }],
+                });
 
         Self {
             pipeline,

@@ -1,3 +1,4 @@
+use crate::utils::ToArray;
 use crate::{
     Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams,
     UiContext, into_box_impl,
@@ -6,7 +7,6 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
 use vn_ui_animation_macros::Interpolatable;
-use crate::utils::ToArray;
 
 #[derive(Clone, Copy, Interpolatable)]
 pub struct CardParams {
@@ -104,7 +104,8 @@ impl<State, Message> ElementImpl for Card<State, Message> {
         let clip = Rect {
             position: origin.to_array(),
             size: size.to_array(),
-        }.intersect(&ctx.clip_rect);
+        }
+        .intersect(&ctx.clip_rect);
 
         canvas.add_box(BoxPrimitiveData {
             transform: Transform {

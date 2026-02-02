@@ -1,4 +1,6 @@
-use vn_scene::{BoxPrimitiveData, ImagePrimitiveData, Layer, Scene, TextPrimitiveData};
+use vn_scene::{
+    BoxPrimitiveData, ConstructableScene, ImagePrimitiveData, Layer, Scene, TextPrimitiveData,
+};
 
 pub type SceneSize = (f32, f32);
 
@@ -10,9 +12,9 @@ pub struct WgpuScene {
     scene_size: SceneSize,
 }
 
-impl WgpuScene {
+impl ConstructableScene for WgpuScene {
     /// Creates a new scene with a single initial layer.
-    pub fn new(size: SceneSize) -> Self {
+    fn new(size: SceneSize) -> Self {
         let mut scene = Self {
             layers: vec![],
             active_layers: vec![],
@@ -23,11 +25,9 @@ impl WgpuScene {
         scene.scene_size = size;
         scene
     }
+}
 
-    pub fn scene_size(&self) -> SceneSize {
-        self.scene_size
-    }
-
+impl WgpuScene {
     pub fn current_layer_id(&self) -> u32 {
         *self.active_layers.last().unwrap() as u32
     }
@@ -137,5 +137,9 @@ impl Scene for WgpuScene {
                 }
             })
         }
+    }
+
+    fn scene_size(&self) -> SceneSize {
+        self.scene_size
     }
 }

@@ -1,7 +1,6 @@
 use crate::graphics::GraphicsContext;
 use crate::logic::StateLogic;
 use crate::resource_manager::ResourceManager;
-use crate::scene_renderer::SceneRenderer;
 use crate::{Renderer, UiEvent};
 use std::rc::Rc;
 use winit::event::KeyEvent;
@@ -9,7 +8,7 @@ use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
 
 /// The main context for rendering the application, binding together graphics, resources, renderer, and logic.
-pub struct RenderingContext<T: StateLogic<R>, R: Renderer = SceneRenderer> {
+pub struct RenderingContext<T: StateLogic<R>, R: Renderer> {
     pub context: Rc<GraphicsContext>,
     pub resource_manager: Rc<ResourceManager>,
     pub renderer: R,
@@ -28,18 +27,15 @@ impl<T: StateLogic<R>, R: Renderer + 'static> EventDispatcher<T, R> {
     }
 }
 
-impl<T: StateLogic<SceneRenderer>> RenderingContext<T, SceneRenderer> {
+impl<R: Renderer, T: StateLogic<R>> RenderingContext<T, R> {
     /// Creates a new rendering context for the given window.
     pub async fn new<FNew, FRet>(
-        proxy: winit::event_loop::EventLoopProxy<
-            UiEvent<Self, T::Event>,
-        >,
+        proxy: winit::event_loop::EventLoopProxy<UiEvent<Self, T::Event>>,
         window: Window,
         new_fn: Rc<FNew>,
     ) -> anyhow::Result<Self>
     where
-        FNew: Fn(EventDispatcher<T, SceneRenderer>, Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet
-            + 'static,
+        FNew: Fn(EventDispatcher<T, R>, Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet + 'static,
         FRet: Future<Output = anyhow::Result<T>>,
     {
         let context = Rc::new(GraphicsContext::new(window).await?);
@@ -48,16 +44,11 @@ impl<T: StateLogic<SceneRenderer>> RenderingContext<T, SceneRenderer> {
             include_bytes!("../src/text/fonts/JetBrainsMono-Regular.ttf"),
         ));
 
-        let renderer = SceneRenderer::new(context.clone(), resource_manager.clone());
+        let renderer = R::new(context.clone(), resource_manager.clone());
 
         let dispatcher = EventDispatcher { proxy };
 
-        let logic = new_fn(
-            dispatcher,
-            context.clone(),
-            resource_manager.clone(),
-        )
-        .await?;
+        let logic = new_fn(dispatcher, context.clone(), resource_manager.clone()).await?;
 
         Ok(Self {
             context,

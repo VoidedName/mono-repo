@@ -18,18 +18,18 @@ pub use new_layer_menu::*;
 pub mod ui_helper;
 use crate::logic::{ApplicationEvent, EditorCallback, PlatformHooks};
 pub use ui_helper::*;
-use vn_scene::{Scene, TextureId};
+use vn_scene::{CloneableScene, ConstructableScene, TextureId};
 use vn_ui::InteractionEventKind::MouseScroll;
 use vn_ui::{
     DynamicDimension, DynamicSize, Element, ElementSize, EventManager, InteractionEventKind,
     SimpleLayoutCache, SizeConstraints, UiContext,
 };
-use vn_wgpu_window::WgpuScene;
 
 pub trait ApplicationStateEx {
     type StateEvent;
     type State;
     type ApplicationEvent: 'static;
+    type Scene: ConstructableScene + 'static;
 
     fn ui(&self) -> &RefCell<Box<dyn Element<State = Self::State, Message = Self::StateEvent>>>;
     fn state(&self) -> &Self::State;
@@ -67,8 +67,8 @@ pub trait ApplicationStateEx {
         None
     }
 
-    fn render_target(&self, size: (f32, f32)) -> WgpuScene {
-        let mut scene = WgpuScene::new((size.0, size.1));
+    fn render_target(&self, size: (f32, f32)) -> Self::Scene {
+        let mut scene = Self::Scene::new((size.0, size.1));
 
         let event_manager = self.event_manager().clone();
         event_manager.borrow_mut().clear_hitboxes();
@@ -211,29 +211,40 @@ impl Debug for LoadedTileSet {
     }
 }
 
-pub struct LoadTileSetMenuStateWithEditorMemory<Platform: PlatformHooks + 'static> {
-    pub menu: LoadTileSetMenu<Platform>,
-    pub new_layer_menu: NewLayerMenu<Platform>,
-    pub editor: Editor<Platform>,
-    pub editor_callback: EditorCallback<Option<TryLoadTileSetResult>, Platform>,
+pub struct LoadTileSetMenuStateWithEditorMemory<
+    S: CloneableScene + ConstructableScene + 'static,
+    Platform: PlatformHooks + 'static,
+> {
+    pub menu: LoadTileSetMenu<S, Platform>,
+    pub new_layer_menu: NewLayerMenu<S, Platform>,
+    pub editor: Editor<S, Platform>,
+    pub editor_callback: EditorCallback<Option<TryLoadTileSetResult>, S, Platform>,
 }
 
-pub struct NewLayerMenuStateWithEditorMemory<Platform: PlatformHooks + 'static> {
-    pub menu: NewLayerMenu<Platform>,
-    pub editor: Editor<Platform>,
-    pub editor_callback: EditorCallback<Option<TryLoadTileSetResult>, Platform>,
+pub struct NewLayerMenuStateWithEditorMemory<
+    S: CloneableScene + ConstructableScene + 'static,
+    Platform: PlatformHooks + 'static,
+> {
+    pub menu: NewLayerMenu<S, Platform>,
+    pub editor: Editor<S, Platform>,
+    pub editor_callback: EditorCallback<Option<TryLoadTileSetResult>, S, Platform>,
 }
 
-impl<Platform: PlatformHooks> NewLayerMenuStateWithEditorMemory<Platform> {
+impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>
+    NewLayerMenuStateWithEditorMemory<S, Platform>
+{
     pub fn set_error(&mut self, error: String) {
         self.menu.set_error(error);
     }
 }
 
-pub enum ApplicationState<Platform: PlatformHooks + 'static> {
-    Editor(Editor<Platform>),
-    NewLayerMenu(NewLayerMenuStateWithEditorMemory<Platform>),
-    LoadTileSetMenu(LoadTileSetMenuStateWithEditorMemory<Platform>),
+pub enum ApplicationState<
+    S: CloneableScene + ConstructableScene + 'static,
+    Platform: PlatformHooks + 'static,
+> {
+    Editor(Editor<S, Platform>),
+    NewLayerMenu(NewLayerMenuStateWithEditorMemory<S, Platform>),
+    LoadTileSetMenu(LoadTileSetMenuStateWithEditorMemory<S, Platform>),
 }
 
 macro_rules! dispatch {
@@ -246,12 +257,14 @@ macro_rules! dispatch {
     };
 }
 
-impl<Platform: PlatformHooks + 'static> ApplicationState<Platform> {
-    pub fn process_events(&mut self) -> Option<ApplicationEvent<Platform>> {
+impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks + 'static>
+    ApplicationState<S, Platform>
+{
+    pub fn process_events(&mut self) -> Option<ApplicationEvent<S, Platform>> {
         dispatch!(self, inner, inner.process_events())
     }
 
-    pub fn render_target(&self, size: (f32, f32)) -> WgpuScene {
+    pub fn render_target(&self, size: (f32, f32)) -> S {
         dispatch!(self, inner, inner.render_target(size))
     }
 
@@ -281,12 +294,13 @@ impl<Platform: PlatformHooks + 'static> ApplicationState<Platform> {
     }
 }
 
-impl<Platform: PlatformHooks + 'static> ApplicationStateEx
-    for LoadTileSetMenuStateWithEditorMemory<Platform>
+impl<S: CloneableScene + ConstructableScene + 'static, Platform: PlatformHooks + 'static>
+    ApplicationStateEx for LoadTileSetMenuStateWithEditorMemory<S, Platform>
 {
     type StateEvent = LoadTileSetMenuEvent;
     type State = LoadTileSetMenuState;
-    type ApplicationEvent = ApplicationEvent<Platform>;
+    type ApplicationEvent = ApplicationEvent<S, Platform>;
+    type Scene = S;
 
     fn ui(&self) -> &RefCell<Box<dyn Element<State = Self::State, Message = Self::StateEvent>>> {
         self.menu.ui()
@@ -296,7 +310,7 @@ impl<Platform: PlatformHooks + 'static> ApplicationStateEx
         self.menu.state()
     }
 
-    fn render_target(&self, size: (f32, f32)) -> WgpuScene {
+    fn render_target(&self, size: (f32, f32)) -> S {
         let mut menu = self.menu.render_target(size);
         let mut new_menu = self.new_layer_menu.render_target(size);
         let mut editor = self.editor.render_target(size);
@@ -314,18 +328,19 @@ impl<Platform: PlatformHooks + 'static> ApplicationStateEx
     }
 }
 
-impl<Platform: PlatformHooks + 'static> ApplicationStateEx
-    for NewLayerMenuStateWithEditorMemory<Platform>
+impl<S: CloneableScene + ConstructableScene + 'static, Platform: PlatformHooks + 'static>
+    ApplicationStateEx for NewLayerMenuStateWithEditorMemory<S, Platform>
 {
     type StateEvent = NewLayerEvent;
     type State = NewLayerState;
-    type ApplicationEvent = ApplicationEvent<Platform>;
+    type ApplicationEvent = ApplicationEvent<S, Platform>;
+    type Scene = S;
 
     fn ui(&self) -> &RefCell<Box<dyn Element<State = Self::State, Message = Self::StateEvent>>> {
         self.menu.ui()
     }
 
-    fn render_target(&self, size: (f32, f32)) -> WgpuScene {
+    fn render_target(&self, size: (f32, f32)) -> Self::Scene {
         let mut menu = self.menu.render_target(size);
         self.editor.event_manager().borrow_mut().clear_hitboxes();
         let mut editor = self.editor.render_target(size);

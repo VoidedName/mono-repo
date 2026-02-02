@@ -1,3 +1,4 @@
+use crate::utils::ToArray;
 use crate::{
     DynamicDimension, ElementId, ElementImpl, ElementSize, ElementWorld, InteractionEvent,
     SizeConstraints, StateToParams, UiContext, into_box_impl,
@@ -7,7 +8,6 @@ use std::rc::Rc;
 use vn_scene::{Color, ImagePrimitiveData, Rect, Scene, TextureId, Transform};
 use vn_ui_animation::Interpolatable;
 use vn_ui_animation_macros::Interpolatable;
-use crate::utils::ToArray;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FitStrategy {
@@ -216,7 +216,8 @@ impl<State, Message> ElementImpl for Texture<State, Message> {
         let clip = Rect {
             position: origin.to_array(),
             size: size.to_array(),
-        }.intersect(&ctx.clip_rect);
+        }
+        .intersect(&ctx.clip_rect);
 
         canvas.add_image(ImagePrimitiveData {
             transform: Transform {

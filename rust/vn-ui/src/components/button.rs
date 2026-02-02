@@ -95,42 +95,38 @@ impl<State, Message: Clone> ElementImpl for Button<State, Message> {
         let clip = Rect {
             position: origin.to_array(),
             size: size.to_array(),
-        }.intersect(&ctx.clip_rect);
+        }
+        .intersect(&ctx.clip_rect);
 
-        ctx.with_hitbox_hierarchy(
-            self.id,
-            canvas.current_layer_id(),
-            clip,
-            |ctx| {
-                canvas.add_box(BoxPrimitiveData {
-                    transform: Transform {
-                        translation: [origin.0, origin.1],
-                        ..Transform::DEFAULT
-                    },
-                    size: [size.width, size.height],
-                    color: background,
-                    border_color,
-                    border_thickness: params.border_width,
-                    border_radius: params.corner_radius,
-                    clip_rect: clip,
-                });
+        ctx.with_hitbox_hierarchy(self.id, canvas.current_layer_id(), clip, |ctx| {
+            canvas.add_box(BoxPrimitiveData {
+                transform: Transform {
+                    translation: [origin.0, origin.1],
+                    ..Transform::DEFAULT
+                },
+                size: [size.width, size.height],
+                color: background,
+                border_color,
+                border_thickness: params.border_width,
+                border_radius: params.corner_radius,
+                clip_rect: clip,
+            });
 
-                let margin = params.border_width * 2.0;
-                self.child.draw(
-                    ctx,
-                    state,
-                    (
-                        origin.0 + params.border_width,
-                        origin.1 + params.border_width,
-                    ),
-                    size.shrink_by(ElementSize {
-                        width: margin,
-                        height: margin,
-                    }),
-                    canvas,
-                );
-            },
-        );
+            let margin = params.border_width * 2.0;
+            self.child.draw(
+                ctx,
+                state,
+                (
+                    origin.0 + params.border_width,
+                    origin.1 + params.border_width,
+                ),
+                size.shrink_by(ElementSize {
+                    width: margin,
+                    height: margin,
+                }),
+                canvas,
+            );
+        });
     }
 
     fn handle_event_impl(

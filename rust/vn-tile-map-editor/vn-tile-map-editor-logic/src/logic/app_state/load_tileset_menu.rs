@@ -12,7 +12,7 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 use thiserror::Error;
-use vn_scene::TextureId;
+use vn_scene::{CloneableScene, ConstructableScene, TextureId};
 use vn_ui::*;
 
 #[derive(Debug)]
@@ -76,17 +76,20 @@ pub enum LoadTileSetMenuEvent {
     TexturePreviewScrollY(f32),
 }
 
-pub struct LoadTileSetMenu<Platform: PlatformHooks + 'static> {
+pub struct LoadTileSetMenu<
+    S: CloneableScene + ConstructableScene + 'static,
+    Platform: PlatformHooks + 'static,
+> {
     #[allow(unused)]
-    ctx: ApplicationContext<Platform>,
+    ctx: ApplicationContext<S, Platform>,
     ui: RefCell<Box<dyn Element<State = LoadTileSetMenuState, Message = LoadTileSetMenuEvent>>>,
     state: LoadTileSetMenuState,
     event_manager: Rc<RefCell<EventManager>>,
 }
 
-impl<Platform: PlatformHooks> LoadTileSetMenu<Platform> {
+impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks> LoadTileSetMenu<S, Platform> {
     pub fn new(
-        ctx: ApplicationContext<Platform>,
+        ctx: ApplicationContext<S, Platform>,
         loaded_texture: LoadedTexture,
         already_loaded_tilesets: Vec<String>,
     ) -> anyhow::Result<Self> {
@@ -488,10 +491,13 @@ impl<Platform: PlatformHooks> LoadTileSetMenu<Platform> {
     }
 }
 
-impl<Platform: PlatformHooks + 'static> ApplicationStateEx for LoadTileSetMenu<Platform> {
+impl<S: CloneableScene + ConstructableScene + 'static, Platform: PlatformHooks + 'static>
+    ApplicationStateEx for LoadTileSetMenu<S, Platform>
+{
     type StateEvent = LoadTileSetMenuEvent;
     type State = LoadTileSetMenuState;
-    type ApplicationEvent = ApplicationEvent<Platform>;
+    type ApplicationEvent = ApplicationEvent<S, Platform>;
+    type Scene = S;
 
     fn ui(&self) -> &RefCell<Box<dyn Element<State = Self::State, Message = Self::StateEvent>>> {
         &self.ui

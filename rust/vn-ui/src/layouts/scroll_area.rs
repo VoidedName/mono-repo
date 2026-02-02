@@ -145,150 +145,147 @@ impl<State, Message: Clone> ElementImpl for ScrollArea<State, Message> {
 
             size.shrink_by(shrink_by)
         };
-        
+
         let clip = Rect {
             position: origin.to_array(),
             size: size.to_array(),
-        }.intersect(&ctx.clip_rect);
-        
-        ctx.with_hitbox_hierarchy(
-            self.id,
-            scene.current_layer_id(),
-            clip,
-            |ctx| {
-                let child_origin = (
-                    origin.0
-                        - params
-                            .scroll_x
-                            .position
-                            .unwrap_or(0.0)
-                            .min((self.child_size.width - self.viewport_size.width).max(0.0)),
-                    origin.1
-                        - params
-                            .scroll_y
-                            .position
-                            .unwrap_or(0.0)
-                            .min((self.child_size.height - self.viewport_size.height).max(0.0)),
-                );
+        }
+        .intersect(&ctx.clip_rect);
 
-                let clip_rect = Rect {
-                    position: [origin.0, origin.1],
-                    size: [self.viewport_size.width, self.viewport_size.height],
-                }.intersect(&ctx.clip_rect);
+        ctx.with_hitbox_hierarchy(self.id, scene.current_layer_id(), clip, |ctx| {
+            let child_origin = (
+                origin.0
+                    - params
+                        .scroll_x
+                        .position
+                        .unwrap_or(0.0)
+                        .min((self.child_size.width - self.viewport_size.width).max(0.0)),
+                origin.1
+                    - params
+                        .scroll_y
+                        .position
+                        .unwrap_or(0.0)
+                        .min((self.child_size.height - self.viewport_size.height).max(0.0)),
+            );
 
-                ctx.with_clipping(clip_rect, |ctx| {
-                    self.child
-                        .draw(ctx, state, child_origin, self.child_size, scene);
-                });
+            let clip_rect = Rect {
+                position: [origin.0, origin.1],
+                size: [self.viewport_size.width, self.viewport_size.height],
+            }
+            .intersect(&ctx.clip_rect);
 
-                let clip_rect = ctx.clip_rect;
-                let size = self.viewport_size;
-                // Draw scroll bars
-                {
-                    if self.child_size.height > size.height {
-                        let scrollbar_height = (size.height / self.child_size.height) * size.height;
-                        let scrollbar_y = if let Some(scroll_y) = params.scroll_y.position {
-                            (scroll_y / self.child_size.height) * size.height
-                        } else {
-                            0.0
-                        };
+            ctx.with_clipping(clip_rect, |ctx| {
+                self.child
+                    .draw(ctx, state, child_origin, self.child_size, scene);
+            });
 
-                        let scrollbar_rect = Rect {
-                            position: [
-                                origin.0 + size.width + params.scroll_y.margin,
-                                origin.1 + scrollbar_y,
-                            ],
-                            size: [params.scroll_y.width, scrollbar_height],
-                        };
+            let clip_rect = ctx.clip_rect;
+            let size = self.viewport_size;
+            // Draw scroll bars
+            {
+                if self.child_size.height > size.height {
+                    let scrollbar_height = (size.height / self.child_size.height) * size.height;
+                    let scrollbar_y = if let Some(scroll_y) = params.scroll_y.position {
+                        (scroll_y / self.child_size.height) * size.height
+                    } else {
+                        0.0
+                    };
 
-                        ctx.with_hitbox_hierarchy(
-                            self.scroll_v_id,
-                            scene.current_layer_id(),
-                            scrollbar_rect,
-                            |_| {},
-                        );
+                    let scrollbar_rect = Rect {
+                        position: [
+                            origin.0 + size.width + params.scroll_y.margin,
+                            origin.1 + scrollbar_y,
+                        ],
+                        size: [params.scroll_y.width, scrollbar_height],
+                    };
 
-                        scene.add_box(BoxPrimitiveData {
-                            transform: Transform {
-                                translation: [scrollbar_rect.position[0], origin.1],
-                                ..Transform::DEFAULT
-                            },
-                            size: [scrollbar_rect.size[0], size.height],
-                            color: params.scroll_x.color.with_alpha(0.1),
-                            border_color: Color::TRANSPARENT,
-                            border_thickness: 0.0,
-                            border_radius: params.scroll_x.width / 2.0,
-                            clip_rect,
-                        });
+                    ctx.with_hitbox_hierarchy(
+                        self.scroll_v_id,
+                        scene.current_layer_id(),
+                        scrollbar_rect,
+                        |_| {},
+                    );
 
-                        scene.add_box(BoxPrimitiveData {
-                            transform: Transform {
-                                translation: scrollbar_rect.position,
-                                ..Transform::DEFAULT
-                            },
-                            size: scrollbar_rect.size,
-                            color: params.scroll_y.color,
-                            border_color: Color::TRANSPARENT,
-                            border_thickness: 0.0,
-                            border_radius: params.scroll_y.width / 2.0,
-                            clip_rect,
-                        });
-                    }
+                    scene.add_box(BoxPrimitiveData {
+                        transform: Transform {
+                            translation: [scrollbar_rect.position[0], origin.1],
+                            ..Transform::DEFAULT
+                        },
+                        size: [scrollbar_rect.size[0], size.height],
+                        color: params.scroll_x.color.with_alpha(0.1),
+                        border_color: Color::TRANSPARENT,
+                        border_thickness: 0.0,
+                        border_radius: params.scroll_x.width / 2.0,
+                        clip_rect,
+                    });
+
+                    scene.add_box(BoxPrimitiveData {
+                        transform: Transform {
+                            translation: scrollbar_rect.position,
+                            ..Transform::DEFAULT
+                        },
+                        size: scrollbar_rect.size,
+                        color: params.scroll_y.color,
+                        border_color: Color::TRANSPARENT,
+                        border_thickness: 0.0,
+                        border_radius: params.scroll_y.width / 2.0,
+                        clip_rect,
+                    });
                 }
+            }
 
-                {
-                    if self.child_size.width > size.width {
-                        let scrollbar_width = (size.width / self.child_size.width) * size.width;
-                        let scrollbar_x = if let Some(scroll_x) = params.scroll_x.position {
-                            (scroll_x / self.child_size.width) * size.width
-                        } else {
-                            0.0
-                        };
+            {
+                if self.child_size.width > size.width {
+                    let scrollbar_width = (size.width / self.child_size.width) * size.width;
+                    let scrollbar_x = if let Some(scroll_x) = params.scroll_x.position {
+                        (scroll_x / self.child_size.width) * size.width
+                    } else {
+                        0.0
+                    };
 
-                        let scrollbar_rect = Rect {
-                            position: [
-                                origin.0 + scrollbar_x,
-                                origin.1 + size.height + params.scroll_x.margin,
-                            ],
-                            size: [scrollbar_width, params.scroll_x.width],
-                        };
+                    let scrollbar_rect = Rect {
+                        position: [
+                            origin.0 + scrollbar_x,
+                            origin.1 + size.height + params.scroll_x.margin,
+                        ],
+                        size: [scrollbar_width, params.scroll_x.width],
+                    };
 
-                        ctx.with_hitbox_hierarchy(
-                            self.scroll_h_id,
-                            scene.current_layer_id(),
-                            scrollbar_rect,
-                            |_| {},
-                        );
+                    ctx.with_hitbox_hierarchy(
+                        self.scroll_h_id,
+                        scene.current_layer_id(),
+                        scrollbar_rect,
+                        |_| {},
+                    );
 
-                        scene.add_box(BoxPrimitiveData {
-                            transform: Transform {
-                                translation: [origin.0, scrollbar_rect.position[1]],
-                                ..Transform::DEFAULT
-                            },
-                            size: [size.width, scrollbar_rect.size[1]],
-                            color: params.scroll_x.color.with_alpha(0.1),
-                            border_color: Color::TRANSPARENT,
-                            border_thickness: 0.0,
-                            border_radius: params.scroll_x.width / 2.0,
-                            clip_rect,
-                        });
+                    scene.add_box(BoxPrimitiveData {
+                        transform: Transform {
+                            translation: [origin.0, scrollbar_rect.position[1]],
+                            ..Transform::DEFAULT
+                        },
+                        size: [size.width, scrollbar_rect.size[1]],
+                        color: params.scroll_x.color.with_alpha(0.1),
+                        border_color: Color::TRANSPARENT,
+                        border_thickness: 0.0,
+                        border_radius: params.scroll_x.width / 2.0,
+                        clip_rect,
+                    });
 
-                        scene.add_box(BoxPrimitiveData {
-                            transform: Transform {
-                                translation: scrollbar_rect.position,
-                                ..Transform::DEFAULT
-                            },
-                            size: scrollbar_rect.size,
-                            color: params.scroll_x.color,
-                            border_color: Color::TRANSPARENT,
-                            border_thickness: 0.0,
-                            border_radius: params.scroll_x.width / 2.0,
-                            clip_rect,
-                        });
-                    }
+                    scene.add_box(BoxPrimitiveData {
+                        transform: Transform {
+                            translation: scrollbar_rect.position,
+                            ..Transform::DEFAULT
+                        },
+                        size: scrollbar_rect.size,
+                        color: params.scroll_x.color,
+                        border_color: Color::TRANSPARENT,
+                        border_thickness: 0.0,
+                        border_radius: params.scroll_x.width / 2.0,
+                        clip_rect,
+                    });
                 }
-            },
-        );
+            }
+        });
     }
 
     fn handle_event_impl(

@@ -338,7 +338,15 @@ pub trait Scene {
     fn current_layer_id(&self) -> u32;
     fn layers(&self) -> &[Layer];
     fn extend(&mut self, other: &mut dyn Scene);
+    fn scene_size(&self) -> (f32, f32);
 }
+
+pub trait ConstructableScene: Scene {
+    fn new(size: (f32, f32)) -> Self;
+}
+
+pub trait CloneableScene: Scene + Clone {}
+impl<T: Scene + Clone> CloneableScene for T {}
 
 /// A collection of primitives to be rendered together.
 #[derive(Debug, Clone, Default, PartialEq)]

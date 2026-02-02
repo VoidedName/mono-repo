@@ -12,7 +12,7 @@ use std::fmt::Debug;
 use std::io::Read;
 use std::path::Path;
 use std::rc::Rc;
-use vn_scene::Color;
+use vn_scene::{CloneableScene, Color, ConstructableScene};
 use vn_tilemap::{TileMapLayerMapSpecification, TileMapLayerSpecification, TileMapSpecification};
 use vn_ui::{
     AnchorExt, AnchorLocation, AnchorParams, CardExt, CardParams, Conditional, ConditionalParams,
@@ -76,16 +76,21 @@ pub enum Brush {
     None,
 }
 
-pub struct Editor<Platform: PlatformHooks + 'static> {
+pub struct Editor<
+    S: CloneableScene + ConstructableScene + 'static,
+    Platform: PlatformHooks + 'static,
+> {
     #[allow(unused)]
-    ctx: ApplicationContext<Platform>,
+    ctx: ApplicationContext<S, Platform>,
     ui: RefCell<Box<dyn Element<State = EditorState, Message = EditorEvent>>>,
     state: EditorState,
     event_manager: Rc<RefCell<EventManager>>,
 }
 
-impl<Platform: PlatformHooks + 'static> Editor<Platform> {
-    pub async fn new(ctx: ApplicationContext<Platform>) -> anyhow::Result<Self> {
+impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks + 'static>
+    Editor<S, Platform>
+{
+    pub async fn new(ctx: ApplicationContext<S, Platform>) -> anyhow::Result<Self> {
         let world = Rc::new(RefCell::new(ElementWorld::new()));
 
         let title = label(
@@ -244,10 +249,13 @@ impl<Platform: PlatformHooks + 'static> Editor<Platform> {
     }
 }
 
-impl<Platform: PlatformHooks + 'static> ApplicationStateEx for Editor<Platform> {
+impl<S: CloneableScene + ConstructableScene + 'static, Platform: PlatformHooks + 'static>
+    ApplicationStateEx for Editor<S, Platform>
+{
     type StateEvent = EditorEvent;
     type State = EditorState;
-    type ApplicationEvent = ApplicationEvent<Platform>;
+    type ApplicationEvent = ApplicationEvent<S, Platform>;
+    type Scene = S;
 
     fn ui(&self) -> &RefCell<Box<dyn Element<State = Self::State, Message = Self::StateEvent>>> {
         &self.ui

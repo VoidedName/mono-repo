@@ -1,8 +1,7 @@
 use crate::logic::StateLogic;
 use crate::rendering_context::{EventDispatcher, RenderingContext};
 use crate::resource_manager::ResourceManager;
-use crate::scene_renderer::SceneRenderer;
-use crate::{GraphicsContext, UiEvent};
+use crate::{GraphicsContext, Renderer, UiEvent};
 use std::rc::Rc;
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalSize;
@@ -10,27 +9,25 @@ use winit::event::{MouseScrollDelta, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowId};
 
-pub struct App<FNew, FRet, T: StateLogic<SceneRenderer>>
+pub struct App<FNew, FRet, R: Renderer + 'static, T: StateLogic<R>>
 where
-    FNew: Fn(EventDispatcher<T, SceneRenderer>, Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet
-        + 'static,
+    FNew: Fn(EventDispatcher<T, R>, Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet + 'static,
     FRet: Future<Output = anyhow::Result<T>>,
 {
-    proxy: winit::event_loop::EventLoopProxy<UiEvent<RenderingContext<T>, T::Event>>,
-    state: Option<RenderingContext<T>>,
+    proxy: winit::event_loop::EventLoopProxy<UiEvent<RenderingContext<T, R>, T::Event>>,
+    state: Option<RenderingContext<T, R>>,
     new_fn: Rc<FNew>,
     title: String,
     init_size: (f32, f32),
 }
 
-impl<FNew, FRet, T: StateLogic<SceneRenderer>> App<FNew, FRet, T>
+impl<FNew, FRet, R: Renderer + 'static, T: StateLogic<R>> App<FNew, FRet, R, T>
 where
-    FNew: Fn(EventDispatcher<T, SceneRenderer>, Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet
-        + 'static,
+    FNew: Fn(EventDispatcher<T, R>, Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet + 'static,
     FRet: Future<Output = anyhow::Result<T>>,
 {
     pub fn new(
-        event_loop: &winit::event_loop::EventLoop<UiEvent<RenderingContext<T>, T::Event>>,
+        event_loop: &winit::event_loop::EventLoop<UiEvent<RenderingContext<T, R>, T::Event>>,
         title: String,
         size: (f32, f32),
         new_fn: FNew,
@@ -50,11 +47,10 @@ where
     }
 }
 
-impl<FNew, FRet, T: StateLogic<SceneRenderer>>
-    ApplicationHandler<UiEvent<RenderingContext<T>, T::Event>> for App<FNew, FRet, T>
+impl<FNew, FRet, R: Renderer + 'static, T: StateLogic<R>>
+    ApplicationHandler<UiEvent<RenderingContext<T, R>, T::Event>> for App<FNew, FRet, R, T>
 where
-    FNew: Fn(EventDispatcher<T, SceneRenderer>, Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet
-        + 'static,
+    FNew: Fn(EventDispatcher<T, R>, Rc<GraphicsContext>, Rc<ResourceManager>) -> FRet + 'static,
     FRet: Future<Output = anyhow::Result<T>>,
 {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -126,7 +122,7 @@ where
     fn user_event(
         &mut self,
         _event_loop: &ActiveEventLoop,
-        mut event: UiEvent<RenderingContext<T>, T::Event>,
+        mut event: UiEvent<RenderingContext<T, R>, T::Event>,
     ) {
         match event {
             UiEvent::Context(mut state) => {

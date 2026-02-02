@@ -134,40 +134,36 @@ impl<State: 'static, Message: 'static> ElementImpl for ToolTip<State, Message> {
         let clip = Rect {
             position: origin.to_array(),
             size: size.to_array(),
-        }.intersect(&ctx.clip_rect);
+        }
+        .intersect(&ctx.clip_rect);
 
-        ctx.with_hitbox_hierarchy(
-            self.id,
-            canvas.current_layer_id(),
-            clip,
-            |ctx| {
-                self.element.draw(ctx, state, origin, size, canvas);
-                if self.show_tooltip {
-                    // todo: to some more intelligent positioning of the tooltip
+        ctx.with_hitbox_hierarchy(self.id, canvas.current_layer_id(), clip, |ctx| {
+            self.element.draw(ctx, state, origin, size, canvas);
+            if self.show_tooltip {
+                // todo: to some more intelligent positioning of the tooltip
 
-                    ctx.with_clipping(
-                        Rect {
-                            position: [origin.0, origin.1 - self.tool_tip_size.height - 10.0],
-                            size: [self.tool_tip_size.width, self.tool_tip_size.height],
-                        },
-                        |ctx| {
-                            let tooltip_origin =
-                                (origin.0, origin.1 - self.tool_tip_size.height - 10.0);
+                ctx.with_clipping(
+                    Rect {
+                        position: [origin.0, origin.1 - self.tool_tip_size.height - 10.0],
+                        size: [self.tool_tip_size.width, self.tool_tip_size.height],
+                    },
+                    |ctx| {
+                        let tooltip_origin =
+                            (origin.0, origin.1 - self.tool_tip_size.height - 10.0);
 
-                            canvas.with_next_layer(&mut |canvas| {
-                                self.tooltip.draw(
-                                    ctx,
-                                    state,
-                                    tooltip_origin,
-                                    self.tool_tip_size,
-                                    canvas,
-                                )
-                            });
-                        },
-                    )
-                }
-            },
-        );
+                        canvas.with_next_layer(&mut |canvas| {
+                            self.tooltip.draw(
+                                ctx,
+                                state,
+                                tooltip_origin,
+                                self.tool_tip_size,
+                                canvas,
+                            )
+                        });
+                    },
+                )
+            }
+        });
     }
 
     fn handle_event_impl(

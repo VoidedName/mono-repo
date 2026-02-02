@@ -66,5 +66,6 @@ The UI is represented as a tree of objects implementing the `Element` trait.
 - [x] Tooltips: Support for hover-based information popups.
 - [ ] Style Sheets: A more centralized way to manage UI styles (colors, margins, etc.).
 - [ ] (Optional) Accessibility: Basic support for screen readers and high-contrast modes.
-- [ ] Figure out how to deal with grid layouts? (A Flex is greedy, there is no way to arrange things in a grid)
+- [x] Figure out how to deal with grid layouts? (A Flex is greedy, there is no way to arrange things in a grid)
 - [ ] Dropbox
+- [ ] Pre-rendering expensive components -> provide some pre-render hook that returns a texture. Does that mean that scene renderer should just render to a texture instead of the screen (already does it partially) and then a different final renderer renders the result? Or should I just be able to specify the render target? Then I could simply defer to the scene renderer for pre-rendering.
