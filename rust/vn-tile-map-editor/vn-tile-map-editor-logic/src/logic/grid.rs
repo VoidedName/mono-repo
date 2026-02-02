@@ -133,57 +133,71 @@ impl<State: 'static, Message: Clone + 'static> ElementImpl for Grid<State, Messa
                     ctx.clip_rect.position[0] - origin.0,
                     ctx.clip_rect.position[1] - origin.1,
                 );
+
+                let start_x =
+                    ((ctx.clip_rect.position[0] - origin.0) / params.grid_size.0).max(0.0) as u32;
+                let start_y =
+                    ((ctx.clip_rect.position[1] - origin.1) / params.grid_size.1).max(0.0) as u32;
+
+                let end_x = ((ctx.clip_rect.position[0] + ctx.clip_rect.size[0] - origin.0)
+                    / params.grid_size.0)
+                    .max(start_x as f32)
+                    .min(params.cols as f32) as u32;
+                let end_y = ((ctx.clip_rect.position[1] + ctx.clip_rect.size[1] - origin.1)
+                    / params.grid_size.1)
+                    .max(start_y as f32)
+                    .min(params.rows as f32) as u32;
+
+                for x in start_x..=end_x {
+                    let px = origin.0 + x as f32 * params.grid_size.0 - params.grid_width / 2.0;
+                    scene.add_box(BoxPrimitiveData {
+                        transform: Transform::builder().translation([px, origin.1]).build(),
+                        size: [
+                            params.grid_width,
+                            size.height.min(params.grid_size.1 * params.rows as f32),
+                        ],
+                        color: params.grid_color,
+                        border_radius: 0.0,
+                        border_color: Color::TRANSPARENT,
+                        border_thickness: 0.0,
+                        clip_rect: ctx.clip_rect,
+                    });
+                }
+
+                for y in start_y..=end_y {
+                    let px = origin.1 + y as f32 * params.grid_size.1 - params.grid_width / 2.0;
+                    scene.add_box(BoxPrimitiveData {
+                        transform: Transform::builder().translation([origin.0, px]).build(),
+                        size: [
+                            size.width.min(params.grid_size.0 * params.cols as f32),
+                            params.grid_width,
+                        ],
+                        color: params.grid_color,
+                        border_radius: 0.0,
+                        border_color: Color::TRANSPARENT,
+                        border_thickness: 0.0,
+                        clip_rect: ctx.clip_rect,
+                    });
+                }
+
+                for x in start_x..=end_x {
+                    for y in start_y..end_y {
+                        if let Some(child) = (params.child)(&self.id, (x, y), state, ctx) {
+                            child.borrow_mut().draw(
+                                ctx,
+                                state,
+                                (
+                                    origin.0 + x as f32 * params.grid_size.0,
+                                    origin.1 + y as f32 * params.grid_size.1,
+                                ),
+                                self.layout.get(&(x, y)).unwrap().clone(),
+                                scene,
+                            )
+                        }
+                    }
+                }
             },
         );
-
-        for x in 0..=params.cols {
-            let px = origin.0 + x as f32 * params.grid_size.0 - params.grid_width / 2.0;
-            scene.add_box(BoxPrimitiveData {
-                transform: Transform::builder().translation([px, origin.1]).build(),
-                size: [
-                    params.grid_width,
-                    size.height.min(params.grid_size.1 * params.rows as f32),
-                ],
-                color: params.grid_color,
-                border_radius: 0.0,
-                border_color: Color::TRANSPARENT,
-                border_thickness: 0.0,
-                clip_rect: ctx.clip_rect,
-            });
-        }
-
-        for y in 0..=params.rows {
-            let px = origin.1 + y as f32 * params.grid_size.1 - params.grid_width / 2.0;
-            scene.add_box(BoxPrimitiveData {
-                transform: Transform::builder().translation([origin.0, px]).build(),
-                size: [
-                    size.width.min(params.grid_size.0 * params.cols as f32),
-                    params.grid_width,
-                ],
-                color: params.grid_color,
-                border_radius: 0.0,
-                border_color: Color::TRANSPARENT,
-                border_thickness: 0.0,
-                clip_rect: ctx.clip_rect,
-            });
-        }
-
-        for x in 0..=params.cols {
-            for y in 0..params.rows {
-                if let Some(child) = (params.child)(&self.id, (x, y), state, ctx) {
-                    child.borrow_mut().draw(
-                        ctx,
-                        state,
-                        (
-                            origin.0 + x as f32 * params.grid_size.0,
-                            origin.1 + y as f32 * params.grid_size.1,
-                        ),
-                        self.layout.get(&(x, y)).unwrap().clone(),
-                        scene,
-                    )
-                }
-            }
-        }
     }
 
     fn handle_event_impl(

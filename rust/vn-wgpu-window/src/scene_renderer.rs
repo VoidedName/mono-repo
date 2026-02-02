@@ -629,10 +629,6 @@ impl Renderer for SceneRenderer {
         invalidated_rect.size[0] = invalidated_rect.size[0].ceil();
         invalidated_rect.size[1] = invalidated_rect.size[1].ceil();
 
-        if invalidated_rect != screen_rect {
-            log::info!("Invalidated rect: {:?}", invalidated_rect);
-        }
-
         let (output, _view, mut encoder) = Self::begin_render_frame(graphics_context)?;
 
         // Ensure backing texture exists and matches screen size

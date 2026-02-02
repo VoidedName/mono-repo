@@ -87,8 +87,22 @@ impl<State, Message> ElementImpl for TileMap<State, Message> {
                 size: [size.width, size.height],
             },
             |ctx| {
-                for x in 0..params.specification.map_dimensions.0 {
-                    for y in 0..params.specification.map_dimensions.1 {
+                let start_x =
+                    ((ctx.clip_rect.position[0] - origin.0) / params.draw_tile_size.width).max(0.0) as u32;
+                let start_y =
+                    ((ctx.clip_rect.position[1] - origin.1) / params.draw_tile_size.height).max(0.0) as u32;
+
+                let end_x = ((ctx.clip_rect.position[0] + ctx.clip_rect.size[0] - origin.0)
+                    / params.draw_tile_size.width)
+                    .max(start_x as f32)
+                    .min(params.specification.map_dimensions.0 as f32) as u32;
+                let end_y = ((ctx.clip_rect.position[1] + ctx.clip_rect.size[1] - origin.1)
+                    / params.draw_tile_size.height)
+                    .max(start_y as f32)
+                    .min(params.specification.map_dimensions.1 as f32) as u32;
+
+                for x in start_x..end_x {
+                    for y in start_y..end_y {
                         for (layer, texture) in specs {
                             let tile_id = layer
                                 .map
