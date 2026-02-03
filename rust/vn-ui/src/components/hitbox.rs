@@ -1,53 +1,40 @@
 use crate::utils::ToArray;
-use crate::{
-    Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, UiContext,
-    into_box_impl,
-};
+use crate::{Element, ElementImpl, ElementSize, SizeConstraints, UiContext};
 use std::cell::RefCell;
 use std::rc::Rc;
 use vn_scene::{Rect, Scene};
+use vn_ui_definitions::{Component, ui_component};
 
-pub struct ExtendedHitbox<State, Message> {
-    id: ElementId,
-    element: Box<dyn Element<State = State, Message = Message>>,
+pub struct ExtendedHitboxParams<State, Message> {
+    pub child: Rc<RefCell<dyn Element<State = State, Message = Message>>>,
 }
 
-impl<State, Message> ExtendedHitbox<State, Message> {
-    pub fn new(
-        element: impl Into<Box<dyn Element<State = State, Message = Message>>>,
-        world: Rc<RefCell<ElementWorld>>,
-    ) -> Self {
-        let ui_id = world.borrow_mut().next_id();
-        Self {
-            id: ui_id,
-            element: element.into(),
-        }
-    }
-}
+ui_component!(ExtendedHitbox<ExtendedHitboxParams<State, Msg>>);
 
-impl<State, Message> ElementImpl for ExtendedHitbox<State, Message> {
+impl<State, Message: Clone> Component for ExtendedHitbox<State, Message> {
     type State = State;
     type Message = Message;
+    type Params = ExtendedHitboxParams<State, Message>;
 
-    fn id_impl(&self) -> ElementId {
-        self.id
-    }
-
-    fn layout_impl(
+    fn layout(
         &mut self,
         ctx: &mut UiContext,
         state: &Self::State,
+        params: &Self::Params,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        self.element
+        params
+            .child
+            .borrow_mut()
             .layout(ctx, state, constraints)
             .clamp_to_constraints(constraints)
     }
 
-    fn draw_impl(
+    fn draw(
         &mut self,
         ctx: &mut UiContext,
         state: &Self::State,
+        params: &Self::Params,
         origin: (f32, f32),
         size: ElementSize,
         canvas: &mut dyn Scene,
@@ -61,19 +48,21 @@ impl<State, Message> ElementImpl for ExtendedHitbox<State, Message> {
             }
             .intersect(&ctx.clip_rect),
             |ctx| {
-                self.element.draw(ctx, state, origin, size, canvas);
+                params
+                    .child
+                    .borrow_mut()
+                    .draw(ctx, state, origin, size, canvas);
             },
         );
     }
 
-    fn handle_event_impl(
+    fn handle_event(
         &mut self,
         ctx: &mut UiContext,
         state: &Self::State,
+        params: &Self::Params,
         event: &crate::InteractionEvent,
     ) -> Vec<Self::Message> {
-        self.element.handle_event(ctx, state, event)
+        params.child.borrow_mut().handle_event(ctx, state, event)
     }
 }
-
-into_box_impl!(ExtendedHitbox);

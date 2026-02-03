@@ -2,6 +2,8 @@ use crate::context::UiContext;
 use crate::event::{ElementId, InteractionEvent};
 use crate::geometry::ElementSize;
 use crate::layout::SizeConstraints;
+use std::cell::{Ref, RefCell, RefMut};
+use std::rc::Rc;
 use vn_scene::Scene;
 
 /// Represents a UI component that can be laid out and drawn.
@@ -36,6 +38,44 @@ pub trait Component {
         params: &Self::Params,
         event: &InteractionEvent,
     ) -> Vec<Self::Message>;
+}
+
+pub struct ChildElement<State, Message> {
+    child: Rc<RefCell<dyn Element<State = State, Message = Message>>>,
+}
+
+impl<State, Message> Clone for ChildElement<State, Message> {
+    fn clone(&self) -> Self {
+        Self {
+            child: self.child.clone(),
+        }
+    }
+}
+
+impl<State, Message> ChildElement<State, Message> {
+    pub fn new(
+        child: impl Into<Rc<RefCell<dyn Element<State = State, Message = Message>>>>,
+    ) -> Self {
+        Self {
+            child: child.into(),
+        }
+    }
+
+    pub fn borrow<'a>(&'a self) -> Ref<'a, dyn Element<State = State, Message = Message>> {
+        self.child.borrow()
+    }
+
+    pub fn borrow_mut<'a>(&'a self) -> RefMut<'a, dyn Element<State = State, Message = Message>> {
+        self.child.borrow_mut()
+    }
+}
+
+impl<I: Into<Rc<RefCell<dyn Element<State = State, Message = Message>>>>, State, Message> From<I>
+    for ChildElement<State, Message>
+{
+    fn from(value: I) -> Self {
+        Self::new(value)
+    }
 }
 
 /// Concrete implementation of an element. Implementing this automatically also implements [Element].

@@ -15,10 +15,11 @@ use std::rc::Rc;
 use vn_scene::{CloneableScene, Color, ConstructableScene};
 use vn_tilemap::{TileMapLayerMapSpecification, TileMapLayerSpecification, TileMapSpecification};
 use vn_ui::{
-    AnchorExt, AnchorLocation, AnchorParams, CardExt, CardParams, Conditional, ConditionalParams,
+    AnchorExt, AnchorLocation, AnchorParams, Card, CardParams, Conditional, ConditionalParams,
     Element, ElementWorld, Empty, EventManager, Flex, FlexChild, FlexDirection, FlexParams,
     PaddingExt, PaddingParams, ScrollBarParams, Stack, bottom, params,
 };
+use vn_ui_definitions::ChildElement;
 use vn_wgpu_window::resource_manager::Sampling;
 
 pub mod editor_ui;
@@ -112,7 +113,7 @@ impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks + 'static>
         let layers = layers(&ctx, world.clone());
         let editor = editor(&ctx, world.clone());
         let tileset = tileset(&ctx, world.clone());
-        let error = label(
+        let error_ui = label(
             |state: &EditorState| {
                 state
                     .errors
@@ -127,21 +128,27 @@ impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks + 'static>
             ctx.text_metrics.clone(),
             world.clone(),
         )
-        .padding(params!(PaddingParams::uniform(25.0)), world.clone())
-        .card(
-            params!(CardParams {
-                border_color: Color::RED,
-                border_size: 2.0,
-                corner_radius: 5.0,
-                background_color: Color::BLACK
-            }),
+        .padding(params!(PaddingParams::uniform(25.0)), world.clone());
+
+        let error_ui: ChildElement<_, _> = error_ui.into();
+        let error_ui = Card::new(
+            params!(
+                args<EditorState>,
+                CardParams {
+                    border_color: Color::RED,
+                    border_size: 2.0,
+                    corner_radius: 5.0,
+                    background_color: Color::BLACK,
+                    child: error_ui.clone(),
+                }
+            ),
             world.clone(),
         )
         .padding(params!(PaddingParams::uniform(25.0)), world.clone())
         .anchor(bottom!(), world.clone());
 
         let error = Conditional::new(
-            error.into(),
+            error_ui.into(),
             params!(
                 args<EditorState>,
                 ConditionalParams {

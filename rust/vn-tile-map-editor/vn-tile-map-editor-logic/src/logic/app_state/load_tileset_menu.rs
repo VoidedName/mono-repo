@@ -423,14 +423,20 @@ impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks> LoadTileSe
             }),
             world.clone(),
         )
-        .padding(params!(PaddingParams::uniform(25.0)), world.clone())
-        .card(
-            params!(CardParams {
-                background_color: Color::BLACK,
-                border_size: 2.0,
-                corner_radius: 5.0,
-                border_color: Color::WHITE,
-            }),
+        .padding(params!(PaddingParams::uniform(25.0)), world.clone());
+
+        let ui: ChildElement<_, _> = ui.into();
+        let ui = Card::new(
+            params!(
+                args<LoadTileSetMenuState>,
+                CardParams {
+                    background_color: Color::BLACK,
+                    border_size: 2.0,
+                    corner_radius: 5.0,
+                    border_color: Color::WHITE,
+                    child: ui.clone(),
+                }
+            ),
             world.clone(),
         )
         .anchor(
@@ -438,14 +444,20 @@ impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks> LoadTileSe
                 location: AnchorLocation::Center
             }),
             world.clone(),
-        )
-        .card(
-            params!(CardParams {
-                border_color: Color::WHITE,
-                border_size: 0.0,
-                background_color: Color::BLACK.with_alpha(0.75),
-                corner_radius: 0.0,
-            }),
+        );
+
+        let ui: ChildElement<_, _> = ui.into();
+        let ui = Card::new(
+            params!(
+                args<LoadTileSetMenuState>,
+                CardParams {
+                    border_color: Color::WHITE,
+                    border_size: 0.0,
+                    background_color: Color::BLACK.with_alpha(0.75),
+                    corner_radius: 0.0,
+                    child: ui.clone(),
+                }
+            ),
             world.clone(),
         );
 

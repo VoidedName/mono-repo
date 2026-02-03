@@ -1,13 +1,13 @@
 use crate::Scene;
 use crate::utils::ToArray;
 use crate::{
-    Element, ElementImpl, ElementSize, EventHandler, InteractionEventKind, InteractionState,
+    ElementImpl, ElementSize, EventHandler, InteractionEventKind, InteractionState,
     SizeConstraints, UiContext,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
 use vn_scene::{BoxPrimitiveData, Color, Rect, Transform};
-use vn_ui_definitions::{Component, ui_component};
+use vn_ui_definitions::{ChildElement, Component, ui_component};
 
 #[derive(Debug, Copy, Clone)]
 pub enum ButtonAction {
@@ -19,7 +19,7 @@ pub struct ButtonParams<State, Message> {
     pub border_color: Color,
     pub border_width: f32,
     pub corner_radius: f32,
-    pub child: Rc<RefCell<dyn Element<State = State, Message = Message>>>,
+    pub child: ChildElement<State, Message>,
     pub interaction: InteractionState,
     pub on_click: EventHandler<ButtonAction, Message>,
 }

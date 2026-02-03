@@ -71,31 +71,34 @@ where
 
     let input_id = input.id().clone();
 
-    let input = input
-        .padding(params!(PaddingParams::uniform(5.0)), world.clone())
-        .card(
-            {
-                let input_id = input_id.clone();
-                params!(args, {
-                    let is_hovered = args.ctx.event_manager.borrow().is_hovered(input_id);
-                    CardParams {
-                        background_color: if is_hovered {
-                            Color::WHITE.with_alpha(0.15)
-                        } else {
-                            Color::WHITE.with_alpha(0.1)
-                        },
-                        border_color: if is_hovered {
-                            Color::WHITE
-                        } else {
-                            Color::WHITE.with_alpha(0.5)
-                        },
-                        corner_radius: 5.0,
-                        border_size: 2.0,
-                    }
-                })
-            },
-            world.clone(),
-        );
+    let input = input.padding(params!(PaddingParams::uniform(5.0)), world.clone());
+
+    let input: ChildElement<_, _> = input.into();
+    let input = Card::new(
+        {
+            let input_id = input_id.clone();
+            let input = input.clone();
+            params!(args, {
+                let is_hovered = args.ctx.event_manager.borrow().is_hovered(input_id);
+                CardParams {
+                    background_color: if is_hovered {
+                        Color::WHITE.with_alpha(0.15)
+                    } else {
+                        Color::WHITE.with_alpha(0.1)
+                    },
+                    border_color: if is_hovered {
+                        Color::WHITE
+                    } else {
+                        Color::WHITE.with_alpha(0.5)
+                    },
+                    corner_radius: 5.0,
+                    border_size: 2.0,
+                    child: input.clone(),
+                }
+            })
+        },
+        world.clone(),
+    );
 
     Input {
         id: input_id,
@@ -267,7 +270,7 @@ where
     .padding(params!(PaddingParams::uniform(5.0)), world.clone())
     .interactive_set(false, world.clone());
 
-    let child = Rc::new(RefCell::new(child));
+    let child: ChildElement<_, _> = child.into();
 
     let btn = Button::new(
         {

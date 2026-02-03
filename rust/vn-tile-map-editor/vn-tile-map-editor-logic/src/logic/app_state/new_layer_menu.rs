@@ -170,14 +170,20 @@ impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks> NewLayerMe
             }),
             world.clone(),
         )
-        .padding(params!(PaddingParams::uniform(10.0)), world.clone())
-        .card(
-            params!(CardParams {
-                border_color: Color::WHITE,
-                corner_radius: 5.0,
-                border_size: 2.0,
-                background_color: Color::BLACK,
-            }),
+        .padding(params!(PaddingParams::uniform(10.0)), world.clone());
+
+        let list: ChildElement<_, _> = list.into();
+        let list = Card::new(
+            params!(
+                args<NewLayerState>,
+                CardParams {
+                    border_color: Color::WHITE,
+                    corner_radius: 5.0,
+                    border_size: 2.0,
+                    background_color: Color::BLACK,
+                    child: list.clone(),
+                }
+            ),
             world.clone(),
         );
 
@@ -242,24 +248,36 @@ impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks> NewLayerMe
             },
             world.clone(),
         )
-        .padding(params!(PaddingParams::uniform(25.0)), world.clone())
-        .card(
-            params!(CardParams {
-                border_color: Color::WHITE,
-                border_size: 2.0,
-                background_color: Color::BLACK,
-                corner_radius: 5.0,
-            }),
+        .padding(params!(PaddingParams::uniform(25.0)), world.clone());
+
+        let layout: ChildElement<_, _> = layout.into();
+        let layout = Card::new(
+            params!(
+                args<NewLayerState>,
+                CardParams {
+                    border_color: Color::WHITE,
+                    border_size: 2.0,
+                    background_color: Color::BLACK,
+                    corner_radius: 5.0,
+                    child: layout.clone(),
+                }
+            ),
             world.clone(),
         )
-        .anchor(center!(), world.clone())
-        .card(
-            params!(CardParams {
-                border_color: Color::WHITE,
-                border_size: 0.0,
-                background_color: Color::BLACK.with_alpha(0.75),
-                corner_radius: 0.0,
-            }),
+        .anchor(center!(), world.clone());
+
+        let layout: ChildElement<_, _> = layout.into();
+        let layout = Card::new(
+            params!(
+                args<NewLayerState>,
+                CardParams {
+                    border_color: Color::WHITE,
+                    border_size: 0.0,
+                    background_color: Color::BLACK.with_alpha(0.75),
+                    corner_radius: 0.0,
+                    child: layout.clone(),
+                }
+            ),
             world.clone(),
         );
 

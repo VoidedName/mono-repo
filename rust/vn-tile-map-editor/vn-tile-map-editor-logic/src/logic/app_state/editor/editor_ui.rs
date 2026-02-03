@@ -257,19 +257,23 @@ pub fn layers<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
         world.clone(),
     );
 
-    let layer_list = layer_flex
-        .padding(params!(PaddingParams::uniform(5.0)), world.clone())
-        .card(
-            params!(CardParams {
+    let card = layer_flex.padding(params!(PaddingParams::uniform(5.0)), world.clone());
+    let card: ChildElement<_, _> = card.into();
+    let layer_list = Card::new(
+        params!(
+            args<EditorState>,
+            CardParams {
                 border_color: Color::WHITE,
                 corner_radius: 5.0,
                 border_size: 2.0,
                 background_color: Color::BLACK,
-            }),
-            world.clone(),
-        );
+                child: card.clone(),
+            }
+        ),
+        world.clone(),
+    );
 
-    Flex::new(
+    let card = Flex::new(
         {
             let c = vec![
                 FlexChild::new(Flex::new(
@@ -306,14 +310,20 @@ pub fn layers<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
     )
     .padding(params!(PaddingParams::uniform(25.0)), world.clone())
     .anchor(top!(), world.clone())
-    .fill(world.clone())
-    .card(
-        params!(CardParams {
-            border_color: Color::WHITE,
-            border_size: 2.0,
-            background_color: Color::BLACK,
-            corner_radius: 5.0,
-        }),
+    .fill(world.clone());
+
+    let card: ChildElement<_, _> = card.into();
+    Card::new(
+        params!(
+            args<EditorState>,
+            CardParams {
+                border_color: Color::WHITE,
+                border_size: 2.0,
+                background_color: Color::BLACK,
+                corner_radius: 5.0,
+                child: card.clone(),
+            }
+        ),
         world.clone(),
     )
     .prefer_size(
@@ -672,14 +682,20 @@ pub fn editor<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
         },
         world.clone(),
     )
-    .padding(params!(PaddingParams::uniform(25.0)), world.clone())
-    .card(
-        params!(CardParams {
-            border_color: Color::WHITE,
-            border_size: 2.0,
-            corner_radius: 5.0,
-            background_color: Color::BLACK,
-        }),
+    .padding(params!(PaddingParams::uniform(25.0)), world.clone());
+
+    let brushes: ChildElement<_, _> = brushes.into();
+    let brushes = Card::new(
+        params!(
+            args<EditorState>,
+            CardParams {
+                border_color: Color::WHITE,
+                border_size: 2.0,
+                corner_radius: 5.0,
+                background_color: Color::BLACK,
+                child: brushes.clone(),
+            }
+        ),
         world.clone(),
     );
 
@@ -751,14 +767,20 @@ pub fn editor<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
         },
         world.clone(),
     )
-    .padding(params!(PaddingParams::uniform(25.0)), world.clone())
-    .card(
-        params!(CardParams {
-            border_color: Color::WHITE,
-            border_size: 2.0,
-            corner_radius: 5.0,
-            background_color: Color::BLACK,
-        }),
+    .padding(params!(PaddingParams::uniform(25.0)), world.clone());
+
+    let settings: ChildElement<_, _> = settings.into();
+    let settings = Card::new(
+        params!(
+            args<EditorState>,
+            CardParams {
+                border_color: Color::WHITE,
+                border_size: 2.0,
+                corner_radius: 5.0,
+                background_color: Color::BLACK,
+                child: settings.clone(),
+            }
+        ),
         world.clone(),
     )
     .prefer_size(
@@ -789,57 +811,69 @@ pub fn editor<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
         },
         world.clone(),
     )
-    .padding(params!(PaddingParams::uniform(25.0)), world.clone())
-    .card(
-        params!(CardParams {
-            border_color: Color::WHITE,
-            border_size: 2.0,
-            corner_radius: 5.0,
-            background_color: Color::BLACK,
-        }),
-        world.clone(),
-    );
+    .padding(params!(PaddingParams::uniform(25.0)), world.clone());
 
-    Box::new(
-        Flex::new(
-            {
-                let c = vec![
-                    FlexChild::new(Flex::new(
-                        {
-                            let c = FlexChild::weighted(Empty::new(params!(), world.clone()), 1.0)
-                                .into_rc_refcell();
-                            params!(FlexParams {
-                                direction: FlexDirection::Row,
-                                children: vec![c.clone()],
-                                force_orthogonal_same_size: true,
-                            })
-                        },
-                        world.clone(),
-                    ))
-                    .into_rc_refcell(),
-                    FlexChild::new(title).into_rc_refcell(),
-                    FlexChild::weighted(map, 1.0).into_rc_refcell(),
-                    FlexChild::new(tool_bar).into_rc_refcell(),
-                ];
-                params!(FlexParams {
-                    children: c.clone(),
-                    direction: FlexDirection::Column,
-                    force_orthogonal_same_size: true,
-                })
-            },
-            world.clone(),
-        )
-        .padding(params!(PaddingParams::uniform(25.0)), world.clone())
-        .card(
-            params!(CardParams {
+    let tool_bar: ChildElement<_, _> = tool_bar.into();
+    let tool_bar = Card::new(
+        params!(
+            args<EditorState>,
+            CardParams {
                 border_color: Color::WHITE,
                 border_size: 2.0,
                 corner_radius: 5.0,
                 background_color: Color::BLACK,
-            }),
-            world.clone(),
+                child: tool_bar.clone(),
+            }
         ),
+        world.clone(),
+    );
+
+    let main_ui = Flex::new(
+        {
+            let c = vec![
+                FlexChild::new(Flex::new(
+                    {
+                        let c = FlexChild::weighted(Empty::new(params!(), world.clone()), 1.0)
+                            .into_rc_refcell();
+                        params!(FlexParams {
+                            direction: FlexDirection::Row,
+                            children: vec![c.clone()],
+                            force_orthogonal_same_size: true,
+                        })
+                    },
+                    world.clone(),
+                ))
+                .into_rc_refcell(),
+                FlexChild::new(title).into_rc_refcell(),
+                FlexChild::weighted(map, 1.0).into_rc_refcell(),
+                FlexChild::new(tool_bar).into_rc_refcell(),
+            ];
+            params!(FlexParams {
+                children: c.clone(),
+                direction: FlexDirection::Column,
+                force_orthogonal_same_size: true,
+            })
+        },
+        world.clone(),
     )
+    .padding(params!(PaddingParams::uniform(25.0)), world.clone());
+
+    let main_ui: ChildElement<_, _> = main_ui.into();
+    let main_ui = Card::new(
+        params!(
+            args<EditorState>,
+            CardParams {
+                border_color: Color::WHITE,
+                border_size: 2.0,
+                corner_radius: 5.0,
+                background_color: Color::BLACK,
+                child: main_ui.clone(),
+            }
+        ),
+        world.clone(),
+    );
+
+    Box::new(main_ui)
 }
 
 pub fn tileset<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
@@ -955,20 +989,22 @@ pub fn tileset<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
                                     cache_borrow
                                         .entry(cell)
                                         .or_insert_with(|| {
-                                            Rc::new(RefCell::new(
+                                            let cell_highlight =
                                                 Empty::new(params!(), world.clone())
-                                                    .fill(world.clone())
-                                                    .card(
-                                                        params!(CardParams {
-                                                            background_color: Color::WHITE
-                                                                .with_alpha(0.5),
-                                                            corner_radius: 0.0,
-                                                            border_size: 0.0,
-                                                            border_color: Color::WHITE,
-                                                        }),
-                                                        world.clone(),
-                                                    ),
-                                            ))
+                                                    .fill(world.clone());
+                                            let cell_highlight: ChildElement<_, _> =
+                                                cell_highlight.into();
+
+                                            Rc::new(RefCell::new(Card::new(
+                                                params!(CardParams {
+                                                    background_color: Color::WHITE.with_alpha(0.5),
+                                                    corner_radius: 0.0,
+                                                    border_size: 0.0,
+                                                    border_color: Color::WHITE,
+                                                    child: cell_highlight.clone(),
+                                                }),
+                                                world.clone(),
+                                            )))
                                         })
                                         .clone(),
                                 )
@@ -1036,39 +1072,45 @@ pub fn tileset<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
         world.clone(),
     );
 
-    Box::new(
-        Flex::new(
-            {
-                let c = vec![
-                    FlexChild::new(title).into_rc_refcell(),
-                    FlexChild::weighted(tileset, 1.0).into_rc_refcell(),
-                ];
-                params!(FlexParams {
-                    force_orthogonal_same_size: true,
-                    direction: FlexDirection::Column,
-                    children: c.clone(),
-                })
-            },
-            world.clone(),
-        )
-        .padding(params!(PaddingParams::uniform(25.0)), world.clone())
-        .anchor(top!(), world.clone())
-        .fill(world.clone())
-        .card(
-            params!(CardParams {
+    let tileset_ui = Flex::new(
+        {
+            let c = vec![
+                FlexChild::new(title).into_rc_refcell(),
+                FlexChild::weighted(tileset, 1.0).into_rc_refcell(),
+            ];
+            params!(FlexParams {
+                force_orthogonal_same_size: true,
+                direction: FlexDirection::Column,
+                children: c.clone(),
+            })
+        },
+        world.clone(),
+    )
+    .padding(params!(PaddingParams::uniform(25.0)), world.clone())
+    .anchor(top!(), world.clone())
+    .fill(world.clone());
+
+    let tileset_ui: ChildElement<_, _> = tileset_ui.into();
+    let tileset_ui = Card::new(
+        params!(
+            args<EditorState>,
+            CardParams {
                 border_color: Color::WHITE,
                 corner_radius: 5.0,
                 border_size: 2.0,
                 background_color: Color::BLACK,
-            }),
-            world.clone(),
-        )
-        .prefer_size(
-            params!(PreferSizeParams {
-                width: Some(400.0),
-                height: None,
-            }),
-            world.clone(),
+                child: tileset_ui.clone(),
+            }
         ),
+        world.clone(),
     )
+    .prefer_size(
+        params!(PreferSizeParams {
+            width: Some(400.0),
+            height: None,
+        }),
+        world.clone(),
+    );
+
+    Box::new(tileset_ui)
 }

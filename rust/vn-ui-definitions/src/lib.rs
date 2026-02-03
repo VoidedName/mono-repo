@@ -72,8 +72,10 @@ macro_rules! ui_component {
     ($name:ident<$params:ty>) => {
         #[derive(::vn_ui_macros::UiElement)]
         pub struct $name<State: 'static, Msg: Clone + 'static> {
-            #[id] id: ::vn_ui_definitions::ElementId,
-            #[params] params: ::vn_ui_definitions::StateToParams<State, $params>,
+            #[id]
+            id: ::vn_ui_definitions::ElementId,
+            #[params]
+            params: ::vn_ui_definitions::StateToParams<State, $params>,
             _phantom: std::marker::PhantomData<Msg>,
         }
 
@@ -93,7 +95,7 @@ macro_rules! ui_component {
 
     ($name:ident) => {
         $crate::ui_component!($name<()>);
-    }
+    };
 }
 
 #[macro_export]
@@ -107,20 +109,35 @@ macro_rules! params {
 #[macro_export]
 macro_rules! into_box_impl {
     ($ident:ident) => {
-        impl<S: 'static, M: Clone + 'static>
-            Into<Box<dyn $crate::Element<State = S, Message = M>>> for $ident<S, M>
+        impl<S: 'static, M: Clone + 'static> Into<Box<dyn $crate::Element<State = S, Message = M>>>
+            for $ident<S, M>
         {
             fn into(self) -> Box<dyn $crate::Element<State = S, Message = M>> {
                 Box::new(self)
             }
         }
 
-        impl<S: 'static, M: Clone + 'static>
-            Into<Box<dyn $crate::Element<State = S, Message = M>>>
+        impl<S: 'static, M: Clone + 'static> Into<Box<dyn $crate::Element<State = S, Message = M>>>
             for Box<$ident<S, M>>
         {
             fn into(self) -> Box<dyn $crate::Element<State = S, Message = M>> {
                 self
+            }
+        }
+
+        impl<S: 'static, M: Clone + 'static>
+            Into<Rc<RefCell<dyn $crate::Element<State = S, Message = M>>>> for $ident<S, M>
+        {
+            fn into(self) -> Rc<RefCell<dyn $crate::Element<State = S, Message = M>>> {
+                Rc::new(RefCell::new(self))
+            }
+        }
+
+        impl<S: 'static, M: Clone + 'static>
+            Into<Rc<RefCell<dyn $crate::Element<State = S, Message = M>>>> for Box<$ident<S, M>>
+        {
+            fn into(self) -> Rc<RefCell<dyn $crate::Element<State = S, Message = M>>> {
+                Rc::new(RefCell::new(*self))
             }
         }
     };
