@@ -1,40 +1,41 @@
-use crate::{ElementId, ElementSize, InteractionEvent, SizeConstraints, UiContext};
-use std::collections::HashMap;
 use vn_scene::Scene;
+use crate::context::UiContext;
+use crate::event::{ElementId, InteractionEvent};
+use crate::geometry::ElementSize;
+use crate::layout::SizeConstraints;
 
-pub struct SimpleLayoutCache {
-    cache: HashMap<ElementId, (SizeConstraints, ElementSize)>,
-}
+/// Represents a UI component that can be laid out and drawn.
+/// Elements implementing this trait can use the `UiElement` derive macro to automatically implement `ElementImpl`.
+pub trait Component {
+    type State: 'static;
+    type Message: Clone + 'static;
+    type Params: 'static;
 
-impl SimpleLayoutCache {
-    pub fn new() -> Self {
-        Self {
-            cache: HashMap::new(),
-        }
-    }
-}
+    fn layout(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        params: &Self::Params,
+        constraints: SizeConstraints,
+    ) -> ElementSize;
 
-pub trait LayoutCache {
-    fn lookup(&self, element_id: ElementId, constraints: SizeConstraints) -> Option<ElementSize>;
-    fn cache(&mut self, element_id: ElementId, constraints: SizeConstraints, size: ElementSize);
-}
+    fn draw(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        params: &Self::Params,
+        origin: (f32, f32),
+        size: ElementSize,
+        scene: &mut dyn Scene,
+    );
 
-impl LayoutCache for SimpleLayoutCache {
-    fn lookup(&self, element_id: ElementId, constraints: SizeConstraints) -> Option<ElementSize> {
-        self.cache
-            .get(&element_id)
-            .and_then(|(cached_constraints, s)| {
-                if constraints == *cached_constraints {
-                    Some(*s)
-                } else {
-                    None
-                }
-            })
-    }
-
-    fn cache(&mut self, element_id: ElementId, constraints: SizeConstraints, size: ElementSize) {
-        self.cache.insert(element_id, (constraints, size));
-    }
+    fn handle_event(
+        &mut self,
+        ctx: &mut UiContext,
+        state: &Self::State,
+        params: &Self::Params,
+        event: &InteractionEvent,
+    ) -> Vec<Self::Message>;
 }
 
 /// Concrete implementation of an element. Implementing this automatically also implements [Element].
@@ -183,4 +184,33 @@ pub trait Element: ElementImpl {
 impl<State: 'static, Message: 'static, T: ElementImpl<State = State, Message = Message>> Element
     for T
 {
+}
+
+pub struct StateToParamsArgs<'a, State: 'static> {
+    pub state: &'a State,
+    pub id: ElementId,
+    pub ctx: &'a UiContext,
+}
+
+pub struct StateToParams<State: 'static, Params: 'static>(
+    pub Box<dyn Fn(StateToParamsArgs<State>) -> Params>,
+);
+
+impl<State: 'static, Params: 'static> StateToParams<State, Params> {
+    pub fn new<F: Fn(StateToParamsArgs<State>) -> Params + 'static>(f: F) -> Self {
+        Self(Box::new(f))
+    }
+
+    pub fn call(&self, args: StateToParamsArgs<State>) -> Params {
+        self.0(args)
+    }
+}
+
+impl<State: 'static, Params: 'static, F> From<F> for StateToParams<State, Params>
+where
+    F: Fn(StateToParamsArgs<State>) -> Params + 'static,
+{
+    fn from(f: F) -> Self {
+        Self(Box::new(f))
+    }
 }

@@ -7,13 +7,9 @@ edition = "2024"
 vn-scene = { path = "../vn-scene" }
 vn-ui-animation = { path = "../vn-ui-animation" }
 vn-ui-animation-macros = { path = "../vn-ui-animation-macros" }
+vn-ui-macros = { path = "../vn-ui-macros" }
+vn-ui-definitions = { path = "../vn-ui-definitions" }
 vn-utils = { path = "../vn-utils" }
 winit = { workspace = true }
 web-time = { workspace = true }
-# ide marks it as unused, but it is very much used by rand
-getrandom = { workspace = true, features = ["wasm_js"] }
-rand = { workspace = true }
 log = { workspace = true }
-
-[features]
-debug_outlines = []

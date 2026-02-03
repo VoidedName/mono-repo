@@ -1,9 +1,5 @@
-// instead? in addition to? anyway, consider
-// returning a complex size for elements instead
-// usecase: while we can indicate to greedy growing components that the container is unsized
-//          we can not know if the child is greedy.
-
 use vn_ui_animation_macros::Interpolatable;
+use crate::layout::SizeConstraints;
 
 /// A concrete size with a fixed width and height.
 #[derive(Debug, Clone, Copy, PartialEq, Interpolatable)]
@@ -156,32 +152,6 @@ impl DynamicSize {
                 DynamicDimension::Hint(v) => DynamicDimension::Hint(v + size.height),
                 DynamicDimension::Limit(v) => DynamicDimension::Limit(v + size.height),
             },
-        }
-    }
-}
-
-/// Defines the minimum and maximum size constraints for layout.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct SizeConstraints {
-    pub min_size: ElementSize,
-    pub max_size: DynamicSize,
-    pub scene_size: SceneSize,
-}
-
-impl SizeConstraints {
-    pub fn shrink_by(&self, size: ElementSize) -> Self {
-        Self {
-            min_size: self.min_size.shrink_by(size),
-            max_size: self.max_size.shrink_by(size),
-            scene_size: self.scene_size,
-        }
-    }
-
-    pub fn grow_by(&self, size: ElementSize) -> Self {
-        Self {
-            min_size: self.min_size.grow_by(size),
-            max_size: self.max_size.grow_by(size),
-            scene_size: self.scene_size,
         }
     }
 }

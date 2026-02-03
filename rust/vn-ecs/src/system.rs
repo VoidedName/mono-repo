@@ -1,5 +1,4 @@
 use crate::world::World;
-use std::collections::HashMap;
 
 pub trait System: 'static {
     fn type_id(&self) -> std::any::TypeId {

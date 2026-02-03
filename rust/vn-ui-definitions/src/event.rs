@@ -1,7 +1,5 @@
-use crate::LayoutCache;
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
+use vn_scene::{KeyEvent, Rect};
 
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
 pub struct ElementId(pub u32);
@@ -55,12 +53,12 @@ pub enum InteractionEventKind {
     MouseLeave,
     FocusGained,
     FocusLost,
-    Keyboard(crate::KeyEvent),
+    Keyboard(KeyEvent),
 }
 
 pub struct EventManager {
     insertion_order: u32,
-    hitboxes: HashMap<ElementId, (u32, u32, crate::Rect)>, // id -> (layer, insertion_order, bounds)
+    hitboxes: HashMap<ElementId, (u32, u32, Rect)>, // id -> (layer, insertion_order, bounds)
     hovered_elements: HashSet<ElementId>,
     focused_element: Option<ElementId>,
     // We might need a parent mapping to implement bubbling correctly if we don't do it during tree traversal
@@ -116,7 +114,7 @@ impl EventManager {
         all_events
     }
 
-    pub fn register_hitbox(&mut self, id: ElementId, layer: u32, bounds: crate::Rect) {
+    pub fn register_hitbox(&mut self, id: ElementId, layer: u32, bounds: Rect) {
         self.hitboxes
             .insert(id, (layer, self.insertion_order, bounds));
         self.insertion_order += 1;
@@ -290,7 +288,7 @@ impl EventManager {
         events
     }
 
-    pub fn handle_key(&mut self, event: &crate::KeyEvent) -> Vec<InteractionEvent> {
+    pub fn handle_key(&mut self, event: &KeyEvent) -> Vec<InteractionEvent> {
         let mut events = Vec::new();
         events.push(InteractionEvent {
             target: self.focused_element,
@@ -347,88 +345,5 @@ impl EventManager {
         }
 
         events
-    }
-}
-
-pub struct UiContext {
-    pub event_manager: Rc<RefCell<EventManager>>,
-    pub parent_id: Option<ElementId>,
-    /// Since the layout cache is used to determine if one should reflow an element but is not
-    /// sensitive to parameter changes, we MUST supply a fresh cache for each render cycle
-    pub layout_cache: Box<dyn LayoutCache>,
-    pub interactive: bool,
-    pub clip_rect: crate::Rect,
-    /// Now should never change within a render cycle (i.e. between layout and render calls)
-    pub now: web_time::Instant,
-}
-
-impl UiContext {
-    pub fn new(
-        event_manager: Rc<RefCell<EventManager>>,
-        layout_cache: Box<dyn LayoutCache>,
-        now: web_time::Instant,
-    ) -> Self {
-        Self {
-            event_manager,
-            parent_id: None,
-            layout_cache,
-            interactive: true,
-            clip_rect: crate::Rect::NO_CLIP,
-            now,
-        }
-    }
-
-    pub fn with_hitbox_hierarchy<F>(&mut self, id: ElementId, layer: u32, bounds: crate::Rect, f: F)
-    where
-        F: FnOnce(&mut Self),
-    {
-        if self.interactive {
-            self.event_manager
-                .borrow_mut()
-                .register_hitbox(id, layer, bounds);
-            if let Some(parent) = self.parent_id {
-                self.event_manager.borrow_mut().set_parent(id, parent);
-            }
-        }
-
-        let old_parent = self.parent_id;
-        self.parent_id = Some(id);
-
-        f(self);
-
-        self.parent_id = old_parent;
-    }
-
-    pub fn with_interactivity<F>(&mut self, interactive: bool, f: F)
-    where
-        F: FnOnce(&mut Self),
-    {
-        let old_interactive = self.interactive;
-        self.interactive = interactive;
-        f(self);
-        self.interactive = old_interactive;
-    }
-
-    pub fn with_clipping<F>(&mut self, clip_rect: crate::Rect, f: F)
-    where
-        F: FnOnce(&mut Self),
-    {
-        let old_clip = self.clip_rect;
-        let x1 = self.clip_rect.position[0].max(clip_rect.position[0]);
-        let y1 = self.clip_rect.position[1].max(clip_rect.position[1]);
-        let x2 = (self.clip_rect.position[0] + self.clip_rect.size[0])
-            .min(clip_rect.position[0] + clip_rect.size[0]);
-        let y2 = (self.clip_rect.position[1] + self.clip_rect.size[1])
-            .min(clip_rect.position[1] + clip_rect.size[1]);
-
-        let width = (x2 - x1).max(0.0);
-        let height = (y2 - y1).max(0.0);
-
-        self.clip_rect = crate::Rect {
-            position: [x1, y1],
-            size: [width, height],
-        };
-        f(self);
-        self.clip_rect = old_clip;
     }
 }

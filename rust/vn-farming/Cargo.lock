@@ -2079,7 +2079,7 @@ dependencies = [
  "log",
  "serde",
  "vn-scene",
- "vn-ui",
+ "vn-ui-definitions",
 ]
 
 [[package]]
@@ -2092,6 +2092,8 @@ dependencies = [
  "vn-scene",
  "vn-ui-animation",
  "vn-ui-animation-macros",
+ "vn-ui-definitions",
+ "vn-ui-macros",
  "vn-utils",
  "web-time",
  "winit",
@@ -2108,6 +2110,26 @@ dependencies = [
 
 [[package]]
 name = "vn-ui-animation-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "vn-ui-definitions"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "vn-scene",
+ "vn-ui-animation",
+ "vn-ui-animation-macros",
+ "web-time",
+]
+
+[[package]]
+name = "vn-ui-macros"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",

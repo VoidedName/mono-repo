@@ -5,6 +5,6 @@ edition = "2024"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
-vn-ui = { path = "../vn-ui" }
+vn-ui-definitions = { path = "../vn-ui-definitions" }
 vn-scene = { path = "../vn-scene" }
 log = { workspace = true }

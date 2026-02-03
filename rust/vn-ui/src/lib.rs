@@ -22,26 +22,20 @@
 // finding a mouse target is unreasonable. would i register their locations in a spacial index?
 
 mod components;
-mod element;
-mod element_world;
-mod event_manager;
 mod interaction;
 mod layouts;
-mod sizes;
 pub mod text;
 mod utils;
 
 pub use components::*;
-pub use element::*;
-pub use element_world::*;
-pub use event_manager::*;
+pub use vn_ui_definitions::*;
 pub use interaction::*;
 pub use layouts::*;
-pub use sizes::*;
 use std::fmt::Debug;
 use std::rc::Rc;
 pub use vn_ui_animation::*;
 pub use vn_ui_animation_macros::*;
+pub use vn_ui_macros::*;
 
 pub use vn_scene::{Color, KeyCode, KeyEvent, Rect, Scene};
 
@@ -50,12 +44,6 @@ pub trait TextMetrics {
     fn size_of_text(&self, text: &str, font: &str, font_size: f32) -> (f32, f32);
     fn line_height(&self, font: &str, font_size: f32) -> f32;
     fn get_glyphs(&self, text: &str, font: &str, font_size: f32) -> Vec<vn_scene::GlyphData>;
-}
-
-pub struct StateToParamsArgs<'a, State: 'static> {
-    pub state: &'a State,
-    pub id: ElementId,
-    pub ctx: &'a UiContext,
 }
 
 #[derive(Clone, Debug)]
@@ -155,53 +143,3 @@ impl<Action: Clone, Message: Clone + 'static> From<Message> for EventHandler<Act
     }
 }
 
-pub struct StateToParams<State: 'static, Params: 'static>(
-    Box<dyn Fn(StateToParamsArgs<State>) -> Params>,
-);
-
-impl<State: 'static, Params: 'static> StateToParams<State, Params> {
-    pub fn new<F: Fn(StateToParamsArgs<State>) -> Params + 'static>(f: F) -> Self {
-        Self(Box::new(f))
-    }
-
-    pub fn call(&self, args: StateToParamsArgs<State>) -> Params {
-        self.0(args)
-    }
-}
-
-impl<State: 'static, Params: 'static, F> From<F> for StateToParams<State, Params>
-where
-    F: Fn(StateToParamsArgs<State>) -> Params + 'static,
-{
-    fn from(f: F) -> Self {
-        Self(Box::new(f))
-    }
-}
-
-#[macro_export]
-macro_rules! params {
-    {$args:ident<$ty:ty> => $($expr:tt)*} => (move |$args: $crate::StateToParamsArgs<$ty>| { $($expr)* });
-    {$args:ident => $($expr:tt)*} => (move |$args: $crate::StateToParamsArgs<_>| { $($expr)* });
-    {$($expr:tt)*} => (move |args: $crate::StateToParamsArgs<_>| $($expr)*);
-}
-
-#[macro_export]
-macro_rules! into_box_impl {
-    ($ident:ident) => {
-        impl<S: 'static, M: Clone + 'static> Into<Box<dyn $crate::Element<State = S, Message = M>>>
-            for $ident<S, M>
-        {
-            fn into(self) -> Box<dyn $crate::Element<State = S, Message = M>> {
-                Box::new(self)
-            }
-        }
-
-        impl<S: 'static, M: Clone + 'static> Into<Box<dyn $crate::Element<State = S, Message = M>>>
-            for Box<$ident<S, M>>
-        {
-            fn into(self) -> Box<dyn $crate::Element<State = S, Message = M>> {
-                self
-            }
-        }
-    };
-}

@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use vn_scene::{Color, ImagePrimitiveData, Rect, Scene, TextureId, Transform};
-use vn_ui::{
+use vn_ui_definitions::{
     ElementId, ElementImpl, ElementSize, ElementWorld, InteractionEvent, SizeConstraints,
     StateToParams, StateToParamsArgs, UiContext, into_box_impl,
 };

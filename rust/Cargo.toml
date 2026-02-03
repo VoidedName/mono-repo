@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "vn-wgpu-window",
     "vn-ui",
+    "vn-ui-macros",
     "vn-utils",
     "vn-ui-animation",
     "vn-ui-animation-macros",
@@ -12,6 +13,7 @@ members = [
     "vn-tile-map-editor/vn-tile-map-editor-logic",
     "vn-tile-map-editor/vn-tile-map-editor-web",
     "vn-tile-map-editor/vn-tile-map-editor-native",
+    "vn-ui-definitions",
 ]
 
 [workspace.dependencies]
