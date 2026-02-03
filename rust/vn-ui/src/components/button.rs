@@ -1,56 +1,35 @@
 use crate::Scene;
 use crate::utils::ToArray;
 use crate::{
-    Element, ElementId, ElementImpl, ElementSize, ElementWorld, EventHandler, InteractionEventKind,
-    InteractionState, SizeConstraints, StateToParams, UiContext, into_box_impl,
+    Element, ElementImpl, ElementSize, EventHandler, InteractionEventKind, InteractionState,
+    SizeConstraints, UiContext,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
 use vn_scene::{BoxPrimitiveData, Color, Rect, Transform};
-use vn_ui_definitions::Component;
-use vn_ui_macros::UiElement;
+use vn_ui_definitions::{Component, ui_component};
 
 #[derive(Debug, Copy, Clone)]
 pub enum ButtonAction {
     Clicked,
 }
 
-pub struct ButtonParams<Message> {
+pub struct ButtonParams<State, Message> {
     pub background: Color,
     pub border_color: Color,
     pub border_width: f32,
     pub corner_radius: f32,
+    pub child: Rc<RefCell<dyn Element<State = State, Message = Message>>>,
     pub interaction: InteractionState,
     pub on_click: EventHandler<ButtonAction, Message>,
 }
 
-#[derive(UiElement)]
-pub struct Button<State: 'static, Message: Clone + 'static> {
-    #[id]
-    id: ElementId,
-    child: Box<dyn Element<State = State, Message = Message>>,
-    #[params]
-    params: StateToParams<State, ButtonParams<Message>>,
-}
-
-impl<State, Message: Clone> Button<State, Message> {
-    pub fn new<P: Into<StateToParams<State, ButtonParams<Message>>>>(
-        child: impl Into<Box<dyn Element<State = State, Message = Message>>>,
-        params: P,
-        world: Rc<RefCell<ElementWorld>>,
-    ) -> Self {
-        Self {
-            id: world.borrow_mut().next_id(),
-            child: child.into(),
-            params: params.into(),
-        }
-    }
-}
+ui_component!(Button<ButtonParams<State, Msg>>);
 
 impl<State, Message: Clone> Component for Button<State, Message> {
     type State = State;
     type Message = Message;
-    type Params = ButtonParams<Message>;
+    type Params = ButtonParams<State, Message>;
 
     fn layout(
         &mut self,
@@ -64,7 +43,9 @@ impl<State, Message: Clone> Component for Button<State, Message> {
             height: params.border_width * 2.0,
         });
 
-        self.child
+        params
+            .child
+            .borrow_mut()
             .layout(ctx, state, child_constraints)
             .grow_by(ElementSize {
                 width: params.border_width * 2.0,
@@ -106,7 +87,7 @@ impl<State, Message: Clone> Component for Button<State, Message> {
             });
 
             let margin = params.border_width * 2.0;
-            self.child.draw(
+            params.child.borrow_mut().draw(
                 ctx,
                 state,
                 (
@@ -129,7 +110,7 @@ impl<State, Message: Clone> Component for Button<State, Message> {
         params: &Self::Params,
         event: &crate::InteractionEvent,
     ) -> Vec<Self::Message> {
-        let mut messages = self.child.handle_event(ctx, state, event);
+        let mut messages = params.child.borrow_mut().handle_event(ctx, state, event);
 
         if event.target == Some(self.id) {
             messages.extend(params.on_click.handle(self.id, event, || match event.kind {
@@ -143,25 +124,3 @@ impl<State, Message: Clone> Component for Button<State, Message> {
         messages
     }
 }
-
-pub trait ButtonExt<State, Message: Clone> {
-    fn button<P: Into<StateToParams<State, ButtonParams<Message>>>>(
-        self,
-        params: P,
-        world: Rc<RefCell<ElementWorld>>,
-    ) -> Button<State, Message>;
-}
-
-impl<State, Message: Clone, E: Into<Box<dyn Element<State = State, Message = Message>>> + 'static>
-    ButtonExt<State, Message> for E
-{
-    fn button<P: Into<StateToParams<State, ButtonParams<Message>>>>(
-        self,
-        params: P,
-        world: Rc<RefCell<ElementWorld>>,
-    ) -> Button<State, Message> {
-        Button::new(self, params, world)
-    }
-}
-
-into_box_impl!(Button);

@@ -1,5 +1,5 @@
-use vn_ui_animation_macros::Interpolatable;
 use crate::layout::SizeConstraints;
+use vn_ui_animation_macros::Interpolatable;
 
 /// A concrete size with a fixed width and height.
 #[derive(Debug, Clone, Copy, PartialEq, Interpolatable)]

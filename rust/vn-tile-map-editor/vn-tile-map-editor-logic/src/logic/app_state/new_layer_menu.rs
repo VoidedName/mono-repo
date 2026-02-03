@@ -148,7 +148,8 @@ impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks> NewLayerMe
             world.clone(),
         )
         .scroll_area(
-            params!( args<NewLayerState> =>
+            params!(
+                args<NewLayerState>,
                 ScrollAreaParams {
                     scroll_x: args.state.scroll_x,
                     scroll_y: args.state.scroll_y,
@@ -195,7 +196,7 @@ impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks> NewLayerMe
                     FlexChild::new(title).into_rc_refcell(),
                     FlexChild::new(list).into_rc_refcell(),
                     FlexChild::new(
-                        Empty::new(world.clone())
+                        Empty::new(params!(), world.clone())
                             .padding(params!(PaddingParams::vertical(25.0)), world.clone()),
                     )
                     .into_rc_refcell(),
@@ -208,13 +209,13 @@ impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks> NewLayerMe
                             {
                                 let children = vec![
                                     FlexChild::new(new).into_rc_refcell(),
-                                    FlexChild::new(Empty::new(world.clone()).padding(
+                                    FlexChild::new(Empty::new(params!(), world.clone()).padding(
                                         params!(PaddingParams::horizontal(10.0)),
                                         world.clone(),
                                     ))
                                     .into_rc_refcell(),
                                     FlexChild::new(use_selected).into_rc_refcell(),
-                                    FlexChild::new(Empty::new(world.clone()).padding(
+                                    FlexChild::new(Empty::new(params!(), world.clone()).padding(
                                         params!(PaddingParams::horizontal(10.0)),
                                         world.clone(),
                                     ))

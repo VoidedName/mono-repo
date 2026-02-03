@@ -142,7 +142,12 @@ impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks + 'static>
 
         let error = Conditional::new(
             error.into(),
-            params!(args<EditorState> => ConditionalParams { show: !args.state.errors.is_empty() }),
+            params!(
+                args<EditorState>,
+                ConditionalParams {
+                    show: !args.state.errors.is_empty()
+                }
+            ),
             world.clone(),
         );
 
@@ -155,13 +160,13 @@ impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks + 'static>
                             {
                                 let children = vec![
                                     FlexChild::new(layers).into_rc_refcell(),
-                                    FlexChild::new(Empty::new(world.clone()).padding(
+                                    FlexChild::new(Empty::new(params!(), world.clone()).padding(
                                         params!(PaddingParams::horizontal(25.0)),
                                         world.clone(),
                                     ))
                                     .into_rc_refcell(),
                                     FlexChild::weighted(editor, 1.0).into_rc_refcell(),
-                                    FlexChild::new(Empty::new(world.clone()).padding(
+                                    FlexChild::new(Empty::new(params!(), world.clone()).padding(
                                         params!(PaddingParams::horizontal(25.0)),
                                         world.clone(),
                                     ))

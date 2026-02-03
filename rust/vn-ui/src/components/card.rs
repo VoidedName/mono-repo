@@ -1,12 +1,14 @@
 use crate::utils::ToArray;
 use crate::{
     Element, ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, StateToParams,
-    UiContext, into_box_impl,
+    UiContext,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
 use vn_ui_animation_macros::Interpolatable;
+use vn_ui_definitions::Component;
+use vn_ui_macros::UiElement;
 
 #[derive(Clone, Copy, Interpolatable)]
 pub struct CardParams {
@@ -16,13 +18,16 @@ pub struct CardParams {
     pub corner_radius: f32,
 }
 
-pub struct Card<State: 'static, Message: 'static> {
+#[derive(UiElement)]
+pub struct Card<State: 'static, Message: Clone + 'static> {
+    #[id]
     id: ElementId,
     child: Box<dyn Element<State = State, Message = Message>>,
+    #[params]
     params: StateToParams<State, CardParams>,
 }
 
-impl<State, Message> Card<State, Message> {
+impl<State, Message: Clone> Card<State, Message> {
     pub fn new<P: Into<StateToParams<State, CardParams>>>(
         child: impl Into<Box<dyn Element<State = State, Message = Message>>>,
         params: P,
@@ -39,26 +44,18 @@ impl<State, Message> Card<State, Message> {
 // Actually, the Card should probably manage its Padding internal params based on its own params.
 // But Padding now also uses StateToParams.
 
-impl<State, Message> ElementImpl for Card<State, Message> {
+impl<State, Message: Clone> Component for Card<State, Message> {
     type State = State;
     type Message = Message;
+    type Params = CardParams;
 
-    fn id_impl(&self) -> ElementId {
-        self.id
-    }
-
-    fn layout_impl(
+    fn layout(
         &mut self,
         ctx: &mut UiContext,
         state: &Self::State,
+        params: &Self::Params,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        let params = self.params.call(crate::StateToParamsArgs {
-            state,
-            id: self.id,
-            ctx,
-        });
-
         let mut child_constraints = constraints;
         let padding = params.border_size;
         let x_padding = padding * 2.0;
@@ -87,20 +84,15 @@ impl<State, Message> ElementImpl for Card<State, Message> {
         .clamp_to_constraints(constraints)
     }
 
-    fn draw_impl(
+    fn draw(
         &mut self,
         ctx: &mut UiContext,
         state: &Self::State,
+        params: &Self::Params,
         origin: (f32, f32),
         size: ElementSize,
         canvas: &mut dyn Scene,
     ) {
-        let params = self.params.call(crate::StateToParamsArgs {
-            state,
-            id: self.id,
-            ctx,
-        });
-
         let clip = Rect {
             position: origin.to_array(),
             size: size.to_array(),
@@ -133,17 +125,18 @@ impl<State, Message> ElementImpl for Card<State, Message> {
         );
     }
 
-    fn handle_event_impl(
+    fn handle_event(
         &mut self,
         ctx: &mut UiContext,
         state: &Self::State,
+        _params: &Self::Params,
         event: &crate::InteractionEvent,
     ) -> Vec<Self::Message> {
         self.child.handle_event(ctx, state, event)
     }
 }
 
-pub trait CardExt<State, Message> {
+pub trait CardExt<State, Message: Clone> {
     fn card<P: Into<StateToParams<State, CardParams>>>(
         self,
         params: P,
@@ -151,7 +144,7 @@ pub trait CardExt<State, Message> {
     ) -> Card<State, Message>;
 }
 
-impl<State, Message, E: Into<Box<dyn Element<State = State, Message = Message>>> + 'static>
+impl<State, Message: Clone, E: Into<Box<dyn Element<State = State, Message = Message>>> + 'static>
     CardExt<State, Message> for E
 {
     fn card<P: Into<StateToParams<State, CardParams>>>(
@@ -162,5 +155,3 @@ impl<State, Message, E: Into<Box<dyn Element<State = State, Message = Message>>>
         Card::new(self, params, world)
     }
 }
-
-into_box_impl!(Card);

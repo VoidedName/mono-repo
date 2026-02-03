@@ -28,13 +28,13 @@ pub mod text;
 mod utils;
 
 pub use components::*;
-pub use vn_ui_definitions::*;
 pub use interaction::*;
 pub use layouts::*;
 use std::fmt::Debug;
 use std::rc::Rc;
 pub use vn_ui_animation::*;
 pub use vn_ui_animation_macros::*;
+pub use vn_ui_definitions::*;
 pub use vn_ui_macros::*;
 
 pub use vn_scene::{Color, KeyCode, KeyEvent, Rect, Scene};
@@ -142,4 +142,3 @@ impl<Action: Clone, Message: Clone + 'static> From<Message> for EventHandler<Act
         Self::new(move |_, _| vec![message.clone()])
     }
 }
-

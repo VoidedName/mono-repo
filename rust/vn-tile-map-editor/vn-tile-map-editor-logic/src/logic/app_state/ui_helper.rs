@@ -33,13 +33,24 @@ where
         {
             let font = font.to_string();
             let place_holder = place_holder.map(|x| x.to_string());
-            params! { args =>
+            params!(args, {
                 let text = text(args.state);
                 let is_focused = args.ctx.event_manager.borrow().is_focused(args.id);
                 TextFieldParams {
                     visuals: TextVisuals {
-                        color: if text.text.is_empty() && !is_focused { Color::WHITE.with_alpha(0.3) } else { Color::WHITE },
-                        text: if text.text.is_empty() && let Some(text) = place_holder.as_ref() && !is_focused { text.clone() } else { text.text },
+                        color: if text.text.is_empty() && !is_focused {
+                            Color::WHITE.with_alpha(0.3)
+                        } else {
+                            Color::WHITE
+                        },
+                        text: if text.text.is_empty()
+                            && let Some(text) = place_holder.as_ref()
+                            && !is_focused
+                        {
+                            text.clone()
+                        } else {
+                            text.text
+                        },
                         caret_position: text.caret,
                         font: font.clone(),
                         font_size,
@@ -53,7 +64,7 @@ where
                     },
                     text_field_action_handler: handler.clone(),
                 }
-            }
+            })
         },
         world.clone(),
     );
@@ -62,18 +73,28 @@ where
 
     let input = input
         .padding(params!(PaddingParams::uniform(5.0)), world.clone())
-        .card({
-                  let input_id = input_id.clone();
-                  params!(args =>
+        .card(
+            {
+                let input_id = input_id.clone();
+                params!(args, {
                     let is_hovered = args.ctx.event_manager.borrow().is_hovered(input_id);
                     CardParams {
-                        background_color: if is_hovered { Color::WHITE.with_alpha(0.15) } else { Color::WHITE.with_alpha(0.1) },
-                        border_color: if is_hovered { Color::WHITE } else { Color::WHITE.with_alpha(0.5) },
+                        background_color: if is_hovered {
+                            Color::WHITE.with_alpha(0.15)
+                        } else {
+                            Color::WHITE.with_alpha(0.1)
+                        },
+                        border_color: if is_hovered {
+                            Color::WHITE
+                        } else {
+                            Color::WHITE.with_alpha(0.5)
+                        },
                         corner_radius: 5.0,
                         border_size: 2.0,
-                    })
-              },
-              world.clone(),
+                    }
+                })
+            },
+            world.clone(),
         );
 
     Input {
@@ -96,7 +117,7 @@ where
     Box::new(TextField::new(
         {
             let font = font.to_string();
-            params! { args =>
+            params! { args,
                 TextFieldParams {
                     visuals: TextVisuals {
                         color,
@@ -143,7 +164,7 @@ where
 
     let label = TextField::new(
         {
-            params! { args =>
+            params! { args,
                 TextFieldParams {
                     visuals: TextVisuals {
                         color: Color::WHITE.with_alpha(0.5),
@@ -215,11 +236,11 @@ pub fn btn<State: 'static, Event: Clone + 'static, F>(
 where
     F: Fn(&State) -> bool + 'static + Clone,
 {
-    let btn = TextField::new(
+    let child = TextField::new(
         {
             let font = font.to_string();
             let disabled = disabled.clone();
-            params! {args =>
+            params!(args, {
                 let text = text(args.state);
                 TextFieldParams {
                     visuals: TextVisuals {
@@ -227,7 +248,11 @@ where
                         caret_position: None,
                         font: font.clone(),
                         font_size,
-                        color: if disabled(args.state) { color(args.state).with_alpha(0.5) } else { color(args.state) },
+                        color: if disabled(args.state) {
+                            color(args.state).with_alpha(0.5)
+                        } else {
+                            color(args.state)
+                        },
                         caret_width: None,
                         caret_blink_duration: None,
                     },
@@ -235,29 +260,53 @@ where
                     interaction: Default::default(),
                     text_field_action_handler: EventHandler::none(),
                 }
-            }
+            })
         },
         world.clone(),
     )
-        .padding(params!(PaddingParams::uniform(5.0)), world.clone())
-        .interactive_set(false, world.clone())
-        .button({
-                    let disabled = disabled.clone();
-                    params! { args =>
-                        let is_hovered = args.ctx.event_manager.borrow().is_hovered(args.id);
-                        ButtonParams {
-                            background: if is_hovered && !disabled(args.state) { accent_color(args.state).with_alpha(0.15) } else { accent_color(args.state).with_alpha(0.1) },
-                            border_color: if is_hovered && !disabled(args.state) { border_color(args.state) } else { border_color(args.state).with_alpha(0.5) },
-                            border_width: 2.0,
-                            corner_radius: 5.0,
-                            interaction: Default::default(),
-                            on_click: handler.clone(),
-            }}
-                }, world.clone(),
-        ).interactive({
-                          let disabled = disabled.clone();
-                          params!(args => InteractiveParams {is_interactive: !disabled(args.state)})
-                      }, world);
+    .padding(params!(PaddingParams::uniform(5.0)), world.clone())
+    .interactive_set(false, world.clone());
+
+    let child = Rc::new(RefCell::new(child));
+
+    let btn = Button::new(
+        {
+            let disabled = disabled.clone();
+            params!(args, {
+                let is_hovered = args.ctx.event_manager.borrow().is_hovered(args.id);
+                ButtonParams {
+                    background: if is_hovered && !disabled(args.state) {
+                        accent_color(args.state).with_alpha(0.15)
+                    } else {
+                        accent_color(args.state).with_alpha(0.1)
+                    },
+                    border_color: if is_hovered && !disabled(args.state) {
+                        border_color(args.state)
+                    } else {
+                        border_color(args.state).with_alpha(0.5)
+                    },
+                    border_width: 2.0,
+                    corner_radius: 5.0,
+                    child: child.clone(),
+                    interaction: Default::default(),
+                    on_click: handler.clone(),
+                }
+            })
+        },
+        world.clone(),
+    )
+    .interactive(
+        {
+            let disabled = disabled.clone();
+            params!(
+                args,
+                InteractiveParams {
+                    is_interactive: !disabled(args.state)
+                }
+            )
+        },
+        world,
+    );
 
     Box::new(btn)
 }
@@ -282,12 +331,15 @@ where
     Box::new(Flex::new(
         {
             let world = world.clone();
-            params!(args<State> =>
-            let params = list_params(args.state);
+            params!(args<State>, {
+                let params = list_params(args.state);
                 FlexParams {
                     direction,
                     force_orthogonal_same_size,
-                    children: (0..params.len).map(|idx| (params.child)(args.state, idx, world.clone())).collect(),
+                    children: (0..params.len)
+                        .map(|idx| (params.child)(args.state, idx, world.clone()))
+                        .collect(),
+                }
             })
         },
         world.clone(),

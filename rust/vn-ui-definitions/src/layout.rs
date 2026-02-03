@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use crate::event::ElementId;
-use crate::geometry::{ElementSize, DynamicSize, SceneSize};
+use crate::geometry::{DynamicSize, ElementSize, SceneSize};
+use std::collections::HashMap;
 
 pub trait LayoutCache {
     fn lookup(&self, element_id: ElementId, constraints: SizeConstraints) -> Option<ElementSize>;

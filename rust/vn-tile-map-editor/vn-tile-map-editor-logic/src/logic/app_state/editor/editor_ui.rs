@@ -89,7 +89,7 @@ pub fn layers<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
             let c = vec![
                 FlexChild::new(save).into_rc_refcell(),
                 FlexChild::new(
-                    Empty::new(world.clone())
+                    Empty::new(params!(), world.clone())
                         .padding(params!(PaddingParams::horizontal(25.0)), world.clone()),
                 )
                 .into_rc_refcell(),
@@ -112,11 +112,14 @@ pub fn layers<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
             let world = world.clone();
             let metrics = ctx.text_metrics.clone();
 
-            params!(args<EditorState> => {
+            params!(args<EditorState>, {
                 let cache_len = { cache.borrow().len() };
 
                 for idx in cache_len..args.state.tile_map.layers.len() {
-                    let Input { element: layer_name, .. } = input(
+                    let Input {
+                        element: layer_name,
+                        ..
+                    } = input(
                         move |state: &EditorState| TextFieldState {
                             id: ElementId(0),
                             text: state.tile_map.layers[idx].name.clone(),
@@ -127,25 +130,34 @@ pub fn layers<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
                         UI_FONT_SIZE,
                         metrics.clone(),
                         EventHandler::new(move |_, e| match e {
-                            TextFieldAction::TextChange(new_name) => vec![EditorEvent::RenameLayer(idx, new_name)],
-                            TextFieldAction::CaretMove(caret) => vec![EditorEvent::LayerCaretPosition(idx, caret)],
-                        }).with_overwrite(suppress_enter_key()),
+                            TextFieldAction::TextChange(new_name) => {
+                                vec![EditorEvent::RenameLayer(idx, new_name)]
+                            }
+                            TextFieldAction::CaretMove(caret) => {
+                                vec![EditorEvent::LayerCaretPosition(idx, caret)]
+                            }
+                        })
+                        .with_overwrite(suppress_enter_key()),
                         world.clone(),
                     );
 
-                     let layer = btn(
-                        move |state: &EditorState|  if state.current_layer.map(|l| l == idx).unwrap_or(false) {
-                            "■".to_string()
-                        } else {
-                            "■".to_string()
+                    let layer = btn(
+                        move |state: &EditorState| {
+                            if state.current_layer.map(|l| l == idx).unwrap_or(false) {
+                                "■".to_string()
+                            } else {
+                                "■".to_string()
+                            }
                         },
                         UI_FONT,
                         UI_FONT_SIZE,
                         |_| false,
-                        move |state: &EditorState| if state.current_layer.map(|l| l == idx).unwrap_or(false) {
-                            Color::GREEN
-                        } else {
-                            Color::WHITE.with_alpha(0.8)
+                        move |state: &EditorState| {
+                            if state.current_layer.map(|l| l == idx).unwrap_or(false) {
+                                Color::GREEN
+                            } else {
+                                Color::WHITE.with_alpha(0.8)
+                            }
                         },
                         |_| Color::TRANSPARENT,
                         |_| Color::WHITE,
@@ -201,29 +213,46 @@ pub fn layers<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
                         world.clone(),
                     );
 
-                    let layout = Flex::new({
-                        let layer = FlexChild::new(layer).into_rc_refcell();
-                        let layer_name = FlexChild::weighted(layer_name, 1.0).into_rc_refcell();
-                        let remove = FlexChild::new(remove).into_rc_refcell();
-                        let layer_up = FlexChild::new(layer_up).into_rc_refcell();
-                        let layer_down = FlexChild::new(layer_down).into_rc_refcell();
-                        params!(FlexParams {
-                            direction: FlexDirection::Row,
-                            force_orthogonal_same_size: false,
-                            children: vec![layer.clone(), layer_up.clone(), layer_down.clone(), layer_name.clone(), remove.clone()],
-                        })
-                    }, world.clone());
+                    let layout = Flex::new(
+                        {
+                            let layer = FlexChild::new(layer).into_rc_refcell();
+                            let layer_name = FlexChild::weighted(layer_name, 1.0).into_rc_refcell();
+                            let remove = FlexChild::new(remove).into_rc_refcell();
+                            let layer_up = FlexChild::new(layer_up).into_rc_refcell();
+                            let layer_down = FlexChild::new(layer_down).into_rc_refcell();
+                            params!(FlexParams {
+                                direction: FlexDirection::Row,
+                                force_orthogonal_same_size: false,
+                                children: vec![
+                                    layer.clone(),
+                                    layer_up.clone(),
+                                    layer_down.clone(),
+                                    layer_name.clone(),
+                                    remove.clone()
+                                ],
+                            })
+                        },
+                        world.clone(),
+                    );
 
-                    cache.borrow_mut().push(FlexChild::new(
-                        layout.padding(params!(PaddingParams::vertical(10.0)), world.clone()),
-                    ).into_rc_refcell())
+                    cache.borrow_mut().push(
+                        FlexChild::new(
+                            layout.padding(params!(PaddingParams::vertical(10.0)), world.clone()),
+                        )
+                        .into_rc_refcell(),
+                    )
                 }
 
                 FlexParams {
                     direction: FlexDirection::Column,
-                    children: cache.borrow()[0..args.state.tile_map.layers.len()].iter().rev().cloned().collect(),
-                    force_orthogonal_same_size: true
-            }})
+                    children: cache.borrow()[0..args.state.tile_map.layers.len()]
+                        .iter()
+                        .rev()
+                        .cloned()
+                        .collect(),
+                    force_orthogonal_same_size: true,
+                }
+            })
         },
         world.clone(),
     );
@@ -246,7 +275,8 @@ pub fn layers<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
                 FlexChild::new(Flex::new(
                     {
                         let c = vec![
-                            FlexChild::weighted(Empty::new(world.clone()), 1.0).into_rc_refcell(),
+                            FlexChild::weighted(Empty::new(params!(), world.clone()), 1.0)
+                                .into_rc_refcell(),
                         ];
                         params!(FlexParams {
                             force_orthogonal_same_size: true,
@@ -263,7 +293,7 @@ pub fn layers<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
                 )
                 .into_rc_refcell(),
                 FlexChild::new(new_layer).into_rc_refcell(),
-                FlexChild::weighted(Empty::new(world.clone()), 1.0).into_rc_refcell(),
+                FlexChild::weighted(Empty::new(params!(), world.clone()), 1.0).into_rc_refcell(),
                 FlexChild::new(save_load).into_rc_refcell(),
             ];
             params!(FlexParams {
@@ -320,19 +350,18 @@ pub fn editor<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
     let mouse_pos: Rc<RefCell<Option<(u32, u32)>>> = Rc::new(RefCell::new(None));
     let brushing: Rc<RefCell<bool>> = Rc::new(RefCell::new(false));
     let grid = Grid::new(
-        params!(args<EditorState> =>
+        params!(args<EditorState>, {
+            let brushing = brushing.clone();
+            let mouse_pos = mouse_pos.clone();
 
-        let brushing = brushing.clone();
-        let mouse_pos = mouse_pos.clone();
-
-        GridParams {
-            cols: args.state.tile_map.map_dimensions.0,
-            rows: args.state.tile_map.map_dimensions.1,
-            grid_color: Color::WHITE.with_alpha(0.5),
-            grid_width: 3.0,
-            grid_size: (32.0, 32.0),
-            child: Box::new(|_, _, _, _| None),
-            event_handler: EventHandler::new(move |_, e| match e {
+            GridParams {
+                cols: args.state.tile_map.map_dimensions.0,
+                rows: args.state.tile_map.map_dimensions.1,
+                grid_color: Color::WHITE.with_alpha(0.5),
+                grid_width: 3.0,
+                grid_size: (32.0, 32.0),
+                child: Box::new(|_, _, _, _| None),
+                event_handler: EventHandler::new(move |_, e| match e {
                     GridEvent::MouseOverCell(x, y) => {
                         let result = if let Some(&(old_x, old_y)) = mouse_pos.borrow().as_ref()
                             && *brushing.borrow()
@@ -366,35 +395,52 @@ pub fn editor<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
                         vec![]
                     }
                 }),
-            }),
+            }
+        }),
         world.clone(),
     );
 
     let map = TileMap::new(
-        params!(args<EditorState> => TileMapParams {
-            draw_tile_size: ElementSize {
-                width: 32.0,
-                height: 32.0,
-            },
-            textures: args.state.tile_map.layers.iter()
-                .map(|l| args.state.loaded_tilesets.get(&l.tileset).unwrap().texture_id.clone())
-                .collect(),
-            specification: args.state.tile_map.clone(),
-        }),
+        params!(
+            args<EditorState>,
+            TileMapParams {
+                draw_tile_size: ElementSize {
+                    width: 32.0,
+                    height: 32.0,
+                },
+                textures: args
+                    .state
+                    .tile_map
+                    .layers
+                    .iter()
+                    .map(|l| args
+                        .state
+                        .loaded_tilesets
+                        .get(&l.tileset)
+                        .unwrap()
+                        .texture_id
+                        .clone())
+                    .collect(),
+                specification: args.state.tile_map.clone(),
+            }
+        ),
         world.clone(),
     );
 
     let map = Stack::new(vec![map.into(), grid.into()], world.clone())
         .anchor(center!(), world.clone())
         .scroll_area(
-            params!(args<EditorState> => ScrollAreaParams {
-                scroll_x: args.state.tilemap_view_scroll_x,
-                scroll_y: args.state.tilemap_view_scroll_y,
-                scroll_action_handler: EventHandler::new(|_, e| match e {
-                    ScrollAreaAction::ScrollX(v) => vec![EditorEvent::TilemapViewScrollX(v)],
-                    ScrollAreaAction::ScrollY(v) => vec![EditorEvent::TilemapViewScrollY(v)],
-                })
-            }),
+            params!(
+                args<EditorState>,
+                ScrollAreaParams {
+                    scroll_x: args.state.tilemap_view_scroll_x,
+                    scroll_y: args.state.tilemap_view_scroll_y,
+                    scroll_action_handler: EventHandler::new(|_, e| match e {
+                        ScrollAreaAction::ScrollX(v) => vec![EditorEvent::TilemapViewScrollX(v)],
+                        ScrollAreaAction::ScrollY(v) => vec![EditorEvent::TilemapViewScrollY(v)],
+                    })
+                }
+            ),
             world.clone(),
         )
         .fill(world.clone());
@@ -605,13 +651,13 @@ pub fn editor<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
             let c = Rc::new(RefCell::new(vec![
                 FlexChild::new(current_brush).into_rc_refcell(),
                 FlexChild::new(
-                    Empty::new(world.clone())
+                    Empty::new(params!(), world.clone())
                         .padding(params!(PaddingParams::vertical(10.0)), world.clone()),
                 )
                 .into_rc_refcell(),
                 FlexChild::new(eraser_brush).into_rc_refcell(),
                 FlexChild::new(
-                    Empty::new(world.clone())
+                    Empty::new(params!(), world.clone())
                         .padding(params!(PaddingParams::vertical(10.0)), world.clone()),
                 )
                 .into_rc_refcell(),
@@ -672,25 +718,25 @@ pub fn editor<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
             let c = Rc::new(RefCell::new(vec![
                 FlexChild::new(current_tilemap_size).into_rc_refcell(),
                 FlexChild::new(
-                    Empty::new(world.clone())
+                    Empty::new(params!(), world.clone())
                         .padding(params!(PaddingParams::vertical(10.0)), world.clone()),
                 )
                 .into_rc_refcell(),
                 FlexChild::new(tilemap_width.element).into_rc_refcell(),
                 FlexChild::new(
-                    Empty::new(world.clone())
+                    Empty::new(params!(), world.clone())
                         .padding(params!(PaddingParams::vertical(10.0)), world.clone()),
                 )
                 .into_rc_refcell(),
                 FlexChild::new(tilemap_height.element).into_rc_refcell(),
                 FlexChild::new(
-                    Empty::new(world.clone())
+                    Empty::new(params!(), world.clone())
                         .padding(params!(PaddingParams::vertical(10.0)), world.clone()),
                 )
                 .into_rc_refcell(),
                 FlexChild::new(setting_errors).into_rc_refcell(),
                 FlexChild::new(
-                    Empty::new(world.clone())
+                    Empty::new(params!(), world.clone())
                         .padding(params!(PaddingParams::vertical(10.0)), world.clone()),
                 )
                 .into_rc_refcell(),
@@ -726,10 +772,10 @@ pub fn editor<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
     let tool_bar = Flex::new(
         {
             let c = Rc::new(RefCell::new(vec![
-                FlexChild::weighted(Empty::new(world.clone()), 1.0).into_rc_refcell(),
+                FlexChild::weighted(Empty::new(params!(), world.clone()), 1.0).into_rc_refcell(),
                 FlexChild::new(brushes).into_rc_refcell(),
                 FlexChild::new(
-                    Empty::new(world.clone())
+                    Empty::new(params!(), world.clone())
                         .padding(params!(PaddingParams::horizontal(25.0)), world.clone()),
                 )
                 .into_rc_refcell(),
@@ -760,7 +806,7 @@ pub fn editor<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
                 let c = vec![
                     FlexChild::new(Flex::new(
                         {
-                            let c = FlexChild::weighted(Empty::new(world.clone()), 1.0)
+                            let c = FlexChild::weighted(Empty::new(params!(), world.clone()), 1.0)
                                 .into_rc_refcell();
                             params!(FlexParams {
                                 direction: FlexDirection::Row,
@@ -823,19 +869,32 @@ pub fn tileset<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
         .expect("empty texture");
 
     let tileset_tex = Texture::new(
-        params!(args<EditorState> =>
-            let id = args.state.current_layer.map(|layer |
-                args.state.loaded_tilesets
-                .get(&args.state.tile_map.layers[layer].tileset)
-                .unwrap().texture_id.clone())
-            .unwrap_or(empty_text.id.clone());
+        params!(args<EditorState>, {
+            let id = args
+                .state
+                .current_layer
+                .map(|layer| {
+                    args.state
+                        .loaded_tilesets
+                        .get(&args.state.tile_map.layers[layer].tileset)
+                        .unwrap()
+                        .texture_id
+                        .clone()
+                })
+                .unwrap_or(empty_text.id.clone());
 
-            let size = args.state.current_layer.map(|layer | {
-                (
-                    args.state.tile_map.layers[layer].tileset_dimensions.0 * args.state.tile_map.layers[layer].tile_dimensions.0,
-                    args.state.tile_map.layers[layer].tileset_dimensions.1 * args.state.tile_map.layers[layer].tile_dimensions.1,
-                )
-            }).unwrap_or((0, 0));
+            let size = args
+                .state
+                .current_layer
+                .map(|layer| {
+                    (
+                        args.state.tile_map.layers[layer].tileset_dimensions.0
+                            * args.state.tile_map.layers[layer].tile_dimensions.0,
+                        args.state.tile_map.layers[layer].tileset_dimensions.1
+                            * args.state.tile_map.layers[layer].tile_dimensions.1,
+                    )
+                })
+                .unwrap_or((0, 0));
 
             let size = ElementSize {
                 width: size.0 as f32,
@@ -849,7 +908,7 @@ pub fn tileset<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
                 tint: Color::WHITE,
                 fit_strategy: FitStrategy::Clip { rotation: 0.0 },
             }
-        ),
+        }),
         world.clone(),
     );
 
@@ -860,55 +919,86 @@ pub fn tileset<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
             let cache = Rc::new(RefCell::new(HashMap::new()));
             let world = world.clone();
 
-            params!(args<EditorState> =>
-            let (cols, rows, grid_w, grid_h) = args.state.current_layer.map(|layer| {
-            let tileset_dim = args.state.tile_map.layers[layer].tileset_dimensions;
-                let tile_dim = args.state.tile_map.layers[layer].tile_dimensions;
-                (tileset_dim.0, tileset_dim.1, tile_dim.0, tile_dim.1)
-            }).unwrap_or((0, 0, 0, 0));
+            params!(args<EditorState>, {
+                let (cols, rows, grid_w, grid_h) = args
+                    .state
+                    .current_layer
+                    .map(|layer| {
+                        let tileset_dim = args.state.tile_map.layers[layer].tileset_dimensions;
+                        let tile_dim = args.state.tile_map.layers[layer].tile_dimensions;
+                        (tileset_dim.0, tileset_dim.1, tile_dim.0, tile_dim.1)
+                    })
+                    .unwrap_or((0, 0, 0, 0));
 
-            let mouse_pos = mouse_pos.clone();
-            let start_mouse_pos = start_mouse_pos.clone();
-            let world = world.clone();
+                let mouse_pos = mouse_pos.clone();
+                let start_mouse_pos = start_mouse_pos.clone();
+                let world = world.clone();
 
-            let cache = cache.clone();
-            GridParams {
-                cols,
-                rows,
-                grid_color: Color::WHITE.with_alpha(0.25),
-                grid_width: 3.0,
-                grid_size: (grid_w as f32, grid_h as f32),
-                child: Box::new(move |_, cell, state: &EditorState, _| {
-                    let world = world.clone();
-                    let cache = cache.clone();
-                    let mut cache_borrow = cache.borrow_mut();
-                    if let Brush::Tileset(from, to) = state.brush {
-                        if from.0 <= cell.0 && from.1 <= cell.1 && to.0 >= cell.0 && to.1 >= cell.1 {
-                            Some(cache_borrow.entry(cell).or_insert_with(||
-                                Rc::new(RefCell::new(Empty::new(world.clone()).fill(world.clone()).card(params!(CardParams {
-                                    background_color: Color::WHITE.with_alpha(0.5),
-                                    corner_radius: 0.0,
-                                    border_size: 0.0,
-                                    border_color: Color::WHITE,
-                                }), world.clone())))
-                            ).clone())
-                        } else { None }
-                    } else { None }
-                }),
-                event_handler: EventHandler::new(move |_, e| {
-                    match e {
+                let cache = cache.clone();
+                GridParams {
+                    cols,
+                    rows,
+                    grid_color: Color::WHITE.with_alpha(0.25),
+                    grid_width: 3.0,
+                    grid_size: (grid_w as f32, grid_h as f32),
+                    child: Box::new(move |_, cell, state: &EditorState, _| {
+                        let world = world.clone();
+                        let cache = cache.clone();
+                        let mut cache_borrow = cache.borrow_mut();
+                        if let Brush::Tileset(from, to) = state.brush {
+                            if from.0 <= cell.0
+                                && from.1 <= cell.1
+                                && to.0 >= cell.0
+                                && to.1 >= cell.1
+                            {
+                                Some(
+                                    cache_borrow
+                                        .entry(cell)
+                                        .or_insert_with(|| {
+                                            Rc::new(RefCell::new(
+                                                Empty::new(params!(), world.clone())
+                                                    .fill(world.clone())
+                                                    .card(
+                                                        params!(CardParams {
+                                                            background_color: Color::WHITE
+                                                                .with_alpha(0.5),
+                                                            corner_radius: 0.0,
+                                                            border_size: 0.0,
+                                                            border_color: Color::WHITE,
+                                                        }),
+                                                        world.clone(),
+                                                    ),
+                                            ))
+                                        })
+                                        .clone(),
+                                )
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    }),
+                    event_handler: EventHandler::new(move |_, e| match e {
                         GridEvent::MouseOverCell(x, y) => {
                             mouse_pos.borrow_mut().replace((x, y));
                             if let Some(&start_mouse_pos) = start_mouse_pos.borrow().as_ref() {
-                                vec![EditorEvent::TileBrushSelect(Brush::Tileset(start_mouse_pos, (x, y)))]
+                                vec![EditorEvent::TileBrushSelect(Brush::Tileset(
+                                    start_mouse_pos,
+                                    (x, y),
+                                ))]
                             } else {
                                 vec![]
                             }
                         }
                         GridEvent::MouseDown(btn) => {
-                            if let Some(&mouse_pos) = mouse_pos.borrow().as_ref() && btn == MouseButton::Left {
+                            if let Some(&mouse_pos) = mouse_pos.borrow().as_ref()
+                                && btn == MouseButton::Left
+                            {
                                 start_mouse_pos.borrow_mut().replace(mouse_pos);
-                                vec![EditorEvent::TileBrushSelect(Brush::Tileset(mouse_pos, mouse_pos))]
+                                vec![EditorEvent::TileBrushSelect(Brush::Tileset(
+                                    mouse_pos, mouse_pos,
+                                ))]
                             } else {
                                 vec![]
                             }
@@ -919,8 +1009,8 @@ pub fn tileset<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
                             }
                             vec![]
                         }
-                    }
-                }),
+                    }),
+                }
             })
         },
         world.clone(),
@@ -930,16 +1020,19 @@ pub fn tileset<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
 
     let tileset = ScrollArea::new(
         layout,
-        params!(args < EditorState > => ScrollAreaParams {
-            scroll_x: args.state.tileset_view_scroll_x.clone(),
-            scroll_y: args.state.tileset_view_scroll_y.clone(),
-            scroll_action_handler: EventHandler::new(| _, e | {
-                match e {
-                    ScrollAreaAction::ScrollX(v) => vec ! [EditorEvent::TilesetViewScrollX(v)],
-                    ScrollAreaAction::ScrollY(v) => vec ! [EditorEvent::TilesetViewScrollY(v)],
-                }
-            })
-        }),
+        params!(
+            args<EditorState>,
+            ScrollAreaParams {
+                scroll_x: args.state.tileset_view_scroll_x.clone(),
+                scroll_y: args.state.tileset_view_scroll_y.clone(),
+                scroll_action_handler: EventHandler::new(|_, e| {
+                    match e {
+                        ScrollAreaAction::ScrollX(v) => vec![EditorEvent::TilesetViewScrollX(v)],
+                        ScrollAreaAction::ScrollY(v) => vec![EditorEvent::TilesetViewScrollY(v)],
+                    }
+                })
+            }
+        ),
         world.clone(),
     );
 

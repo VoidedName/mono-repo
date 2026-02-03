@@ -1,59 +1,44 @@
-use crate::{
-    ElementId, ElementImpl, ElementSize, ElementWorld, SizeConstraints, UiContext, into_box_impl,
-};
+use crate::{ElementImpl, ElementSize, SizeConstraints, UiContext};
 use std::cell::RefCell;
 use std::rc::Rc;
 use vn_scene::Scene;
+use vn_ui_definitions::{Component, ui_component};
 
-pub struct Empty<State: 'static, Message: 'static> {
-    id: ElementId,
-    _ph: std::marker::PhantomData<(State, Message)>,
-}
+ui_component!(Empty);
 
-impl<State, Message> Empty<State, Message> {
-    pub fn new(world: Rc<RefCell<ElementWorld>>) -> Self {
-        Self {
-            id: world.borrow_mut().next_id(),
-            _ph: Default::default(),
-        }
-    }
-}
-
-impl<State, Message> ElementImpl for Empty<State, Message> {
+impl<State, Message: Clone> Component for Empty<State, Message> {
     type State = State;
     type Message = Message;
+    type Params = ();
 
-    fn id_impl(&self) -> ElementId {
-        self.id
-    }
-
-    fn layout_impl(
+    fn layout(
         &mut self,
         _ctx: &mut UiContext,
         _state: &Self::State,
+        _params: &Self::Params,
         constraints: SizeConstraints,
     ) -> ElementSize {
         constraints.min_size
     }
 
-    fn draw_impl(
+    fn draw(
         &mut self,
         _ctx: &mut UiContext,
         _state: &Self::State,
+        _params: &Self::Params,
         _origin: (f32, f32),
         _size: ElementSize,
         _scene: &mut dyn Scene,
     ) {
     }
 
-    fn handle_event_impl(
+    fn handle_event(
         &mut self,
         _ctx: &mut UiContext,
         _state: &Self::State,
+        _params: &Self::Params,
         _event: &crate::InteractionEvent,
     ) -> Vec<Self::Message> {
         vec![]
     }
 }
-
-into_box_impl!(Empty);

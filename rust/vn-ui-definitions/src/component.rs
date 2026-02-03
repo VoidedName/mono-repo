@@ -1,8 +1,8 @@
-use vn_scene::Scene;
 use crate::context::UiContext;
 use crate::event::{ElementId, InteractionEvent};
 use crate::geometry::ElementSize;
 use crate::layout::SizeConstraints;
+use vn_scene::Scene;
 
 /// Represents a UI component that can be laid out and drawn.
 /// Elements implementing this trait can use the `UiElement` derive macro to automatically implement `ElementImpl`.

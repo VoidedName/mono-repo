@@ -21,20 +21,12 @@ pub fn ui_element(item: TokenStream) -> TokenStream {
 
     let id_field = fields
         .iter()
-        .find(|f| {
-            f.attrs
-                .iter()
-                .any(|a| a.meta.path().is_ident("id"))
-        })
+        .find(|f| f.attrs.iter().any(|a| a.meta.path().is_ident("id")))
         .map(|f| f.ident.as_ref().unwrap());
 
     let params_field = fields
         .iter()
-        .find(|f| {
-            f.attrs
-                .iter()
-                .any(|a| a.meta.path().is_ident("params"))
-        })
+        .find(|f| f.attrs.iter().any(|a| a.meta.path().is_ident("params")))
         .map(|f| f.ident.as_ref().unwrap());
 
     let id_impl = if let Some(id_field) = id_field {
@@ -106,6 +98,8 @@ pub fn ui_element(item: TokenStream) -> TokenStream {
         }
 
         #component_impl
+
+        ::vn_ui_definitions::into_box_impl!(#name);
     };
 
     output.into()

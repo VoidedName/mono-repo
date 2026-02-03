@@ -124,7 +124,7 @@ impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks> LoadTileSe
                 let children = vec![
                     FlexChild::new(save).into_rc_refcell(),
                     FlexChild::new(
-                        Empty::new(world.clone())
+                        Empty::new(params!(), world.clone())
                             .padding(params!(PaddingParams::horizontal(16.0)), world.clone()),
                     )
                     .into_rc_refcell(),
@@ -246,18 +246,23 @@ impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks> LoadTileSe
         );
 
         let grid = Grid::new(
-            params!(args<LoadTileSetMenuState> => GridParams {
-                cols: args.state.tiles_wide,
-                rows: args.state.tiles_high,
-                grid_size: (
-                    args.state.loaded_texture.dimensions.0 as f32 / args.state.tiles_wide as f32,
-                    args.state.loaded_texture.dimensions.1 as f32 / args.state.tiles_high as f32,
-                ),
-                grid_color: Color::WHITE,
-                grid_width: 3.0,
-                child: Box::new(|_, _, _, _| None),
-                event_handler: EventHandler::none(),
-            }),
+            params!(
+                args<LoadTileSetMenuState>,
+                GridParams {
+                    cols: args.state.tiles_wide,
+                    rows: args.state.tiles_high,
+                    grid_size: (
+                        args.state.loaded_texture.dimensions.0 as f32
+                            / args.state.tiles_wide as f32,
+                        args.state.loaded_texture.dimensions.1 as f32
+                            / args.state.tiles_high as f32,
+                    ),
+                    grid_color: Color::WHITE,
+                    grid_width: 3.0,
+                    child: Box::new(|_, _, _, _| None),
+                    event_handler: EventHandler::none(),
+                }
+            ),
             world.clone(),
         );
 
@@ -268,11 +273,12 @@ impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks> LoadTileSe
                 Box::new(Stack::new(
                     vec![
                         Box::new(Texture::new(
-                            params!(args<LoadTileSetMenuState> =>
+                            params!(
+                                args<LoadTileSetMenuState>,
                                 TextureParams {
                                     texture_id: args.state.loaded_texture.id.clone(),
                                     tint: Color::WHITE,
-                                    fit_strategy: FitStrategy::Clip {rotation: 0.0},
+                                    fit_strategy: FitStrategy::Clip { rotation: 0.0 },
                                     uv_rect: Rect {
                                         position: [0.0, 0.0],
                                         size: [1.0, 1.0],
@@ -281,23 +287,29 @@ impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks> LoadTileSe
                                         width: args.state.loaded_texture.dimensions.0 as f32,
                                         height: args.state.loaded_texture.dimensions.1 as f32,
                                     }
-                            }),
+                                }
+                            ),
                             world.clone(),
                         )),
                         Box::new(grid),
                     ],
                     world.clone(),
                 )),
-                params!(args<LoadTileSetMenuState> =>
+                params!(
+                    args<LoadTileSetMenuState>,
                     ScrollAreaParams {
                         scroll_x: args.state.loaded_texture_scroll_x.clone(),
                         scroll_y: args.state.loaded_texture_scroll_y.clone(),
                         scroll_action_handler: EventHandler::new(|_, e| {
-                                match e {
-                                    ScrollAreaAction::ScrollX(v) => vec![LoadTileSetMenuEvent::TexturePreviewScrollX(v)],
-                                    ScrollAreaAction::ScrollY(v) => vec![LoadTileSetMenuEvent::TexturePreviewScrollY(v)],
+                            match e {
+                                ScrollAreaAction::ScrollX(v) => {
+                                    vec![LoadTileSetMenuEvent::TexturePreviewScrollX(v)]
                                 }
-                            }),
+                                ScrollAreaAction::ScrollY(v) => {
+                                    vec![LoadTileSetMenuEvent::TexturePreviewScrollY(v)]
+                                }
+                            }
+                        }),
                     }
                 ),
                 world.clone(),
@@ -389,7 +401,7 @@ impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks> LoadTileSe
                 1.0,
             )
             .into_rc_refcell(),
-            FlexChild::weighted(Empty::new(world.clone()), 0.0).into_rc_refcell(),
+            FlexChild::weighted(Empty::new(params!(), world.clone()), 0.0).into_rc_refcell(),
             FlexChild::new(error).into_rc_refcell(),
             FlexChild::new(actions).into_rc_refcell(),
         ];
