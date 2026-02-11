@@ -1,5 +1,6 @@
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use vn_ui_animation_macros::Interpolatable;
 
 fn hash_f32<H: Hasher>(state: &mut H, f: f32) {
@@ -41,6 +42,8 @@ impl Hash for Color {
         hash_f32(state, self.a);
     }
 }
+
+pub static USE_PREMULTIPLIED_ALPHA: AtomicBool = AtomicBool::new(true);
 
 impl Color {
     pub const WHITE: Self = Self {
@@ -101,15 +104,19 @@ impl Color {
 
     /// Returns a new color with the specified opacity, adjusting RGB values for premultiplied alpha.
     pub fn with_alpha(self, opacity: f32) -> Self {
-        if opacity == 0.0 || self.a == 0.0 {
-            return Self::TRANSPARENT;
-        }
+        if USE_PREMULTIPLIED_ALPHA.load(Ordering::Relaxed) {
+            if opacity == 0.0 || self.a == 0.0 {
+                return Self::TRANSPARENT;
+            }
 
-        Self {
-            r: self.r / self.a * opacity,
-            g: self.g / self.a * opacity,
-            b: self.b / self.a * opacity,
-            a: opacity,
+            Self {
+                r: self.r / self.a * opacity,
+                g: self.g / self.a * opacity,
+                b: self.b / self.a * opacity,
+                a: opacity,
+            }
+        } else {
+            Self { r: self.r, g: self.g, b: self.b, a: opacity }
         }
     }
 
@@ -474,4 +481,112 @@ pub struct GlyphData {
     pub size: [f32; 2],
     /// NDC coordinates.
     pub uv_rect: Rect,
+}
+
+pub type SceneSize = (f32, f32);
+
+/// Represents the entire scene to be rendered, consisting of multiple layers.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GenericScene {
+    layers: Vec<Layer>,
+    active_layers: Vec<usize>,
+    scene_size: SceneSize,
+}
+
+impl ConstructableScene for GenericScene {
+    /// Creates a new scene with a single initial layer.
+    fn new(size: SceneSize) -> Self {
+        let mut scene = Self {
+            layers: vec![],
+            active_layers: vec![],
+            scene_size: size,
+        };
+
+        scene.push_layer_on_top();
+        scene.scene_size = size;
+        scene
+    }
+}
+
+impl GenericScene {
+    fn push_layer_on_top(&mut self) {
+        let index = self.layers.len();
+        self.layers.push(Layer::new());
+        self.active_layers.push(index);
+    }
+
+    fn push_layer(&mut self) {
+        let next_layer = self.active_layers.last().unwrap() + 1;
+        if next_layer >= self.layers.len() {
+            self.push_layer_on_top();
+        } else {
+            self.active_layers.push(next_layer);
+        }
+    }
+
+    fn pop_layer(&mut self) {
+        self.active_layers.pop();
+    }
+
+    fn active_layer(&mut self) -> &mut Layer {
+        let index = *self
+            .active_layers
+            .last()
+            .expect("No active layer! Did you pop too many times?");
+        &mut self.layers[index]
+    }
+}
+
+impl Scene for GenericScene {
+    fn add_box(&mut self, b: BoxPrimitiveData) {
+        self.active_layer().add_box(b);
+    }
+
+    fn add_image(&mut self, i: ImagePrimitiveData) {
+        self.active_layer().add_image(i);
+    }
+
+    fn add_text(&mut self, t: TextPrimitiveData) {
+        self.active_layer().add_text(t);
+    }
+
+    fn with_next_layer(&mut self, f: &mut dyn FnMut(&mut dyn Scene)) {
+        self.push_layer();
+        f(self);
+        self.pop_layer();
+    }
+
+    fn with_top_layer(&mut self, f: &mut dyn FnMut(&mut dyn Scene)) {
+        self.push_layer_on_top();
+        f(self);
+        self.pop_layer();
+    }
+
+    fn current_layer_id(&self) -> u32 {
+        *self.active_layers.last().unwrap() as u32
+    }
+
+    fn layers(&self) -> &[Layer] {
+        &self.layers
+    }
+
+    fn extend(&mut self, other: &mut dyn Scene) {
+        for layer in other.layers() {
+            self.with_top_layer(&mut |s| {
+                for b in &layer.boxes {
+                    Scene::add_box(s, b.clone());
+                }
+                for i in &layer.images {
+                    Scene::add_image(s, i.clone());
+                }
+                for t in &layer.texts {
+                    Scene::add_text(s, t.clone());
+                }
+            })
+        }
+    }
+
+    fn scene_size(&self) -> SceneSize {
+        self.scene_size
+    }
 }

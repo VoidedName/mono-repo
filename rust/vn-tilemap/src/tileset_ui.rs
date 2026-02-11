@@ -94,19 +94,21 @@ impl<State, Message> ElementImpl for TileMap<State, Message> {
                     .max(0.0) as u32;
 
                 let end_x = ((ctx.clip_rect.position[0] + ctx.clip_rect.size[0] - origin.0)
-                    / params.draw_tile_size.width)
+                    / params.draw_tile_size.width
+                    + 1.0)
                     .max(start_x as f32)
                     .min(params.specification.map_dimensions.0 as f32)
                     as u32;
                 let end_y = ((ctx.clip_rect.position[1] + ctx.clip_rect.size[1] - origin.1)
-                    / params.draw_tile_size.height)
+                    / params.draw_tile_size.height
+                    + 1.0)
                     .max(start_y as f32)
                     .min(params.specification.map_dimensions.1 as f32)
                     as u32;
 
-                for x in start_x..end_x {
-                    for y in start_y..end_y {
-                        for (layer, texture) in specs {
+                for (layer, texture) in specs {
+                    for x in start_x..end_x {
+                        for y in start_y..end_y {
                             let tile_id = layer
                                 .map
                                 .tiles
@@ -156,6 +158,10 @@ impl<State, Message> ElementImpl for TileMap<State, Message> {
         _event: &InteractionEvent,
     ) -> Vec<Self::Message> {
         vec![]
+    }
+
+    fn invalidated_impl(&self, _ctx: &UiContext, _state: &Self::State) -> bool {
+        false
     }
 }
 

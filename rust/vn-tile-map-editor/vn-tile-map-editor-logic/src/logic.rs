@@ -10,7 +10,7 @@ use std::pin::Pin;
 use std::rc::Rc;
 use thiserror::Error;
 use vn_ui::*;
-use vn_wgpu_window::StateLogic;
+use vn_wgpu_window::{Renderer, StateLogic};
 use vn_wgpu_window::graphics::GraphicsContext;
 use vn_wgpu_window::resource_manager::{ResourceManager, Sampling};
 use vn_wgpu_window::scene_renderer::SceneRenderer;
@@ -21,7 +21,7 @@ use winit::event_loop::ActiveEventLoop;
 pub mod app_state;
 pub mod grid;
 pub use grid::*;
-use vn_scene::{CloneableScene, ConstructableScene};
+use vn_scene::{CloneableScene, ConstructableScene, GenericScene};
 use vn_wgpu_window::rendering_context::EventDispatcher;
 
 pub struct TextMetric {
@@ -227,6 +227,7 @@ pub struct MainLogic<
     platform: Rc<Platform>,
     app_state: Option<ApplicationState<S, Platform>>,
     dispatcher: Rc<EventDispatcher<MainLogic<S, Platform>, SceneRenderer<S>>>,
+    sub_scene_renderer: Rc<RefCell<SceneRenderer<GenericScene>>>,
 }
 
 pub struct ApplicationContext<
@@ -279,6 +280,10 @@ impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks + 'static>
 
         Ok(Self {
             dispatcher,
+            sub_scene_renderer: Rc::new(RefCell::new(SceneRenderer::new(
+                graphics_context.clone(),
+                resource_manager.clone(),
+            ))),
             resource_manager,
             mouse_position: (0.0, 0.0),
             size: graphics_context.size(),
@@ -357,7 +362,7 @@ impl<S: CloneableScene + ConstructableScene + 'static, Platform: PlatformHooks +
         if let Some(state) = self.app_state.take() {
             match state {
                 ApplicationState::Editor(mut editor) => {
-                    if let Some(event) = editor.process_events() {
+                    if let Some(event) = editor.process_events(self.sub_scene_renderer.clone()) {
                         match event {
                             ApplicationEvent::NewLayer(already_loaded, editor_callback) => {
                                 return self.update_state(ApplicationState::NewLayerMenu(
@@ -387,7 +392,7 @@ impl<S: CloneableScene + ConstructableScene + 'static, Platform: PlatformHooks +
                     self.update_state(ApplicationState::Editor(editor));
                 }
                 ApplicationState::LoadTileSetMenu(mut menu) => {
-                    if let Some(event) = menu.process_events() {
+                    if let Some(event) = menu.process_events(self.sub_scene_renderer.clone()) {
                         match event {
                             ApplicationEvent::TilesetLoaded(tiles) => {
                                 log::info!("Loaded tiles {:?}", tiles);
@@ -410,7 +415,7 @@ impl<S: CloneableScene + ConstructableScene + 'static, Platform: PlatformHooks +
                     self.update_state(ApplicationState::LoadTileSetMenu(menu));
                 }
                 ApplicationState::NewLayerMenu(mut new_menu) => {
-                    if let Some(event) = new_menu.process_events() {
+                    if let Some(event) = new_menu.process_events(self.sub_scene_renderer.clone()) {
                         match event {
                             ApplicationEvent::TilesetLoadCanceled => {
                                 return self
@@ -549,7 +554,7 @@ impl<S: CloneableScene + ConstructableScene + 'static, Platform: PlatformHooks +
         self.fps_stats.borrow_mut().tick();
 
         let scene = if let Some(state) = self.app_state.as_ref() {
-            state.render_target((self.size.0 as f32, self.size.1 as f32))
+            state.render_target((self.size.0 as f32, self.size.1 as f32), self.sub_scene_renderer.clone())
         } else {
             S::new((self.size.0 as f32, self.size.1 as f32))
         };

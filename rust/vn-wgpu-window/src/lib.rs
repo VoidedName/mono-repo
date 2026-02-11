@@ -7,7 +7,6 @@ pub mod primitives;
 mod renderer;
 pub mod rendering_context;
 pub mod resource_manager;
-pub mod scene;
 pub mod scene_renderer;
 pub mod text;
 pub use text::Glyph;
@@ -22,7 +21,6 @@ pub use primitives::{
 };
 pub use renderer::Renderer;
 pub use rendering_context::RenderingContext;
-pub use scene::WgpuScene;
 pub use scene_renderer::SceneRenderer;
 pub use texture::Texture;
 

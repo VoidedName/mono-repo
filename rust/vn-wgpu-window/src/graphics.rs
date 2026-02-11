@@ -2,8 +2,10 @@ use crate::errors::RenderError;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
-use wgpu::TextureFormat;
+use std::sync::atomic::Ordering;
+use wgpu::{BackendOptions, TextureFormat};
 use winit::window::Window;
+use vn_scene::USE_PREMULTIPLIED_ALPHA;
 
 /// Wraps the core wgpu device and queue.
 pub struct WgpuContext {
@@ -65,15 +67,16 @@ impl GraphicsContext {
         let surface_format = TextureFormat::Rgba8Unorm;
 
         log::info!("Surface format: {:?}", surface_format);
-
         let alpha_mode = if surface_capabilities
             .alpha_modes
             .contains(&wgpu::CompositeAlphaMode::PreMultiplied)
         {
             wgpu::CompositeAlphaMode::PreMultiplied
         } else {
-            surface_capabilities.alpha_modes[0]
+            wgpu::CompositeAlphaMode::Opaque
         };
+
+        USE_PREMULTIPLIED_ALPHA.store(alpha_mode == wgpu::CompositeAlphaMode::PreMultiplied, Ordering::Relaxed);
 
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT

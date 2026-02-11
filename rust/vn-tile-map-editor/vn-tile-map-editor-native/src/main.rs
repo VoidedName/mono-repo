@@ -4,8 +4,8 @@ use std::future::Future;
 use std::io::Read;
 use std::path::PathBuf;
 use std::pin::Pin;
+use vn_scene::GenericScene;
 use vn_tile_map_editor_logic::logic::{File, FileDescriptor, FileLoadingError, PlatformHooks};
-use vn_wgpu_window::WgpuScene;
 
 pub async fn load_file(file_to_load: FileDescriptor) -> anyhow::Result<File, FileLoadingError> {
     let mut path = PathBuf::from(&file_to_load.path).join(&file_to_load.name);
@@ -150,6 +150,6 @@ fn main() {
         log_style
     );
 
-    vn_tile_map_editor_logic::init::<WgpuScene, NativePlatformHooks>(NativePlatformHooks {})
+    vn_tile_map_editor_logic::init::<GenericScene, NativePlatformHooks>(NativePlatformHooks {})
         .expect("Failed to initialize!");
 }

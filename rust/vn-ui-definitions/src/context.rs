@@ -14,6 +14,16 @@ pub struct UiContext {
     pub clip_rect: Rect,
     /// Now should never change within a render cycle (i.e. between layout and render calls)
     pub now: web_time::Instant,
+    pub scene_renderer: Rc<RefCell<dyn SceneRendererHook>>,
+}
+
+pub trait SceneRendererHook {
+    fn render_to_texture(
+        &self,
+        scene: &dyn vn_scene::Scene,
+        size: (f32, f32),
+        previous: Option<vn_scene::TextureId>,
+    ) -> vn_scene::TextureId;
 }
 
 impl UiContext {
@@ -21,6 +31,7 @@ impl UiContext {
         event_manager: Rc<RefCell<EventManager>>,
         layout_cache: Box<dyn LayoutCache>,
         now: web_time::Instant,
+        scene_renderer: Rc<RefCell<dyn SceneRendererHook>>,
     ) -> Self {
         Self {
             event_manager,
@@ -29,6 +40,7 @@ impl UiContext {
             interactive: true,
             clip_rect: Rect::NO_CLIP,
             now,
+            scene_renderer,
         }
     }
 

@@ -44,7 +44,7 @@ pub fn ui_element(item: TokenStream) -> TokenStream {
     let component_impl = if let Some(params_field) = params_field {
         quote! {
             impl #impl_generics #name #type_generics #where_clause {
-                fn params(&self, state: &<Self as ::vn_ui_definitions::ElementImpl>::State, ctx: &mut ::vn_ui_definitions::UiContext) -> <Self as ::vn_ui_definitions::Component>::Params {
+                fn params(&self, state: &<Self as ::vn_ui_definitions::ElementImpl>::State, ctx: &::vn_ui_definitions::UiContext) -> <Self as ::vn_ui_definitions::Component>::Params {
                     self.#params_field.call(::vn_ui_definitions::StateToParamsArgs {
                         state,
                         id: self.id_impl(),
@@ -94,6 +94,11 @@ pub fn ui_element(item: TokenStream) -> TokenStream {
             ) -> Vec<Self::Message> {
                 let params = self.params(state, ctx);
                 <Self as ::vn_ui_definitions::Component>::handle_event(self, ctx, state, &params, event)
+            }
+
+            fn invalidated_impl(&self, ctx: &::vn_ui_definitions::UiContext, state: &Self::State) -> bool {
+                let params = self.params(state, ctx);
+                <Self as ::vn_ui_definitions::Component>::invalidated(self, ctx, state, &params)
             }
         }
 

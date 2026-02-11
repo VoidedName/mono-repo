@@ -8,6 +8,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 vn-scene = { path = "../vn-scene" }
+vn-ui = { path = "../vn-ui" }
 vn-utils = { path = "../vn-utils" }
 log = { workspace = true }
 winit = { workspace = true }

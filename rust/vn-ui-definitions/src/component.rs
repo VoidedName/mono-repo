@@ -38,6 +38,10 @@ pub trait Component {
         params: &Self::Params,
         event: &InteractionEvent,
     ) -> Vec<Self::Message>;
+
+    fn invalidated(&self, _ctx: &UiContext, _state: &Self::State, _params: &Self::Params) -> bool {
+        true
+    }
 }
 
 pub struct ChildElement<State, Message> {
@@ -118,6 +122,12 @@ pub trait ElementImpl {
         state: &Self::State,
         event: &InteractionEvent,
     ) -> Vec<Self::Message>;
+
+    /// Returns true if the element needs to be recalculated (layout or draw).
+    /// This is used to invalidate caches.
+    fn invalidated_impl(&self, ctx: &UiContext, state: &Self::State) -> bool {
+        true
+    }
 }
 
 /// Represents a UI element that can be laid out and drawn.
@@ -126,6 +136,11 @@ pub trait Element: ElementImpl {
     /// Returns the unique ID of this element.
     fn id(&self) -> ElementId {
         self.id_impl()
+    }
+
+    /// Returns true if the element needs to be recalculated.
+    fn invalidated(&self, ctx: &UiContext, state: &Self::State) -> bool {
+        self.invalidated_impl(ctx, state)
     }
 
     /// Call this method to perform the layouting work. It must be called before drawing the element.
@@ -138,8 +153,10 @@ pub trait Element: ElementImpl {
         state: &Self::State,
         constraints: SizeConstraints,
     ) -> ElementSize {
-        if let Some(cached_size) = ctx.layout_cache.lookup(self.id(), constraints) {
-            return cached_size;
+        if !self.invalidated(ctx, state) {
+            if let Some(cached_size) = ctx.layout_cache.lookup(self.id(), constraints) {
+                return cached_size;
+            }
         }
 
         let size = self.layout_impl(ctx, state, constraints);

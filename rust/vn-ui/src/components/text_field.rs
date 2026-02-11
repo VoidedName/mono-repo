@@ -7,7 +7,10 @@ use crate::{
 };
 use std::cell::RefCell;
 use std::rc::Rc;
-use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, TextPrimitiveData, Transform};
+use vn_scene::{
+    BoxPrimitiveData, Color, ConstructableScene, GenericScene, ImagePrimitiveData, Rect, Scene,
+    TextPrimitiveData, TextureId, Transform,
+};
 use web_time::Instant;
 
 #[derive(Clone, PartialEq, Interpolatable)]
@@ -55,6 +58,8 @@ pub struct TextField<State: 'static, Message: 'static> {
     show_caret: bool,
     line_height: f32,
     last_max_width: Option<f32>,
+    needs_baking: bool,
+    baked: Option<((f32, f32), TextureId)>,
     _phantom: std::marker::PhantomData<Message>,
 }
 
@@ -68,6 +73,8 @@ impl<State: 'static, Message: 'static> TextField<State, Message> {
             line_height: 0.0,
             visuals: None,
             layout: None,
+            needs_baking: true,
+            baked: None,
             params: params.into(),
             show_caret: false,
             gained_focus_at: None,
@@ -119,6 +126,8 @@ impl<State: 'static, Message: 'static> TextField<State, Message> {
             };
             self.layout = Some(layout);
             self.visuals = Some(params.visuals.clone());
+
+            self.needs_baking = true;
         }
         changed
     }
@@ -179,6 +188,8 @@ impl<State, Message: Clone> ElementImpl for TextField<State, Message> {
         size: ElementSize,
         scene: &mut dyn Scene,
     ) {
+        let origin = (origin.0.round(), origin.1.round());
+
         let params = self.params.call(crate::StateToParamsArgs {
             state,
             id: self.id,
@@ -202,9 +213,12 @@ impl<State, Message: Clone> ElementImpl for TextField<State, Message> {
         }
         .intersect(&ctx.clip_rect);
 
-        ctx.with_hitbox_hierarchy(self.id, scene.current_layer_id(), clip, |_| {
-            let clip_rect = clip;
+        if self.needs_baking {
             if let Some(layout) = &self.layout {
+                self.needs_baking = false;
+
+                let mut sub_scene = GenericScene::new((layout.total_width, layout.total_height));
+
                 for (i, line) in layout.lines.iter().enumerate() {
                     let line_y_offset = i as f32 * self.line_height;
 
@@ -220,16 +234,42 @@ impl<State, Message: Clone> ElementImpl for TextField<State, Message> {
                         current_x += glyph.advance;
                     }
 
-                    scene.add_text(TextPrimitiveData {
+                    sub_scene.add_text(TextPrimitiveData {
                         transform: Transform {
-                            translation: [origin.0 + caret_space / 2.0, origin.1 + line_y_offset],
+                            translation: [caret_space / 2.0, line_y_offset],
                             ..Transform::DEFAULT
                         },
                         tint: visuals.color,
                         glyphs,
-                        clip_rect,
+                        clip_rect: Rect::NO_CLIP,
                     });
+
+                    self.baked.replace((
+                        sub_scene.scene_size(),
+                        ctx.scene_renderer.borrow().render_to_texture(
+                            &sub_scene,
+                            sub_scene.scene_size(),
+                            self.baked.as_ref().map(|(_, id)| id.clone()),
+                        ),
+                    ));
                 }
+            }
+        }
+
+        ctx.with_hitbox_hierarchy(self.id, scene.current_layer_id(), clip, |_| {
+            let clip_rect = clip;
+            if let (Some((baked_size, baked_texture)), Some(layout)) = (&self.baked, &self.layout) {
+                scene.add_image(ImagePrimitiveData {
+                    transform: Transform {
+                        translation: [origin.0 + caret_space / 2.0, origin.1],
+                        ..Transform::DEFAULT
+                    },
+                    size: baked_size.to_array(),
+                    tint: Color::WHITE,
+                    texture_id: baked_texture.clone(),
+                    clip_rect,
+                    uv_rect: Rect::UNIT,
+                });
 
                 if self.show_caret {
                     if let Some(caret_position) = visuals.caret_position {

@@ -112,8 +112,24 @@ impl<T: StateLogic<R>, R: Renderer> RenderingContext<T, R> {
         self.logic.process_events();
 
         let render_target = self.logic.render_target();
+        let (output, view, mut encoder) = R::begin_render_frame(&self.context)?;
 
-        self.renderer.render(&self.context, &render_target)?;
+        let (width, height) = self.context.size();
+
+        self.renderer.render(
+            &self.context.wgpu,
+            &render_target,
+            &view,
+            (width, height),
+            &mut encoder,
+        )?;
+
+        self.context
+            .wgpu
+            .queue
+            .submit(std::iter::once(encoder.finish()));
+
+        output.present();
 
         Ok(())
     }

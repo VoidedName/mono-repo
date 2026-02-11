@@ -42,7 +42,6 @@ pub struct Grid<State: 'static, Message: Clone + 'static> {
     id: ElementId,
     params: StateToParams<State, GridParams<State, Message>>,
     offset: (f32, f32),
-    layout: HashMap<(u32, u32), ElementSize>,
     _phantom: std::marker::PhantomData<Message>,
 }
 
@@ -55,7 +54,6 @@ impl<State: 'static, Message: Clone + 'static> Grid<State, Message> {
             id: world.borrow_mut().next_id(),
             params: params.into(),
             offset: (0.0, 0.0),
-            layout: HashMap::new(),
             _phantom: std::marker::PhantomData,
         }
     }
@@ -80,22 +78,6 @@ impl<State: 'static, Message: Clone + 'static> ElementImpl for Grid<State, Messa
             id: self.id,
             ctx,
         });
-
-        let mut child_constraint = constraints;
-        child_constraint.max_size = DynamicSize {
-            width: DynamicDimension::Limit(params.grid_size.0),
-            height: DynamicDimension::Limit(params.grid_size.1),
-        };
-        child_constraint.min_size = ElementSize::ZERO;
-
-        for x in 0..=params.cols {
-            for y in 0..params.rows {
-                if let Some(child) = (params.child)(&self.id, (x, y), state, ctx) {
-                    let size = child.borrow_mut().layout(ctx, state, child_constraint);
-                    self.layout.insert((x, y), size);
-                }
-            }
-        }
 
         ElementSize {
             width: params.grid_size.0 * params.cols as f32,
@@ -180,9 +162,23 @@ impl<State: 'static, Message: Clone + 'static> ElementImpl for Grid<State, Messa
                     });
                 }
 
+                let child_constraint = SizeConstraints {
+                    min_size: ElementSize::ZERO,
+                    max_size: DynamicSize {
+                        width: DynamicDimension::Limit(params.grid_size.0),
+                        height: DynamicDimension::Limit(params.grid_size.1),
+                    },
+                    scene_size: (size.width, size.height),
+                };
+
+                let mut visible_cells = HashMap::new();
                 for x in start_x..=end_x {
                     for y in start_y..end_y {
                         if let Some(child) = (params.child)(&self.id, (x, y), state, ctx) {
+                            let child_size =
+                                child.borrow_mut().layout(ctx, state, child_constraint);
+                            visible_cells.insert((x, y), child_size);
+
                             child.borrow_mut().draw(
                                 ctx,
                                 state,
@@ -190,7 +186,7 @@ impl<State: 'static, Message: Clone + 'static> ElementImpl for Grid<State, Messa
                                     origin.0 + x as f32 * params.grid_size.0,
                                     origin.1 + y as f32 * params.grid_size.1,
                                 ),
-                                self.layout.get(&(x, y)).unwrap().clone(),
+                                child_size,
                                 scene,
                             )
                         }
@@ -251,6 +247,10 @@ impl<State: 'static, Message: Clone + 'static> ElementImpl for Grid<State, Messa
                 }
                 _ => vec![],
             })
+    }
+
+    fn invalidated_impl(&self, _ctx: &UiContext, _state: &Self::State) -> bool {
+        false
     }
 }
 

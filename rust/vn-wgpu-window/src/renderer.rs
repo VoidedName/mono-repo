@@ -1,6 +1,7 @@
 use crate::GraphicsContext;
 use crate::resource_manager::ResourceManager;
 use std::rc::Rc;
+use crate::graphics::WgpuContext;
 
 /// A trait for types that can render a specific target using a [`GraphicsContext`].
 pub trait Renderer {
@@ -9,11 +10,14 @@ pub trait Renderer {
 
     fn new(context: Rc<GraphicsContext>, resource_manager: Rc<ResourceManager>) -> Self;
 
-    /// Renders the target to the current surface.
+    /// Renders the target to the specified texture view.
     fn render(
         &mut self,
-        graphics_context: &GraphicsContext,
+        wgpu: &WgpuContext,
         target: &Self::RenderTarget,
+        target_view: &wgpu::TextureView,
+        target_size: (u32, u32),
+        encoder: &mut wgpu::CommandEncoder,
     ) -> Result<(), wgpu::SurfaceError>;
 
     /// Prepares the graphics context for a new frame, returning the surface texture, view, and encoder.

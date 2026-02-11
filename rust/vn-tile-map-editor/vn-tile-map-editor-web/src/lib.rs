@@ -4,8 +4,8 @@ use wasm_bindgen::prelude::*;
 
 use js_sys::Promise;
 use vn_tile_map_editor_logic::logic::{File, FileDescriptor, FileLoadingError, PlatformHooks};
-use vn_wgpu_window::WgpuScene;
 use wasm_bindgen_futures::JsFuture;
+use vn_scene::GenericScene;
 
 #[wasm_bindgen(module = "/src/helpers.js")]
 extern "C" {
@@ -138,7 +138,7 @@ pub fn main_web() -> Result<(), JsValue> {
     console_log::init_with_level(log::Level::Info).expect("Failed to initialize console_log");
     log::info!("Logging initialized with level: {:?}", log::Level::Info);
 
-    vn_tile_map_editor_logic::init::<WgpuScene, WebPlatformHooks>(WebPlatformHooks)
+    vn_tile_map_editor_logic::init::<GenericScene, WebPlatformHooks>(WebPlatformHooks)
         .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     Ok(())

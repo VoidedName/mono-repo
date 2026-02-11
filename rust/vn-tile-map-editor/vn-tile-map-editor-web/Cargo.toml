@@ -15,6 +15,7 @@ crate-type = ["cdylib"]
 [dependencies]
 vn-tile-map-editor-logic = { path = "../vn-tile-map-editor-logic" }
 vn-wgpu-window = { path = "../../vn-wgpu-window" }
+vn-scene = { path = "../../vn-scene" }
 wasm-bindgen = { workspace = true }
 console_error_panic_hook = { workspace = true }
 console_log = { workspace = true }

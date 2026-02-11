@@ -18,12 +18,17 @@ pub use new_layer_menu::*;
 pub mod ui_helper;
 use crate::logic::{ApplicationEvent, EditorCallback, PlatformHooks};
 pub use ui_helper::*;
-use vn_scene::{CloneableScene, ConstructableScene, TextureId};
+use vn_scene::{CloneableScene, ConstructableScene, GenericScene, Scene, TextureId};
 use vn_ui::InteractionEventKind::MouseScroll;
 use vn_ui::{
     DynamicDimension, DynamicSize, Element, ElementSize, EventManager, InteractionEventKind,
     SimpleLayoutCache, SizeConstraints, UiContext,
 };
+use vn_wgpu_window::SceneRenderer;
+
+pub struct GeneralSceneSubRendererHook {
+    scene_renderer: Rc<RefCell<SceneRenderer<GenericScene>>>,
+}
 
 pub trait ApplicationStateEx {
     type StateEvent;
@@ -38,7 +43,7 @@ pub trait ApplicationStateEx {
 
     fn update(&mut self) {}
 
-    fn process_events(&mut self) -> Option<Self::ApplicationEvent> {
+    fn process_events(&mut self, sub_scene_renderer: Rc<RefCell<SceneRenderer<GenericScene>>>) -> Option<Self::ApplicationEvent> {
         self.update();
 
         let events = self.event_manager().borrow_mut().process_events();
@@ -50,6 +55,7 @@ pub trait ApplicationStateEx {
             interactive: true,
             clip_rect: vn_scene::Rect::NO_CLIP,
             now: Instant::now(),
+            scene_renderer: sub_scene_renderer,
         };
 
         for event in &events {
@@ -67,7 +73,11 @@ pub trait ApplicationStateEx {
         None
     }
 
-    fn render_target(&self, size: (f32, f32)) -> Self::Scene {
+    fn render_target(
+        &self,
+        size: (f32, f32),
+        sub_scene_renderer: Rc<RefCell<SceneRenderer<GenericScene>>>,
+    ) -> Self::Scene {
         let mut scene = Self::Scene::new((size.0, size.1));
 
         let event_manager = self.event_manager().clone();
@@ -80,6 +90,7 @@ pub trait ApplicationStateEx {
             interactive: true,
             clip_rect: vn_scene::Rect::NO_CLIP,
             now: Instant::now(),
+            scene_renderer: sub_scene_renderer,
         };
 
         self.ui().borrow_mut().layout(
@@ -260,12 +271,12 @@ macro_rules! dispatch {
 impl<S: CloneableScene + ConstructableScene, Platform: PlatformHooks + 'static>
     ApplicationState<S, Platform>
 {
-    pub fn process_events(&mut self) -> Option<ApplicationEvent<S, Platform>> {
-        dispatch!(self, inner, inner.process_events())
+    pub fn process_events(&mut self, sub_scene_renderer: Rc<RefCell<SceneRenderer<GenericScene>>>) -> Option<ApplicationEvent<S, Platform>> {
+        dispatch!(self, inner, inner.process_events(sub_scene_renderer))
     }
 
-    pub fn render_target(&self, size: (f32, f32)) -> S {
-        dispatch!(self, inner, inner.render_target(size))
+    pub fn render_target(&self, size: (f32, f32), sub_scene_renderer: Rc<RefCell<SceneRenderer<GenericScene>>>) -> S {
+        dispatch!(self, inner, inner.render_target(size, sub_scene_renderer))
     }
 
     pub fn handle_key(&mut self, event: &KeyEvent) {
@@ -310,10 +321,10 @@ impl<S: CloneableScene + ConstructableScene + 'static, Platform: PlatformHooks +
         self.menu.state()
     }
 
-    fn render_target(&self, size: (f32, f32)) -> S {
-        let mut menu = self.menu.render_target(size);
-        let mut new_menu = self.new_layer_menu.render_target(size);
-        let mut editor = self.editor.render_target(size);
+    fn render_target(&self, size: (f32, f32), sub_scene_renderer: Rc<RefCell<SceneRenderer<GenericScene>>>) -> S {
+        let mut menu = self.menu.render_target(size, sub_scene_renderer.clone());
+        let mut new_menu = self.new_layer_menu.render_target(size, sub_scene_renderer.clone());
+        let mut editor = self.editor.render_target(size, sub_scene_renderer.clone());
         editor.extend(&mut new_menu);
         editor.extend(&mut menu);
         editor
@@ -340,10 +351,10 @@ impl<S: CloneableScene + ConstructableScene + 'static, Platform: PlatformHooks +
         self.menu.ui()
     }
 
-    fn render_target(&self, size: (f32, f32)) -> Self::Scene {
-        let mut menu = self.menu.render_target(size);
+    fn render_target(&self, size: (f32, f32), sub_scene_renderer: Rc<RefCell<SceneRenderer<GenericScene>>>) -> Self::Scene {
+        let mut menu = self.menu.render_target(size, sub_scene_renderer.clone());
         self.editor.event_manager().borrow_mut().clear_hitboxes();
-        let mut editor = self.editor.render_target(size);
+        let mut editor = self.editor.render_target(size, sub_scene_renderer.clone());
         editor.extend(&mut menu);
         editor
     }

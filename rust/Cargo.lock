@@ -2177,6 +2177,7 @@ dependencies = [
  "log",
  "pollster",
  "rfd",
+ "vn-scene",
  "vn-tile-map-editor-logic",
  "vn-wgpu-window",
 ]
@@ -2191,6 +2192,7 @@ dependencies = [
  "js-sys",
  "log",
  "rfd",
+ "vn-scene",
  "vn-tile-map-editor-logic",
  "vn-wgpu-window",
  "wasm-bindgen",
@@ -2282,6 +2284,7 @@ dependencies = [
  "thiserror 2.0.18",
  "ttf-parser",
  "vn-scene",
+ "vn-ui",
  "vn-utils",
  "wasm-bindgen",
  "wasm-bindgen-futures",

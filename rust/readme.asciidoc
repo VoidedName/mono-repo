@@ -102,3 +102,4 @@ The VN-Suit is designed with several core principles to ensure flexibility and p
 - [ ] Documentation: Move from basic READMEs to comprehensive documentation.
 - [ ] Testing: Implement automated UI and rendering tests.
 - [ ] ECS: WIP
+- [ ] Fix Colors -> colors show up darker than they should

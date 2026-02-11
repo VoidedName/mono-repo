@@ -372,7 +372,7 @@ pub fn with_fps<
         },
         UI_FONT,
         UI_FONT_SIZE,
-        Color::WHITE.with_alpha(0.5),
+        Color::WHITE.with_alpha(0.75),
         metrics,
         world.clone(),
     )
