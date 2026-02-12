@@ -2152,7 +2152,7 @@ dependencies = [
 
 [[package]]
 name = "vn-tile-map-editor-logic"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "log",
@@ -2170,7 +2170,7 @@ dependencies = [
 
 [[package]]
 name = "vn-tile-map-editor-native"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "env_logger",
@@ -2184,7 +2184,7 @@ dependencies = [
 
 [[package]]
 name = "vn-tile-map-editor-web"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "console_error_panic_hook",
@@ -2201,7 +2201,7 @@ dependencies = [
 
 [[package]]
 name = "vn-tilemap"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "log",
  "serde",
