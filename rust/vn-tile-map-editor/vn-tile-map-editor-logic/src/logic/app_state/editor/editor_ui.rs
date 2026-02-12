@@ -432,6 +432,7 @@ pub fn editor<S: CloneableScene + ConstructableScene, Platform: PlatformHooks>(
                         .clone())
                     .collect(),
                 specification: args.state.tile_map.clone(),
+                chunk_size: (1024 / 32, 1024 / 32),
             }
         ),
         world.clone(),

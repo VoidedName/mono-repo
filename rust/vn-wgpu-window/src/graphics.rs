@@ -3,9 +3,9 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
-use wgpu::{BackendOptions, TextureFormat};
-use winit::window::Window;
 use vn_scene::USE_PREMULTIPLIED_ALPHA;
+use wgpu::TextureFormat;
+use winit::window::Window;
 
 /// Wraps the core wgpu device and queue.
 pub struct WgpuContext {
@@ -76,7 +76,10 @@ impl GraphicsContext {
             wgpu::CompositeAlphaMode::Opaque
         };
 
-        USE_PREMULTIPLIED_ALPHA.store(alpha_mode == wgpu::CompositeAlphaMode::PreMultiplied, Ordering::Relaxed);
+        USE_PREMULTIPLIED_ALPHA.store(
+            alpha_mode == wgpu::CompositeAlphaMode::PreMultiplied,
+            Ordering::Relaxed,
+        );
 
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT

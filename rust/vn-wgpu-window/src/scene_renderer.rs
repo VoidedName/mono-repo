@@ -14,9 +14,9 @@ use std::hash::Hash;
 use std::ops::{Index, Range};
 use std::rc::Rc;
 use vn_scene::{CloneableScene, Rect, Scene};
-use wgpu::{include_wgsl, CommandEncoder};
-use wgpu::util::DeviceExt;
 use vn_ui::SceneRendererHook;
+use wgpu::util::DeviceExt;
+use wgpu::{CommandEncoder, include_wgsl};
 
 struct GlobalResources {
     quad_vertex_buffer: wgpu::Buffer,
@@ -84,15 +84,13 @@ impl<S: CloneableScene> SceneRenderer<S> {
             self.box_instance_buffer_capacity
                 .set(needed_capacity.next_power_of_two());
             *self.box_instance_buffer.borrow_mut() =
-                wgpu
-                    .device
-                    .create_buffer(&wgpu::BufferDescriptor {
-                        label: Some("Box Instance Buffer"),
-                        size: (self.box_instance_buffer_capacity.get() * size_of::<BoxPrimitive>())
-                            as u64,
-                        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                        mapped_at_creation: false,
-                    });
+                wgpu.device.create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("Box Instance Buffer"),
+                    size: (self.box_instance_buffer_capacity.get() * size_of::<BoxPrimitive>())
+                        as u64,
+                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                    mapped_at_creation: false,
+                });
             self.box_instance_buffer_offset.set(0);
         }
 
@@ -235,15 +233,13 @@ impl<S: CloneableScene> SceneRenderer<S> {
             self.instance_buffer_capacity
                 .set(needed_capacity.next_power_of_two());
             *self.instance_buffer.borrow_mut() =
-                wgpu
-                    .device
-                    .create_buffer(&wgpu::BufferDescriptor {
-                        label: Some("Instance Buffer"),
-                        size: (self.instance_buffer_capacity.get() * size_of::<_TexturePrimitive>())
-                            as u64,
-                        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                        mapped_at_creation: false,
-                    });
+                wgpu.device.create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("Instance Buffer"),
+                    size: (self.instance_buffer_capacity.get() * size_of::<_TexturePrimitive>())
+                        as u64,
+                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                    mapped_at_creation: false,
+                });
             self.instance_buffer_offset.set(0);
         }
 
@@ -256,22 +252,20 @@ impl<S: CloneableScene> SceneRenderer<S> {
             bytemuck::cast_slice(batch),
         );
 
-        let bind_group = wgpu
-            .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("Texture Bind Group"),
-                layout: &self.texture_pipeline.bind_group_layouts[1],
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&texture.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&texture.sampler),
-                    },
-                ],
-            });
+        let bind_group = wgpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Texture Bind Group"),
+            layout: &self.texture_pipeline.bind_group_layouts[1],
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&texture.sampler),
+                },
+            ],
+        });
 
         render_pass.set_bind_group(1, &bind_group, &[]);
         render_pass.set_vertex_buffer(1, self.instance_buffer.borrow().slice(offset_bytes..));
@@ -630,11 +624,12 @@ impl<S: CloneableScene> SceneRendererHook for SceneRenderer<S> {
         previous: Option<TextureId>,
     ) -> TextureId {
         let (width, height) = (size.0 as u32, size.1 as u32);
-        
+
         // Find or create a texture to render into
-        let texture = if let Some(id) = previous 
-            && let Some(tex) = self.resource_manager.get_texture(id.clone()) 
-            && tex.size == (width, height) {
+        let texture = if let Some(id) = previous
+            && let Some(tex) = self.resource_manager.get_texture(id.clone())
+            && tex.size == (width, height)
+        {
             tex
         } else {
             let tex = Rc::new(Texture::create_render_target(
@@ -645,10 +640,12 @@ impl<S: CloneableScene> SceneRendererHook for SceneRenderer<S> {
             self.resource_manager.add_texture(tex.clone());
             tex
         };
-        
-        let mut encoder = self.graphics_context.wgpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Bake Scene Encoder"),
-        });
+
+        let mut encoder = self.graphics_context.wgpu.device.create_command_encoder(
+            &wgpu::CommandEncoderDescriptor {
+                label: Some("Bake Scene Encoder"),
+            },
+        );
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -680,7 +677,6 @@ impl<S: CloneableScene> SceneRendererHook for SceneRenderer<S> {
 
             self.instance_buffer_offset.set(0);
             self.box_instance_buffer_offset.set(0);
-
 
             for layer in scene.layers() {
                 self.render_boxes(
@@ -748,7 +744,10 @@ impl<S: CloneableScene> SceneRendererHook for SceneRenderer<S> {
             }
         }
 
-        self.graphics_context.wgpu.queue.submit(std::iter::once(encoder.finish()));
+        self.graphics_context
+            .wgpu
+            .queue
+            .submit(std::iter::once(encoder.finish()));
 
         texture.id.clone()
     }

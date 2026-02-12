@@ -125,7 +125,7 @@ pub trait ElementImpl {
 
     /// Returns true if the element needs to be recalculated (layout or draw).
     /// This is used to invalidate caches.
-    fn invalidated_impl(&self, ctx: &UiContext, state: &Self::State) -> bool {
+    fn invalidated_impl(&self, _ctx: &UiContext, _state: &Self::State) -> bool {
         true
     }
 }

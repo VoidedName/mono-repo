@@ -10,10 +10,10 @@ use std::pin::Pin;
 use std::rc::Rc;
 use thiserror::Error;
 use vn_ui::*;
-use vn_wgpu_window::{Renderer, StateLogic};
 use vn_wgpu_window::graphics::GraphicsContext;
 use vn_wgpu_window::resource_manager::{ResourceManager, Sampling};
 use vn_wgpu_window::scene_renderer::SceneRenderer;
+use vn_wgpu_window::{Renderer, StateLogic};
 use web_time::Instant;
 use winit::event::KeyEvent;
 use winit::event_loop::ActiveEventLoop;
@@ -554,7 +554,10 @@ impl<S: CloneableScene + ConstructableScene + 'static, Platform: PlatformHooks +
         self.fps_stats.borrow_mut().tick();
 
         let scene = if let Some(state) = self.app_state.as_ref() {
-            state.render_target((self.size.0 as f32, self.size.1 as f32), self.sub_scene_renderer.clone())
+            state.render_target(
+                (self.size.0 as f32, self.size.1 as f32),
+                self.sub_scene_renderer.clone(),
+            )
         } else {
             S::new((self.size.0 as f32, self.size.1 as f32))
         };

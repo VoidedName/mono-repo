@@ -3,7 +3,7 @@ use crate::{ElementSize, SizeConstraints, UiContext};
 use std::cell::RefCell;
 use std::rc::Rc;
 use vn_scene::{BoxPrimitiveData, Color, Rect, Scene, Transform};
-use vn_ui_definitions::{ui_component, ChildElement, Component, ElementImpl};
+use vn_ui_definitions::{ChildElement, Component, ElementImpl, ui_component};
 
 pub struct CardParams<State, Message> {
     pub background_color: Color,

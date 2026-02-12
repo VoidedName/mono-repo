@@ -3,9 +3,9 @@ use std::pin::Pin;
 use wasm_bindgen::prelude::*;
 
 use js_sys::Promise;
+use vn_scene::GenericScene;
 use vn_tile_map_editor_logic::logic::{File, FileDescriptor, FileLoadingError, PlatformHooks};
 use wasm_bindgen_futures::JsFuture;
-use vn_scene::GenericScene;
 
 #[wasm_bindgen(module = "/src/helpers.js")]
 extern "C" {

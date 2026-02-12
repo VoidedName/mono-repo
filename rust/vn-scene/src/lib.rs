@@ -116,7 +116,12 @@ impl Color {
                 a: opacity,
             }
         } else {
-            Self { r: self.r, g: self.g, b: self.b, a: opacity }
+            Self {
+                r: self.r,
+                g: self.g,
+                b: self.b,
+                a: opacity,
+            }
         }
     }
 

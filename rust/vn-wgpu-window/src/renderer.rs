@@ -1,7 +1,7 @@
 use crate::GraphicsContext;
+use crate::graphics::WgpuContext;
 use crate::resource_manager::ResourceManager;
 use std::rc::Rc;
-use crate::graphics::WgpuContext;
 
 /// A trait for types that can render a specific target using a [`GraphicsContext`].
 pub trait Renderer {

@@ -5,11 +5,9 @@ use crate::{
     SizeConstraints, UiContext,
 };
 use std::cell::RefCell;
-use std::marker::PhantomData;
 use std::rc::Rc;
 use vn_scene::{BoxPrimitiveData, Color, Rect, Transform};
-use vn_ui_definitions::{ChildElement, Component, ui_component, ElementId, StateToParams};
-use vn_ui_macros::UiElement;
+use vn_ui_definitions::{ChildElement, Component, ui_component};
 
 #[derive(Debug, Copy, Clone)]
 pub enum ButtonAction {
