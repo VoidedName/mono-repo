@@ -2141,6 +2141,55 @@ dependencies = [
 ]
 
 [[package]]
+name = "vn-farming-logic"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "log",
+ "serde_json",
+ "tar",
+ "thiserror 2.0.18",
+ "vn-scene",
+ "vn-tilemap",
+ "vn-ui",
+ "vn-ui-definitions",
+ "vn-wgpu-window",
+ "web-time",
+ "winit",
+]
+
+[[package]]
+name = "vn-farming-native"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "env_logger",
+ "log",
+ "pollster",
+ "rfd",
+ "vn-farming-logic",
+ "vn-scene",
+ "vn-wgpu-window",
+]
+
+[[package]]
+name = "vn-farming-web"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "console_error_panic_hook",
+ "console_log",
+ "js-sys",
+ "log",
+ "rfd",
+ "vn-farming-logic",
+ "vn-scene",
+ "vn-wgpu-window",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "vn-scene"
 version = "0.1.0"
 dependencies = [

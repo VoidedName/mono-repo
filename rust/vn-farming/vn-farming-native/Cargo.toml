@@ -1,0 +1,17 @@
+[package]
+name = "vn-farming-native"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+debug_outlines = ["vn-farming-logic/debug_outlines"]
+
+[dependencies]
+vn-farming-logic = { path = "../vn-farming-logic" }
+anyhow = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+rfd = { workspace = true, features = [] }
+pollster = { workspace = true }
+vn-wgpu-window = { path = "../../vn-wgpu-window" }
+vn-scene = { path = "../../vn-scene" }

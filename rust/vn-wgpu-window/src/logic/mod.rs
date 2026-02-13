@@ -6,9 +6,12 @@ pub trait StateLogic<R: Renderer>: Sized + 'static {
     type Event: 'static;
 
     #[allow(unused_variables)]
+    /// User Events send by the dispatcher are sent here.
+    /// Async processes can call back into here via the event dispatcher.
     fn handle_event(&mut self, event: Self::Event) {}
 
-    fn process_events(&mut self) {}
+    /// Called before every frame.
+    fn update(&mut self) {}
 
     #[allow(unused_variables)]
     fn handle_key(&mut self, event_loop: &ActiveEventLoop, event: &KeyEvent) {}
@@ -29,9 +32,6 @@ pub trait StateLogic<R: Renderer>: Sized + 'static {
 
     #[allow(unused_variables)]
     fn resized(&mut self, width: u32, height: u32) {}
-
-    #[allow(unused_variables)]
-    fn update(&mut self) {}
 
     fn render_target(&self) -> R::RenderTarget;
 }

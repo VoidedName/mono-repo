@@ -358,7 +358,7 @@ impl<S: CloneableScene + ConstructableScene + 'static, Platform: PlatformHooks +
         }
     }
 
-    fn process_events(&mut self) {
+    fn update(&mut self) {
         if let Some(state) = self.app_state.take() {
             match state {
                 ApplicationState::Editor(mut editor) => {

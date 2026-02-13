@@ -13,6 +13,9 @@ members = [
     "vn-tile-map-editor/vn-tile-map-editor-logic",
     "vn-tile-map-editor/vn-tile-map-editor-web",
     "vn-tile-map-editor/vn-tile-map-editor-native",
+    "vn-farming/vn-farming-logic",
+    "vn-farming/vn-farming-web",
+    "vn-farming/vn-farming-native",
     "vn-ui-definitions",
 ]
 

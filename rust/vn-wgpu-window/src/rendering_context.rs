@@ -109,7 +109,7 @@ impl<T: StateLogic<R>, R: Renderer> RenderingContext<T, R> {
             return Ok(());
         }
 
-        self.logic.process_events();
+        self.logic.update();
 
         let render_target = self.logic.render_target();
         let (output, view, mut encoder) = R::begin_render_frame(&self.context)?;
