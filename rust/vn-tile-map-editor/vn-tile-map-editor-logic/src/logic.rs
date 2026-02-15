@@ -326,34 +326,101 @@ impl<S: CloneableScene + ConstructableScene + 'static, Platform: PlatformHooks +
     type Event = StateLogicDeferredEvent<S, Platform>;
 
     fn handle_event(&mut self, event: Self::Event) {
-        match (self.app_state.as_mut(), event) {
+        self.app_state = match (self.app_state.take(), event) {
             (
                 _,
                 StateLogicDeferredEvent::ApplicationEvent(ApplicationEvent::UpdateState(state)),
-            ) => self.update_state(state),
-            (Some(ApplicationState::Editor(editor)), StateLogicDeferredEvent::Editor(event)) => {
-                editor.handle_event(event);
+            ) => {
+                self.update_state(state);
+                self.app_state.take()
             }
             (
-                Some(ApplicationState::LoadTileSetMenu(menu)),
+                Some(ApplicationState::Editor(mut editor)),
+                StateLogicDeferredEvent::Editor(event),
+            ) => {
+                editor.handle_event(event);
+                Some(ApplicationState::Editor(editor))
+            }
+            (
+                Some(ApplicationState::LoadTileSetMenu(mut menu)),
                 StateLogicDeferredEvent::LoadTileSetMenu(event),
             ) => {
                 menu.handle_event(event);
+                Some(ApplicationState::LoadTileSetMenu(menu))
             }
             (
-                Some(ApplicationState::NewLayerMenu(menu)),
+                Some(ApplicationState::NewLayerMenu(mut menu)),
                 StateLogicDeferredEvent::NewLayer(event),
             ) => {
                 menu.handle_event(event);
+                Some(ApplicationState::NewLayerMenu(menu))
             }
+            (
+                Some(ApplicationState::NewLayerMenu(mut new_menu)),
+                StateLogicDeferredEvent::ApplicationEvent(ApplicationEvent::LoadTilesetFromFile(
+                    file,
+                    loaded_tilesets,
+                )),
+            ) => match file {
+                Some(file) => {
+                    let tex = match self
+                        .resource_manager
+                        .load_texture_from_bytes(&file.bytes, Sampling::Nearest)
+                    {
+                        Ok(tex) => tex,
+                        Err(e) => {
+                            log::error!("Failed to load texture: {}", e);
+                            new_menu.set_error(e.to_string());
+                            return {
+                                self.update_state(ApplicationState::NewLayerMenu(new_menu))
+                            };
+                        }
+                    };
+
+                    return {
+                        self.update_state(ApplicationState::LoadTileSetMenu(
+                            LoadTileSetMenuStateWithEditorMemory {
+                                editor_callback: new_menu.editor_callback,
+                                new_layer_menu: new_menu.menu,
+                                menu: LoadTileSetMenu::new(
+                                    ApplicationContext {
+                                        dispatcher: self.dispatcher.clone(),
+                                        platform: self.platform.clone(),
+                                        gv: self.graphics_context.clone(),
+                                        rm: self.resource_manager.clone(),
+                                        text_metrics: Rc::new(TextMetric {
+                                            rm: self.resource_manager.clone(),
+                                            gc: self.graphics_context.clone(),
+                                        }),
+                                        stats: self.fps_stats.clone(),
+                                    },
+                                    LoadedTexture {
+                                        suggested_name: file.descriptor.name.clone(),
+                                        extension: file.descriptor.extension,
+                                        bytes: Rc::new(RefCell::new(file.bytes)),
+                                        id: tex.id.clone(),
+                                        dimensions: tex.size,
+                                    },
+                                    loaded_tilesets,
+                                )
+                                .expect("Loading tileset failed"),
+                                editor: new_menu.editor,
+                            },
+                        ))
+                    };
+                }
+                None => Some(ApplicationState::NewLayerMenu(new_menu)),
+            },
             (None, _) => {
                 log::error!("Received event but no state is active");
+                None
             }
             (Some(invalid_state), _) => {
                 log::error!(
                     "Received invalid event for state {:?}",
                     invalid_state.name()
                 );
+                Some(invalid_state)
             }
         }
     }
@@ -430,64 +497,6 @@ impl<S: CloneableScene + ConstructableScene + 'static, Platform: PlatformHooks +
 
                                 return self
                                     .update_state(ApplicationState::Editor(new_menu.editor));
-                            }
-
-                            ApplicationEvent::LoadTilesetFromFile(file, loaded_tilesets) => {
-                                match file {
-                                    Some(file) => {
-                                        let tex = match self
-                                            .resource_manager
-                                            .load_texture_from_bytes(&file.bytes, Sampling::Nearest)
-                                        {
-                                            Ok(tex) => tex,
-                                            Err(e) => {
-                                                log::error!("Failed to load texture: {}", e);
-                                                new_menu.set_error(e.to_string());
-                                                self.app_state =
-                                                    Some(ApplicationState::NewLayerMenu(new_menu));
-                                                return;
-                                            }
-                                        };
-
-                                        return {
-                                            self.update_state(ApplicationState::LoadTileSetMenu(
-                                                LoadTileSetMenuStateWithEditorMemory {
-                                                    editor_callback: new_menu.editor_callback,
-                                                    new_layer_menu: new_menu.menu,
-                                                    menu: LoadTileSetMenu::new(
-                                                        ApplicationContext {
-                                                            dispatcher: self.dispatcher.clone(),
-                                                            platform: self.platform.clone(),
-                                                            gv: self.graphics_context.clone(),
-                                                            rm: self.resource_manager.clone(),
-                                                            text_metrics: Rc::new(TextMetric {
-                                                                rm: self.resource_manager.clone(),
-                                                                gc: self.graphics_context.clone(),
-                                                            }),
-                                                            stats: self.fps_stats.clone(),
-                                                        },
-                                                        LoadedTexture {
-                                                            suggested_name: file
-                                                                .descriptor
-                                                                .name
-                                                                .clone(),
-                                                            extension: file.descriptor.extension,
-                                                            bytes: Rc::new(RefCell::new(
-                                                                file.bytes,
-                                                            )),
-                                                            id: tex.id.clone(),
-                                                            dimensions: tex.size,
-                                                        },
-                                                        loaded_tilesets,
-                                                    )
-                                                    .expect("Loading tileset failed"),
-                                                    editor: new_menu.editor,
-                                                },
-                                            ))
-                                        };
-                                    }
-                                    None => {}
-                                }
                             }
                             ApplicationEvent::LoadTileset(loaded_tilesets) => {
                                 log::info!("Start loading tileset");
