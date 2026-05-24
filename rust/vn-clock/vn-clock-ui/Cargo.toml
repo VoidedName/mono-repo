@@ -1,9 +1,10 @@
 [package]
-name = "vn-clock"
+name = "vn-clock-ui"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+vn-clock-core = { path = "../vn-clock-core" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 ratatui = "0.29.0"
@@ -11,3 +12,4 @@ crossterm = { version = "0.28.1", features = ["events"] }
 chrono = { version = "0.4.39", features = ["serde"] }
 rodio = "0.20.1"
 anyhow = { workspace = true }
+rfd = { workspace = true }

@@ -1,14 +1,8 @@
 use chrono::{Duration, NaiveTime, Timelike};
-use ratatui::style::Color;
-use rodio::source::Source;
-use std::{
-    fs,
-    sync::{Arc, Mutex},
-    time::Instant,
-};
-use crate::models::{App, LogEntry, InputMode, Section};
+use crate::models::{CoreApp, LogEntry, ClockColor, ClockEvent, ClockOutputEvent};
+use web_time::Instant;
 
-impl App {
+impl CoreApp {
     pub fn new() -> Self {
         Self {
             clock_time: NaiveTime::from_hms_opt(0, 0, 0).unwrap(),
@@ -18,67 +12,65 @@ impl App {
             events: vec![],
             logs: vec![LogEntry {
                 message: "Welcome to Digital Clock!".to_string(),
-                color: Color::White,
+                color: ClockColor::White,
             }],
             last_tick: Instant::now(),
-            sink: Arc::new(Mutex::new(None)),
-            input_mode: InputMode::Normal,
-            input_buffer: String::new(),
             target_speed: 1.0,
-            selected_event: 0,
-            temp_event_name: String::new(),
-            temp_event_time: None,
-            temp_event_auto_pause: false,
-            temp_event_repeat_interval: None,
-            files: vec![],
-            selected_file: None,
-            config_scroll: 0,
-            log_scroll: 0,
-            help_scroll: 0,
-            selected_section: Section::Log,
+            output_events: vec![],
         }
     }
 
-    pub fn add_log(&mut self, message: String, color: Color) {
-        self.logs.push(LogEntry { message, color });
-    }
-
-    pub fn get_random_color(&self) -> Color {
-        let colors = [
-            Color::Red,
-            Color::Green,
-            Color::Yellow,
-            Color::Blue,
-            Color::Magenta,
-            Color::Cyan,
-            Color::LightRed,
-            Color::LightGreen,
-            Color::LightYellow,
-            Color::LightBlue,
-            Color::LightMagenta,
-            Color::LightCyan,
-        ];
-        // Use events length as a pseudo-random seed
-        colors[self.events.len() % colors.len()]
-    }
-
-    pub fn refresh_files(&mut self, suffix: &str) {
-        self.files.clear();
-        if let Ok(entries) = fs::read_dir(".") {
-            for entry in entries.flatten() {
-                if let Ok(file_type) = entry.file_type() {
-                    if file_type.is_file() {
-                        if let Some(name) = entry.file_name().to_str() {
-                            if name.ends_with(suffix) {
-                                self.files.push(name.to_string());
-                            }
-                        }
-                    }
+    pub fn handle_event(&mut self, event: ClockEvent) {
+        match event {
+            ClockEvent::TogglePause => {
+                self.paused = !self.paused;
+                self.output_events.push(ClockOutputEvent::Paused(self.paused));
+                let status = if self.paused { "Paused" } else { "Resumed" };
+                self.add_log(status.to_string(), ClockColor::White);
+            }
+            ClockEvent::SetTime(time) => {
+                self.clock_time = time;
+                self.output_events.push(ClockOutputEvent::TimeSet(time));
+                self.add_log(format!("Time set to {}", time.format("%H:%M:%S")), ClockColor::White);
+            }
+            ClockEvent::SetSpeed(speed) => {
+                self.target_speed = speed;
+                self.output_events.push(ClockOutputEvent::SpeedSet(speed));
+                self.add_log(format!("Speed set to {:.2}x", speed), ClockColor::White);
+            }
+            ClockEvent::AddTimedEvent(event) => {
+                self.add_log(format!("Added event: {}", event.name), ClockColor::White);
+                self.events.push(event);
+            }
+            ClockEvent::RemoveTimedEvent(index) => {
+                if index < self.events.len() {
+                    let removed = self.events.remove(index);
+                    self.add_log(format!("Removed event: {}", removed.name), ClockColor::White);
                 }
             }
+            ClockEvent::LoadConfig(config) => {
+                self.clock_time = config.initial_time;
+                self.initial_time = config.initial_time;
+                self.target_speed = config.target_speed;
+                self.events = config.events;
+                self.add_log("Configuration loaded".to_string(), ClockColor::White);
+                self.output_events.push(ClockOutputEvent::TimeSet(self.clock_time));
+                self.output_events.push(ClockOutputEvent::SpeedSet(self.target_speed));
+            }
+            ClockEvent::Reset => {
+                self.clock_time = self.initial_time;
+                self.paused = true;
+                self.output_events.push(ClockOutputEvent::TimeSet(self.clock_time));
+                self.output_events.push(ClockOutputEvent::Paused(self.paused));
+                self.add_log("Clock reset".to_string(), ClockColor::White);
+            }
         }
-        self.files.sort();
-        self.selected_file = None;
+    }
+
+    pub fn add_log(&mut self, message: String, color: ClockColor) {
+        let entry = LogEntry { message, color };
+        self.logs.push(entry.clone());
+        self.output_events.push(ClockOutputEvent::Log(entry));
     }
 
     pub fn tick(&mut self) {
@@ -113,11 +105,9 @@ impl App {
         let mut t2 = new_time.num_seconds_from_midnight() as i64;
 
         if t2 < t1 {
-            // Clock wrapped around midnight during this tick
             t2 += 86400;
         }
 
-        // Clone events to avoid borrowing issues while iterating and modifying self (logs, paused)
         let events = self.events.clone();
 
         for event in events {
@@ -129,9 +119,8 @@ impl App {
                 if period > 0 {
                     let mut until_t = event.repeat_until
                         .map(|t| t.num_seconds_from_midnight() as i64)
-                        .unwrap_or(86399); // Default to end of day if not specified
+                        .unwrap_or(86399);
                     
-                    // If until time is before or equal to start time, it refers to the next day
                     if event.repeat_until.is_some() && until_t <= base_t {
                         until_t += 86400;
                     }
@@ -145,8 +134,6 @@ impl App {
             }
 
             for tt in trigger_times {
-                // Check if this specific occurrence (tt) falls within our current tick interval (t1, t2]
-                // We check tt, tt + 86400, and tt - 86400 to handle any wrap-around scenarios
                 let mut triggered = false;
                 for offset in &[-86400, 0, 86400] {
                     let adjusted_tt = tt + offset;
@@ -165,23 +152,12 @@ impl App {
                         ),
                         event.color,
                     );
-                    self.play_ding();
+                    self.output_events.push(ClockOutputEvent::Ding);
                     if event.auto_pause {
                         self.paused = true;
+                        self.output_events.push(ClockOutputEvent::Paused(true));
                     }
                 }
-            }
-        }
-    }
-
-    pub fn play_ding(&self) {
-        if let Ok(sink_guard) = self.sink.lock() {
-            if let Some(sink) = sink_guard.as_ref() {
-                // Play a simple beep
-                let source = rodio::source::SineWave::new(440.0)
-                    .take_duration(std::time::Duration::from_millis(200))
-                    .amplify(0.2);
-                sink.append(source);
             }
         }
     }

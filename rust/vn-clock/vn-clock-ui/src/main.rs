@@ -32,7 +32,7 @@ fn main() -> Result<()> {
     
     // Create app and run it
     let mut app = App::new();
-    app.sink = Arc::new(Mutex::new(Some(sink)));
+    app.io.sink = Arc::new(Mutex::new(Some(sink)));
     
     let res = run_app(&mut terminal, app);
 

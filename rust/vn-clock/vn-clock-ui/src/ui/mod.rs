@@ -6,6 +6,7 @@ use ratatui::{
     Frame,
 };
 use crate::models::{App, InputMode, Section};
+use crate::models::color_serde::to_ratatui_color;
 
 pub const HELP_TEXT: &str = "
     SCROLLING:
@@ -50,7 +51,7 @@ pub fn ui(f: &mut Frame, app: &App) {
 
     let status = match app.input_mode {
         InputMode::Normal => {
-            if app.paused {
+            if app.core.paused {
                 "PAUSED"
             } else {
                 "RUNNING"
@@ -65,17 +66,16 @@ pub fn ui(f: &mut Frame, app: &App) {
         InputMode::AddingEventAutoPause => "ADD EVENT: AUTO-PAUSE? (y/n)",
         InputMode::AddingEventRepeatInterval => "ADD EVENT: REPEAT INTERVAL (HH:MM:SS, empty to skip)",
         InputMode::AddingEventRepeatUntil => "ADD EVENT: REPEAT UNTIL (HH:MM:SS)",
-        InputMode::ConfirmOverwriteConfig => "CONFIRM OVERWRITE? (y/n)",
-        InputMode::ConfirmOverwriteState => "CONFIRM OVERWRITE? (y/n)",
-        InputMode::SavingConfig => "SAVE CONFIG: ENTER FILENAME",
-        InputMode::SavingState => "SAVE STATE: ENTER FILENAME",
-        InputMode::LoadingConfig => "LOAD CONFIG: SELECT FILE",
-        InputMode::LoadingState => "LOAD STATE: SELECT FILE",
+        InputMode::LoadingConfig => "LOAD CONFIGURATION",
+        InputMode::SavingConfig => "SAVE CONFIGURATION",
+        InputMode::LoadingState => "LOAD STATE",
+        InputMode::SavingState => "SAVE STATE",
+        InputMode::ConfirmOverwriteConfig(_) | InputMode::ConfirmOverwriteState(_) => "CONFIRM OVERWRITE",
     };
     let clock_text = match app.input_mode {
-        InputMode::Normal | InputMode::EventManagement | InputMode::LoadingConfig | InputMode::LoadingState | InputMode::Help | InputMode::ConfirmOverwriteConfig | InputMode::ConfirmOverwriteState => format!(
+        InputMode::Normal | InputMode::EventManagement | InputMode::Help => format!(
             "{} | {}",
-            app.clock_time.format("%H:%M:%S%.3f"),
+            app.core.clock_time.format("%H:%M:%S%.3f"),
             status
         ),
         _ => format!("INPUT: {} | {}", app.input_buffer, status),
@@ -98,7 +98,7 @@ pub fn ui(f: &mut Frame, app: &App) {
 
     match app.input_mode {
         InputMode::EventManagement => {
-            let events: Vec<ListItem> = app
+            let events: Vec<ListItem> = app.core
                 .events
                 .iter()
                 .enumerate()
@@ -125,7 +125,7 @@ pub fn ui(f: &mut Frame, app: &App) {
                     let style = if i == app.selected_event {
                         Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
                     } else {
-                        Style::default().fg(e.color)
+                        Style::default().fg(to_ratatui_color(e.color))
                     };
                     ListItem::new(text).style(style)
                 })
@@ -134,42 +134,17 @@ pub fn ui(f: &mut Frame, app: &App) {
                 List::new(events).block(Block::default().borders(Borders::ALL).title("Configured Events").style(config_block_style));
             f.render_widget(events_list, lower_chunks[0]);
         }
-        InputMode::LoadingConfig | InputMode::LoadingState | InputMode::SavingConfig | InputMode::SavingState | InputMode::ConfirmOverwriteConfig | InputMode::ConfirmOverwriteState => {
-            let files: Vec<ListItem> = app
-                .files
-                .iter()
-                .enumerate()
-                .map(|(i, name)| {
-                    let style = if Some(i) == app.selected_file {
-                        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
-                    } else {
-                        Style::default()
-                    };
-                    ListItem::new(name.as_str()).style(style)
-                })
-                .collect();
-            let title = match app.input_mode {
-                InputMode::LoadingConfig => "Load Configuration",
-                InputMode::LoadingState => "Load State",
-                InputMode::SavingConfig | InputMode::ConfirmOverwriteConfig => "Save Configuration (Select to overwrite)",
-                InputMode::SavingState | InputMode::ConfirmOverwriteState => "Save State (Select to overwrite)",
-                _ => "",
-            };
-            let files_list = List::new(files)
-                .block(Block::default().borders(Borders::ALL).title(title).style(config_block_style));
-            f.render_widget(files_list, lower_chunks[0]);
-        }
         _ => {
             let mut config_lines = vec![
-                ListItem::new(format!("Initial Time: {}", app.initial_time.format("%H:%M:%S"))),
-                ListItem::new(format!("Target Speed: {:.2}x", app.target_speed)),
+                ListItem::new(format!("Initial Time: {}", app.core.initial_time.format("%H:%M:%S"))),
+                ListItem::new(format!("Target Speed: {:.2}x", app.core.target_speed)),
                 ListItem::new("Events:"),
             ];
 
-            if app.events.is_empty() {
+            if app.core.events.is_empty() {
                 config_lines.push(ListItem::new("  (None)"));
             } else {
-                for (i, e) in app.events.iter().enumerate() {
+                for (i, e) in app.core.events.iter().enumerate() {
                     let mut text = format!("  [{}] {} at {}", i, e.name, e.time.format("%H:%M:%S"));
                     if e.auto_pause {
                         text.push_str(" (Auto-pause)");
@@ -181,7 +156,7 @@ pub fn ui(f: &mut Frame, app: &App) {
                         let seconds = total_secs % 60;
                         text.push_str(&format!(" | Every {:02}:{:02}:{:02}", hours, minutes, seconds));
                         if let Some(until) = e.repeat_until {
-                            let until_str = if until == NaiveTime::from_hms_opt(0, 0, 0).unwrap() {
+                            let until_str = if until == chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap() {
                                 "24:00:00".to_string()
                             } else {
                                 until.format("%H:%M:%S").to_string()
@@ -189,7 +164,7 @@ pub fn ui(f: &mut Frame, app: &App) {
                             text.push_str(&format!(" until {}", until_str));
                         }
                     }
-                    config_lines.push(ListItem::new(text).style(Style::default().fg(e.color)));
+                    config_lines.push(ListItem::new(text).style(Style::default().fg(to_ratatui_color(e.color))));
                 }
             }
 
@@ -217,7 +192,7 @@ pub fn ui(f: &mut Frame, app: &App) {
         ("Event Log", Style::default())
     };
 
-    let max_log_scroll = app.logs.len().saturating_sub(1);
+    let max_log_scroll = app.core.logs.len().saturating_sub(1);
     let log_scroll = app.log_scroll.min(max_log_scroll);
     
     let log_scroll_indicator = if max_log_scroll > 0 {
@@ -226,12 +201,12 @@ pub fn ui(f: &mut Frame, app: &App) {
         "".to_string()
     };
 
-    let logs: Vec<ListItem> = app
+    let logs: Vec<ListItem> = app.core
         .logs
         .iter()
         .rev()
         .skip(log_scroll)
-        .map(|log| ListItem::new(log.message.as_str()).style(Style::default().fg(log.color)))
+        .map(|log| ListItem::new(log.message.as_str()).style(Style::default().fg(to_ratatui_color(log.color))))
         .collect();
     let logs_list = List::new(logs)
         .block(Block::default().borders(Borders::ALL).title(format!("{}{}", log_title, log_scroll_indicator)).style(log_block_style));
@@ -248,13 +223,12 @@ pub fn ui(f: &mut Frame, app: &App) {
         InputMode::AddingEventAutoPause => "Adding Event (Auto-Pause)",
         InputMode::AddingEventRepeatInterval => "Adding Event (Repeat Interval)",
         InputMode::AddingEventRepeatUntil => "Adding Event (Repeat Until)",
-        InputMode::SavingConfig => "Saving Config",
         InputMode::LoadingConfig => "Loading Config",
-        InputMode::SavingState => "Saving State",
+        InputMode::SavingConfig => "Saving Config",
         InputMode::LoadingState => "Loading State",
-        InputMode::ConfirmOverwriteConfig => "Confirm Overwrite (Config)",
-        InputMode::ConfirmOverwriteState => "Confirm Overwrite (State)",
+        InputMode::SavingState => "Saving State",
         InputMode::Help => "Help Overlay",
+        InputMode::ConfirmOverwriteConfig(_) | InputMode::ConfirmOverwriteState(_) => "Confirm Overwrite",
     });
 
     let status_layout = Layout::default()
@@ -275,24 +249,76 @@ pub fn ui(f: &mut Frame, app: &App) {
         render_help_overlay(f, app);
     }
 
-    if let InputMode::ConfirmOverwriteConfig | InputMode::ConfirmOverwriteState = app.input_mode {
-        render_confirm_overwrite_overlay(f);
+    match app.input_mode {
+        InputMode::LoadingConfig | InputMode::SavingConfig | InputMode::LoadingState | InputMode::SavingState => {
+            render_file_explorer(f, app);
+        }
+        InputMode::ConfirmOverwriteConfig(ref filename) | InputMode::ConfirmOverwriteState(ref filename) => {
+            render_confirm_overwrite_dialog(f, filename);
+        }
+        _ => {}
     }
 }
 
-pub fn render_confirm_overwrite_overlay(f: &mut Frame) {
-    let block = Block::default()
-        .title("Confirm Overwrite")
-        .borders(Borders::ALL)
-        .style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD));
-
+pub fn render_confirm_overwrite_dialog(f: &mut Frame, filename: &str) {
     let area = centered_rect(40, 20, f.area());
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title("Overwrite Confirmation")
+        .style(Style::default().fg(Color::Yellow));
+
+    let text = format!("File '{}' already exists.\nOverwrite? (y/n)", filename);
+    let para = Paragraph::new(text)
+        .block(block)
+        .alignment(ratatui::layout::Alignment::Center);
+
+    f.render_widget(Clear, area);
+    f.render_widget(para, area);
+}
+
+pub fn render_file_explorer(f: &mut Frame, app: &App) {
+    let area = centered_rect(60, 60, f.area());
+    let title = match app.input_mode {
+        InputMode::LoadingConfig => "Load Config",
+        InputMode::SavingConfig => "Save Config (Type name or select)",
+        InputMode::LoadingState => "Load State",
+        InputMode::SavingState => "Save State (Type name or select)",
+        _ => "File Explorer",
+    };
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(title)
+        .style(Style::default().fg(Color::Cyan));
+
+    let items: Vec<ListItem> = app
+        .files
+        .iter()
+        .enumerate()
+        .map(|(i, name)| {
+            let style = if Some(i) == app.selected_file {
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            };
+            ListItem::new(name.as_str()).style(style)
+        })
+        .collect();
+
+    let list = List::new(items).block(block).highlight_style(Style::default().add_modifier(Modifier::BOLD));
+    
     f.render_widget(Clear, area);
     
-    let text = Paragraph::new("\nOVERWRITE EXISTING FILE?\n\n(y)es / (n)o")
-        .alignment(ratatui::layout::Alignment::Center)
-        .block(block);
-    f.render_widget(text, area);
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(0), Constraint::Length(3)].as_ref())
+        .split(area);
+
+    f.render_widget(list, chunks[0]);
+
+    let input_block = Block::default().borders(Borders::ALL).title("File Name");
+    let input_para = Paragraph::new(app.input_buffer.as_str()).block(input_block);
+    f.render_widget(input_para, chunks[1]);
 }
 
 pub fn render_help_overlay(f: &mut Frame, app: &App) {
