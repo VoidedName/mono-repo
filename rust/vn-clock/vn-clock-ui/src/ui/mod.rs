@@ -51,7 +51,7 @@ pub fn ui(f: &mut Frame, app: &App) {
 
     let status = match app.input_mode {
         InputMode::Normal => {
-            if app.core.paused {
+            if app.core.paused() {
                 "PAUSED"
             } else {
                 "RUNNING"
@@ -75,7 +75,7 @@ pub fn ui(f: &mut Frame, app: &App) {
     let clock_text = match app.input_mode {
         InputMode::Normal | InputMode::EventManagement | InputMode::Help => format!(
             "{} | {}",
-            app.core.clock_time.format("%H:%M:%S%.3f"),
+            app.core.clock_time().format("%H:%M:%S%.3f"),
             status
         ),
         _ => format!("INPUT: {} | {}", app.input_buffer, status),
@@ -99,7 +99,7 @@ pub fn ui(f: &mut Frame, app: &App) {
     match app.input_mode {
         InputMode::EventManagement => {
             let events: Vec<ListItem> = app.core
-                .events
+                .events()
                 .iter()
                 .enumerate()
                 .map(|(i, e)| {
@@ -136,15 +136,15 @@ pub fn ui(f: &mut Frame, app: &App) {
         }
         _ => {
             let mut config_lines = vec![
-                ListItem::new(format!("Initial Time: {}", app.core.initial_time.format("%H:%M:%S"))),
-                ListItem::new(format!("Target Speed: {:.2}x", app.core.target_speed)),
+                ListItem::new(format!("Initial Time: {}", app.core.initial_time().format("%H:%M:%S"))),
+                ListItem::new(format!("Target Speed: {:.2}x", app.core.target_speed())),
                 ListItem::new("Events:"),
             ];
 
-            if app.core.events.is_empty() {
+            if app.core.events().is_empty() {
                 config_lines.push(ListItem::new("  (None)"));
             } else {
-                for (i, e) in app.core.events.iter().enumerate() {
+                for (i, e) in app.core.events().iter().enumerate() {
                     let mut text = format!("  [{}] {} at {}", i, e.name, e.time.format("%H:%M:%S"));
                     if e.auto_pause {
                         text.push_str(" (Auto-pause)");
@@ -192,7 +192,7 @@ pub fn ui(f: &mut Frame, app: &App) {
         ("Event Log", Style::default())
     };
 
-    let max_log_scroll = app.core.logs.len().saturating_sub(1);
+    let max_log_scroll = app.core.logs().len().saturating_sub(1);
     let log_scroll = app.log_scroll.min(max_log_scroll);
     
     let log_scroll_indicator = if max_log_scroll > 0 {
@@ -202,7 +202,7 @@ pub fn ui(f: &mut Frame, app: &App) {
     };
 
     let logs: Vec<ListItem> = app.core
-        .logs
+        .logs()
         .iter()
         .rev()
         .skip(log_scroll)

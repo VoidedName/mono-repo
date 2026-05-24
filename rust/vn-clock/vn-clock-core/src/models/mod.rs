@@ -27,7 +27,7 @@ pub struct ClockConfig {
     pub events: Vec<TimedEvent>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ClockState {
     pub clock_time: NaiveTime,
     pub initial_time: NaiveTime,
@@ -45,6 +45,7 @@ pub enum ClockEvent {
     AddTimedEvent(TimedEvent),
     RemoveTimedEvent(usize),
     LoadConfig(ClockConfig),
+    LoadState(ClockState),
     Reset,
 }
 
@@ -58,13 +59,47 @@ pub enum ClockOutputEvent {
 }
 
 pub struct CoreApp {
-    pub clock_time: NaiveTime,
-    pub initial_time: NaiveTime,
-    pub speed: f64,
-    pub paused: bool,
-    pub events: Vec<TimedEvent>,
-    pub logs: Vec<LogEntry>,
-    pub last_tick: web_time::Instant,
-    pub target_speed: f64,
-    pub output_events: Vec<ClockOutputEvent>,
+    pub(crate) clock_time: NaiveTime,
+    pub(crate) initial_time: NaiveTime,
+    pub(crate) speed: f64,
+    pub(crate) paused: bool,
+    pub(crate) events: Vec<TimedEvent>,
+    pub(crate) logs: Vec<LogEntry>,
+    pub(crate) last_tick: web_time::Instant,
+    pub(crate) target_speed: f64,
+    pub(crate) output_events: Vec<ClockOutputEvent>,
+}
+
+impl CoreApp {
+    pub fn take_output_events(&mut self) -> Vec<ClockOutputEvent> {
+        std::mem::take(&mut self.output_events)
+    }
+
+    pub fn clock_time(&self) -> NaiveTime {
+        self.clock_time
+    }
+
+    pub fn initial_time(&self) -> NaiveTime {
+        self.initial_time
+    }
+
+    pub fn speed(&self) -> f64 {
+        self.speed
+    }
+
+    pub fn paused(&self) -> bool {
+        self.paused
+    }
+
+    pub fn events(&self) -> &[TimedEvent] {
+        &self.events
+    }
+
+    pub fn logs(&self) -> &[LogEntry] {
+        &self.logs
+    }
+
+    pub fn target_speed(&self) -> f64 {
+        self.target_speed
+    }
 }

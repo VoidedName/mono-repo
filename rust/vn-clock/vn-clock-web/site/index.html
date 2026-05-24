@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VN Clock Web</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --panel-bg: #1e1e1e;
+            --selected-bg: #1e1e3c;
+            --border-color: #333;
+            --text-color: #e0e0e0;
+            --cyan: #00ffff;
+            --yellow: #ffff00;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .header {
+            height: 60px;
+            border: 1px solid var(--border-color);
+            margin: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--panel-bg);
+        }
+        .clock-display {
+            font-size: 32px;
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--cyan);
+            font-weight: bold;
+        }
+        .main-content {
+            flex: 1;
+            display: flex;
+            margin: 0 10px;
+            gap: 10px;
+            min-height: 0;
+        }
+        .panel {
+            flex: 1;
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            background-color: var(--panel-bg);
+            min-height: 0;
+        }
+        .panel.selected {
+            background-color: var(--selected-bg);
+        }
+        .panel-header {
+            padding: 5px 10px;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+        .footer {
+            height: 60px;
+            border: 1px solid var(--border-color);
+            margin: 10px;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            background-color: var(--panel-bg);
+            justify-content: space-between;
+        }
+        .status-text {
+            font-size: 14px;
+        }
+        .help-hint {
+            color: var(--yellow);
+            font-weight: bold;
+        }
+
+        /* Overlays */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .overlay-content {
+            background-color: var(--panel-bg);
+            border: 2px solid var(--cyan);
+            padding: 20px;
+            max-width: 60%;
+            max-height: 80%;
+            overflow-y: auto;
+        }
+        .help-content {
+            border-color: var(--yellow);
+            color: var(--text-color);
+            font-family: 'Courier New', Courier, monospace;
+            white-space: pre-wrap;
+        }
+        .input-overlay-content {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 400px;
+        }
+        input {
+            background-color: #252526;
+            color: white;
+            border: 1px solid var(--border-color);
+            padding: 8px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        
+        .list-item {
+            margin-bottom: 2px;
+        }
+        .list-item.selected {
+            color: var(--yellow);
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="clock-display" id="clockTime">00:00:00.000 | RUNNING</div>
+    </div>
+    
+    <div class="main-content">
+        <div class="panel" id="configPanel">
+            <div class="panel-header" id="configHeader">Configuration Status</div>
+            <div class="panel-content" id="configContent"></div>
+        </div>
+        <div class="panel" id="logPanel">
+            <div class="panel-header" id="logHeader">Event Log</div>
+            <div class="panel-content" id="logContent"></div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="status-text" id="statusText">Mode: Normal</div>
+        <div class="help-hint">press h for help</div>
+    </div>
+
+    <!-- Help Overlay -->
+    <div id="helpOverlay" class="overlay">
+        <div class="overlay-content help-content">
+            <div style="text-align: center; font-weight: bold; margin-bottom: 10px; color: var(--yellow);">Controls Help</div>
+            <div id="helpText"></div>
+            <div style="text-align: center; margin-top: 10px; font-size: 12px;">Press 'h' or 'Esc' to close</div>
+        </div>
+    </div>
+
+    <!-- Input Overlay -->
+    <div id="inputOverlay" class="overlay">
+        <div class="overlay-content input-overlay-content">
+            <div id="inputTitle" style="font-weight: bold; color: var(--cyan);">INPUT</div>
+            <input type="text" id="mainInput" autocomplete="off">
+            <div id="inputHint" style="font-size: 12px; color: #888;">Press Enter to confirm, Esc to cancel</div>
+        </div>
+    </div>
+
+    <script type="module" src="./index.js"></script>
+</body>
+</html>

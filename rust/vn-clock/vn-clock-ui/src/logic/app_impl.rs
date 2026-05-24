@@ -41,6 +41,6 @@ impl App {
             ClockColor::LightMagenta,
             ClockColor::LightCyan,
         ];
-        colors[self.core.events.len() % colors.len()]
+        colors[self.core.events().len() % colors.len()]
     }
 }

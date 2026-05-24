@@ -57,6 +57,18 @@ impl CoreApp {
                 self.output_events.push(ClockOutputEvent::TimeSet(self.clock_time));
                 self.output_events.push(ClockOutputEvent::SpeedSet(self.target_speed));
             }
+            ClockEvent::LoadState(state) => {
+                self.clock_time = state.clock_time;
+                self.initial_time = state.initial_time;
+                self.target_speed = state.target_speed;
+                self.paused = state.paused;
+                self.events = state.events.clone();
+                self.logs = state.logs.clone();
+                self.add_log("State loaded".to_string(), ClockColor::White);
+                self.output_events.push(ClockOutputEvent::TimeSet(self.clock_time));
+                self.output_events.push(ClockOutputEvent::SpeedSet(self.target_speed));
+                self.output_events.push(ClockOutputEvent::Paused(self.paused));
+            }
             ClockEvent::Reset => {
                 self.clock_time = self.initial_time;
                 self.paused = true;

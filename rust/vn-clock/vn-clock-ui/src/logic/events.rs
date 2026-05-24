@@ -52,7 +52,7 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Resu
         app.core.tick();
         
         // Handle output events from core
-        let output_events: Vec<ClockOutputEvent> = app.core.output_events.drain(..).collect();
+        let output_events = app.core.take_output_events();
         for event in output_events {
             match event {
                 ClockOutputEvent::Ding => {
@@ -81,7 +81,7 @@ fn handle_normal_input(app: &mut App, code: KeyCode) {
         KeyCode::Char('t') => {
             app.input_mode = InputMode::EditingTime;
             app.input_buffer.clear();
-            if !app.core.paused {
+            if !app.core.paused() {
                 app.core.handle_event(ClockEvent::TogglePause);
             }
         }
@@ -126,10 +126,10 @@ fn handle_normal_input(app: &mut App, code: KeyCode) {
         KeyCode::Down => {
             match app.selected_section {
                 Section::Config => {
-                    let config_lines_count = if app.core.events.is_empty() {
+                    let config_lines_count = if app.core.events().is_empty() {
                         4 // Initial Time, Target Speed, Events, (None)
                     } else {
-                        3 + app.core.events.len() // Initial Time, Target Speed, Events, + each event
+                        3 + app.core.events().len() // Initial Time, Target Speed, Events, + each event
                     };
                     let max_scroll = config_lines_count.saturating_sub(1);
                     if app.config_scroll < max_scroll {
@@ -137,7 +137,7 @@ fn handle_normal_input(app: &mut App, code: KeyCode) {
                     }
                 }
                 Section::Log => {
-                    let max_scroll = app.core.logs.len().saturating_sub(1);
+                    let max_scroll = app.core.logs().len().saturating_sub(1);
                     if app.log_scroll < max_scroll {
                         app.log_scroll += 1;
                     }
@@ -236,10 +236,10 @@ fn handle_event_management_input(app: &mut App, code: KeyCode) {
             app.temp_event_auto_pause = false;
         }
         KeyCode::Char('d') => {
-            if !app.core.events.is_empty() && app.selected_event < app.core.events.len() {
+            if !app.core.events().is_empty() && app.selected_event < app.core.events().len() {
                 app.core.handle_event(ClockEvent::RemoveTimedEvent(app.selected_event));
-                if app.selected_event >= app.core.events.len() && !app.core.events.is_empty() {
-                    app.selected_event = app.core.events.len() - 1;
+                if app.selected_event >= app.core.events().len() && !app.core.events().is_empty() {
+                    app.selected_event = app.core.events().len() - 1;
                 }
             }
         }
@@ -249,7 +249,7 @@ fn handle_event_management_input(app: &mut App, code: KeyCode) {
             }
         }
         KeyCode::Down => {
-            if !app.core.events.is_empty() && app.selected_event < app.core.events.len() - 1 {
+            if !app.core.events().is_empty() && app.selected_event < app.core.events().len() - 1 {
                 app.selected_event += 1;
             }
         }
@@ -321,15 +321,14 @@ fn handle_adding_event_repeat_interval_input(app: &mut App, code: KeyCode) {
                 app.temp_event_repeat_interval = None;
                 if let Some(time) = app.temp_event_time {
                     let color = app.get_random_color();
-                    app.core.events.push(TimedEvent {
+                    app.core.handle_event(ClockEvent::AddTimedEvent(TimedEvent {
                         time,
                         name: app.temp_event_name.clone(),
                         auto_pause: app.temp_event_auto_pause,
                         repeat_interval: None,
                         repeat_until: None,
                         color,
-                    });
-                    app.core.add_log(format!("Added event: {}", app.temp_event_name), color);
+                    }));
                 }
                 app.input_mode = InputMode::EventManagement;
             } else if let Ok(t) = NaiveTime::parse_from_str(&app.input_buffer, "%H:%M:%S") {
@@ -462,12 +461,7 @@ fn handle_file_input(app: &mut App, code: KeyCode) {
                     };
                     if let Ok(bytes) = std::fs::read(&filename) {
                         if let Ok(state) = serde_json::from_slice::<ClockState>(&bytes) {
-                            app.core.clock_time = state.clock_time;
-                            app.core.initial_time = state.initial_time;
-                            app.core.target_speed = state.target_speed;
-                            app.core.paused = state.paused;
-                            app.core.events = state.events;
-                            app.core.logs = state.logs;
+                            app.core.handle_event(ClockEvent::LoadState(state));
                             app.core.add_log(format!("State loaded from {}", filename), ClockColor::White);
                         } else {
                             app.core.add_log("Failed to parse state".to_string(), ClockColor::Red);
@@ -553,9 +547,9 @@ fn handle_confirm_overwrite_input(app: &mut App, code: KeyCode) {
 
 fn save_config(app: &mut App, filename: &str) {
     let config = ClockConfig {
-        initial_time: app.core.initial_time,
-        target_speed: app.core.target_speed,
-        events: app.core.events.clone(),
+        initial_time: app.core.initial_time(),
+        target_speed: app.core.target_speed(),
+        events: app.core.events().to_vec(),
     };
     if let Ok(json) = serde_json::to_string_pretty(&config) {
         if std::fs::write(filename, json).is_ok() {
@@ -568,12 +562,12 @@ fn save_config(app: &mut App, filename: &str) {
 
 fn save_state(app: &mut App, filename: &str) {
     let state = ClockState {
-        clock_time: app.core.clock_time,
-        initial_time: app.core.initial_time,
-        target_speed: app.core.target_speed,
-        paused: app.core.paused,
-        events: app.core.events.clone(),
-        logs: app.core.logs.clone(),
+        clock_time: app.core.clock_time(),
+        initial_time: app.core.initial_time(),
+        target_speed: app.core.target_speed(),
+        paused: app.core.paused(),
+        events: app.core.events().to_vec(),
+        logs: app.core.logs().to_vec(),
     };
     if let Ok(json) = serde_json::to_string_pretty(&state) {
         if std::fs::write(filename, json).is_ok() {
