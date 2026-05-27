@@ -13,7 +13,6 @@ use std::{
 pub mod models;
 pub mod logic;
 pub mod ui;
-pub mod utils;
 
 use crate::models::App;
 use crate::logic::events::run_app;

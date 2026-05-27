@@ -27,11 +27,37 @@
         .header {
             height: 60px;
             border: 1px solid var(--border-color);
-            margin: 10px;
+            margin: 10px 10px 0 10px;
             display: flex;
             align-items: center;
             justify-content: center;
             background-color: var(--panel-bg);
+        }
+        .tabs {
+            display: flex;
+            margin: 0 10px;
+            background-color: var(--panel-bg);
+            border-left: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            font-size: 14px;
+            font-weight: bold;
+            color: #888;
+            user-select: none;
+        }
+        .tab:hover {
+            background-color: #252526;
+            color: var(--text-color);
+        }
+        .tab.active {
+            border-bottom: 2px solid var(--cyan);
+            color: var(--cyan);
+            background-color: #252526;
         }
         .clock-display {
             font-size: 32px;
@@ -62,6 +88,11 @@
             border-bottom: 1px solid var(--border-color);
             font-weight: bold;
             font-size: 14px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .panel-header:hover {
+            background-color: #333;
         }
         .panel-content {
             flex: 1;
@@ -70,6 +101,18 @@
             font-family: 'Courier New', Courier, monospace;
             font-size: 14px;
             white-space: pre-wrap;
+        }
+        .clock-display {
+            font-size: 32px;
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--cyan);
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            padding: 5px 20px;
+        }
+        .clock-display:hover {
+            background-color: #252526;
         }
         .footer {
             height: 60px;
@@ -87,6 +130,37 @@
         .help-hint {
             color: var(--yellow);
             font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+        }
+        .footer-left {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .footer-controls {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            max-width: 70%;
+        }
+        button {
+            background-color: #333;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            padding: 5px 10px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 12px;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #444;
+            border-color: var(--cyan);
+        }
+        button:active {
+            background-color: #555;
         }
 
         /* Overlays */
@@ -132,6 +206,12 @@
         
         .list-item {
             margin-bottom: 2px;
+            cursor: pointer;
+            user-select: none;
+            padding: 2px 4px;
+        }
+        .list-item:hover {
+            background-color: #333;
         }
         .list-item.selected {
             color: var(--yellow);
@@ -142,6 +222,11 @@
 <body>
     <div class="header">
         <div class="clock-display" id="clockTime">00:00:00.000 | RUNNING</div>
+    </div>
+    
+    <div class="tabs">
+        <div class="tab active" id="tabClock">Clock</div>
+        <div class="tab" id="tabEvents">Event Management</div>
     </div>
     
     <div class="main-content">
@@ -156,8 +241,19 @@
     </div>
 
     <div class="footer">
-        <div class="status-text" id="statusText">Mode: Normal</div>
-        <div class="help-hint">press h for help</div>
+        <div class="footer-left">
+            <div class="status-text" id="statusText">Mode: Normal</div>
+            <div class="help-hint" id="helpButton">press h for help</div>
+        </div>
+        <div class="footer-controls" id="footerControls">
+            <button id="btnSetTime">Set Time</button>
+            <button id="btnSetSpeed">Set Speed</button>
+            <button id="btnReset">Reset</button>
+            <button id="btnSaveConfig">Save Config</button>
+            <button id="btnLoadConfig">Load Config</button>
+            <button id="btnSaveState">Save State</button>
+            <button id="btnLoadState">Load State</button>
+        </div>
     </div>
 
     <!-- Help Overlay -->
@@ -174,6 +270,10 @@
         <div class="overlay-content input-overlay-content">
             <div id="inputTitle" style="font-weight: bold; color: var(--cyan);">INPUT</div>
             <input type="text" id="mainInput" autocomplete="off">
+            <div id="inputControls" style="display: flex; gap: 10px;">
+                <button id="btnInputConfirm" style="flex: 1;">Confirm</button>
+                <button id="btnInputCancel" style="flex: 1;">Cancel</button>
+            </div>
             <div id="inputHint" style="font-size: 12px; color: #888;">Press Enter to confirm, Esc to cancel</div>
         </div>
     </div>

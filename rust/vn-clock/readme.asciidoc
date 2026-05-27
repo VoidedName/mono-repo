@@ -1,0 +1,72 @@
+= VN Clock
+Voided Name
+v0.1.0, 2026-05-27
+:source-highlighter: rouge
+
+`vn-clock` is a modular digital clock application featuring a shared Rust core, a terminal-based UI (TUI), and a WebAssembly-powered web interface. It supports timed events with automatic pausing, playback speed adjustment, and session persistence.
+
+Part of the link:../readme.asciidoc[VN-Suit] framework.
+
+== Structure
+
+The project is split into three main packages:
+
+* **vn-clock-core**: The platform-agnostic engine containing the clock logic, multi-step input state machine, and deterministic coloring algorithm.
+* **vn-clock-ui**: A terminal-based user interface using `ratatui` for rendering and `rodio` for audio notifications.
+* **vn-clock-web**: A web interface implemented in Rust (WASM) and JavaScript, featuring a responsive dashboard and web-native file handling.
+
+== Key Features
+
+* **Deterministic Coloring**: Events are assigned high-contrast colors generated deterministically from their stable IDs using the Van der Corput sequence.
+* **Event-Driven Architecture**: The core logic communicates with UIs via a structured event system, ensuring perfect synchronization and logic parity across platforms.
+* **Persistence**: Save and load clock configurations (`.clockcfg`) or full session states (`.clockstate`) as JSON files.
+* **WASM-Compatible**: The core is fully compatible with WebAssembly, utilizing `web-time` for high-precision timing in the browser.
+
+== How to Run
+
+=== Terminal UI (TUI)
+
+Navigate to the `rust` directory and run:
+
+[source,bash]
+----
+cargo run -p vn-clock-ui
+----
+
+=== Web UI
+
+To build and serve the web interface:
+
+1. Ensure you have `wasm-pack` installed.
+2. Navigate to `rust/vn-clock/vn-clock-web/site`.
+3. Run the following commands:
+
+[source,bash]
+----
+npm install
+npm run serve
+----
+
+The application will be available at `http://localhost:8080`.
+
+== Usage
+
+Both UIs share a similar keyboard-driven workflow:
+
+* **Space**: Pause/Resume the clock.
+* **t**: Set initial time.
+* **v**: Set playback speed.
+* **e**: Enter Event Management mode.
+* **h**: Show help overlay.
+* **S / L**: Save or Load Configuration.
+* **s / l**: Save or Load State.
+
+In Event Management:
+
+* **a**: Add a new timed event (follow the multi-step prompts).
+* **d**: Delete the selected event.
+* **Esc**: Return to the main clock view.
+
+== Remarks
+
+The Web UI uses the Web Audio API for "ding" notifications, which may require a user interaction (like a key press or click) before the browser allows audio playback.

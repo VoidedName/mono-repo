@@ -1,4 +1,3 @@
-use chrono::NaiveTime;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
@@ -7,6 +6,11 @@ use ratatui::{
 };
 use crate::models::{App, InputMode, Section};
 use crate::models::color_serde::to_ratatui_color;
+use vn_clock_core::models::ClockColor;
+
+fn id_to_ratatui_color(id: u32) -> Color {
+    crate::models::color_serde::to_ratatui_color(ClockColor::Dynamic(id))
+}
 
 pub const HELP_TEXT: &str = "
     SCROLLING:
@@ -58,14 +62,10 @@ pub fn ui(f: &mut Frame, app: &App) {
             }
         }
         InputMode::Help => "HELP - Press 'h' or 'Esc' to close",
-        InputMode::EditingTime => "SET TIME (HH:MM:SS)",
-        InputMode::EditingSpeed => "SET SPEED (multiplier)",
+        InputMode::InputFlow => {
+            &app.input_flow.get_current_prompt()
+        }
         InputMode::EventManagement => "EVENT MANAGEMENT",
-        InputMode::AddingEventName => "ADD EVENT: NAME",
-        InputMode::AddingEventTime => "ADD EVENT: TIME (HH:MM:SS)",
-        InputMode::AddingEventAutoPause => "ADD EVENT: AUTO-PAUSE? (y/n)",
-        InputMode::AddingEventRepeatInterval => "ADD EVENT: REPEAT INTERVAL (HH:MM:SS, empty to skip)",
-        InputMode::AddingEventRepeatUntil => "ADD EVENT: REPEAT UNTIL (HH:MM:SS)",
         InputMode::LoadingConfig => "LOAD CONFIGURATION",
         InputMode::SavingConfig => "SAVE CONFIGURATION",
         InputMode::LoadingState => "LOAD STATE",
@@ -78,7 +78,8 @@ pub fn ui(f: &mut Frame, app: &App) {
             app.core.clock_time().format("%H:%M:%S%.3f"),
             status
         ),
-        _ => format!("INPUT: {} | {}", app.input_buffer, status),
+        InputMode::InputFlow => format!("INPUT: {} | {}", app.input_flow.buffer, status),
+        _ => format!("INPUT: {} | {}", app.input_flow.buffer, status),
     };
     let clock_para = Paragraph::new(clock_text)
         .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
@@ -103,29 +104,11 @@ pub fn ui(f: &mut Frame, app: &App) {
                 .iter()
                 .enumerate()
                 .map(|(i, e)| {
-                    let mut text = format!("[{}] {} at {}", i, e.name, e.time.format("%H:%M:%S"));
-                    if e.auto_pause {
-                        text.push_str(" (Auto-pause)");
-                    }
-                    if let Some(interval) = e.repeat_interval {
-                        let total_secs = interval.num_seconds();
-                        let hours = total_secs / 3600;
-                        let minutes = (total_secs % 3600) / 60;
-                        let seconds = total_secs % 60;
-                        text.push_str(&format!(" | Every {:02}:{:02}:{:02}", hours, minutes, seconds));
-                        if let Some(until) = e.repeat_until {
-                            let until_str = if until == NaiveTime::from_hms_opt(0, 0, 0).unwrap() {
-                                "24:00:00".to_string()
-                            } else {
-                                until.format("%H:%M:%S").to_string()
-                            };
-                            text.push_str(&format!(" until {}", until_str));
-                        }
-                    }
+                    let text = format!("[{}] {}", e.id, e.to_display_string());
                     let style = if i == app.selected_event {
                         Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
                     } else {
-                        Style::default().fg(to_ratatui_color(e.color))
+                        Style::default().fg(id_to_ratatui_color(e.id))
                     };
                     ListItem::new(text).style(style)
                 })
@@ -136,35 +119,17 @@ pub fn ui(f: &mut Frame, app: &App) {
         }
         _ => {
             let mut config_lines = vec![
-                ListItem::new(format!("Initial Time: {}", app.core.initial_time().format("%H:%M:%S"))),
-                ListItem::new(format!("Target Speed: {:.2}x", app.core.target_speed())),
+                ListItem::new(app.core.get_initial_time_string()),
+                ListItem::new(app.core.get_target_speed_string()),
                 ListItem::new("Events:"),
             ];
 
             if app.core.events().is_empty() {
                 config_lines.push(ListItem::new("  (None)"));
             } else {
-                for (i, e) in app.core.events().iter().enumerate() {
-                    let mut text = format!("  [{}] {} at {}", i, e.name, e.time.format("%H:%M:%S"));
-                    if e.auto_pause {
-                        text.push_str(" (Auto-pause)");
-                    }
-                    if let Some(interval) = e.repeat_interval {
-                        let total_secs = interval.num_seconds();
-                        let hours = total_secs / 3600;
-                        let minutes = (total_secs % 3600) / 60;
-                        let seconds = total_secs % 60;
-                        text.push_str(&format!(" | Every {:02}:{:02}:{:02}", hours, minutes, seconds));
-                        if let Some(until) = e.repeat_until {
-                            let until_str = if until == chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap() {
-                                "24:00:00".to_string()
-                            } else {
-                                until.format("%H:%M:%S").to_string()
-                            };
-                            text.push_str(&format!(" until {}", until_str));
-                        }
-                    }
-                    config_lines.push(ListItem::new(text).style(Style::default().fg(to_ratatui_color(e.color))));
+                for e in app.core.events().iter() {
+                    let text = format!("  [{}] {}", e.id, e.to_display_string());
+                    config_lines.push(ListItem::new(text).style(Style::default().fg(id_to_ratatui_color(e.id))));
                 }
             }
 
@@ -213,23 +178,7 @@ pub fn ui(f: &mut Frame, app: &App) {
     f.render_widget(logs_list, lower_chunks[1]);
 
     // Footnotes or extra status
-    let status_text = format!("Mode: {:<20}", match app.input_mode {
-        InputMode::Normal => "Normal",
-        InputMode::EditingTime => "Editing Time",
-        InputMode::EditingSpeed => "Editing Speed",
-        InputMode::EventManagement => "Event Management",
-        InputMode::AddingEventName => "Adding Event (Name)",
-        InputMode::AddingEventTime => "Adding Event (Time)",
-        InputMode::AddingEventAutoPause => "Adding Event (Auto-Pause)",
-        InputMode::AddingEventRepeatInterval => "Adding Event (Repeat Interval)",
-        InputMode::AddingEventRepeatUntil => "Adding Event (Repeat Until)",
-        InputMode::LoadingConfig => "Loading Config",
-        InputMode::SavingConfig => "Saving Config",
-        InputMode::LoadingState => "Loading State",
-        InputMode::SavingState => "Saving State",
-        InputMode::Help => "Help Overlay",
-        InputMode::ConfirmOverwriteConfig(_) | InputMode::ConfirmOverwriteState(_) => "Confirm Overwrite",
-    });
+    let status_text = format!("Mode: {:<20}", app.input_flow.get_flow_name());
 
     let status_layout = Layout::default()
         .direction(Direction::Horizontal)
@@ -317,7 +266,7 @@ pub fn render_file_explorer(f: &mut Frame, app: &App) {
     f.render_widget(list, chunks[0]);
 
     let input_block = Block::default().borders(Borders::ALL).title("File Name");
-    let input_para = Paragraph::new(app.input_buffer.as_str()).block(input_block);
+    let input_para = Paragraph::new(app.input_flow.buffer.as_str()).block(input_block);
     f.render_widget(input_para, chunks[1]);
 }
 

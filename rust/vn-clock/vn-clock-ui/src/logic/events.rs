@@ -1,11 +1,11 @@
-use chrono::{Duration, NaiveTime, Timelike};
 use crossterm::event::{self, Event, KeyCode};
 use ratatui::backend::Backend;
 use ratatui::Terminal;
 use std::io;
-use vn_clock_core::models::{ClockConfig, ClockState, TimedEvent, ClockColor, ClockEvent, ClockOutputEvent};
+use vn_clock_core::models::{ClockColor, ClockEvent, ClockOutputEvent};
+use vn_clock_core::input_flow::{InputFlow, InputFlowResult};
+use vn_clock_core::persistence;
 use crate::models::{App, InputMode, Section};
-use crate::utils::parse_time;
 use crate::ui::ui;
 
 pub fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<()> {
@@ -22,14 +22,8 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Resu
                             match app.input_mode {
                                 InputMode::Normal => handle_normal_input(&mut app, key.code),
                                 InputMode::Help => handle_help_input(&mut app, key.code, terminal)?,
-                                InputMode::EditingTime => handle_editing_time_input(&mut app, key.code),
-                                InputMode::EditingSpeed => handle_editing_speed_input(&mut app, key.code),
+                                InputMode::InputFlow => handle_input_flow_input(&mut app, key.code),
                                 InputMode::EventManagement => handle_event_management_input(&mut app, key.code),
-                                InputMode::AddingEventName => handle_adding_event_name_input(&mut app, key.code),
-                                InputMode::AddingEventTime => handle_adding_event_time_input(&mut app, key.code),
-                                InputMode::AddingEventAutoPause => handle_adding_event_auto_pause_input(&mut app, key.code),
-                                InputMode::AddingEventRepeatInterval => handle_adding_event_repeat_interval_input(&mut app, key.code),
-                                InputMode::AddingEventRepeatUntil => handle_adding_event_repeat_until_input(&mut app, key.code),
                                 InputMode::LoadingConfig | InputMode::SavingConfig | InputMode::LoadingState | InputMode::SavingState => {
                                     handle_file_input(&mut app, key.code)
                                 }
@@ -54,12 +48,22 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Resu
         // Handle output events from core
         let output_events = app.core.take_output_events();
         for event in output_events {
-            match event {
-                ClockOutputEvent::Ding => {
-                    app.io.play_ding();
-                }
-                _ => {} // Other events are currently handled by core updating its own state
-            }
+            handle_output_event(&mut app, event);
+        }
+    }
+}
+
+fn handle_output_event(app: &mut App, event: ClockOutputEvent) {
+    match event {
+        ClockOutputEvent::Ding => {
+            app.io.play_ding();
+        }
+        ClockOutputEvent::Log(_entry) => {
+            // Logs are already added to app.core.logs by handle_event, 
+            // but we could use this for extra UI notifications if needed.
+        }
+        ClockOutputEvent::Paused(_) | ClockOutputEvent::TimeSet(_) | ClockOutputEvent::SpeedSet(_) => {
+            // These are state changes that the UI reflects in its next draw
         }
     }
 }
@@ -68,8 +72,8 @@ fn handle_normal_input(app: &mut App, code: KeyCode) {
     match code {
         KeyCode::Char(' ') => app.core.handle_event(ClockEvent::TogglePause),
         KeyCode::Char('v') => {
-            app.input_mode = InputMode::EditingSpeed;
-            app.input_buffer.clear();
+            app.input_mode = InputMode::InputFlow;
+            app.input_flow.start_editing_speed();
         }
         KeyCode::Char('e') => {
             app.input_mode = InputMode::EventManagement;
@@ -79,35 +83,35 @@ fn handle_normal_input(app: &mut App, code: KeyCode) {
             app.core.handle_event(ClockEvent::Reset);
         }
         KeyCode::Char('t') => {
-            app.input_mode = InputMode::EditingTime;
-            app.input_buffer.clear();
+            app.input_mode = InputMode::InputFlow;
+            app.input_flow.start_editing_time();
             if !app.core.paused() {
                 app.core.handle_event(ClockEvent::TogglePause);
             }
         }
         KeyCode::Char('S') => {
             app.input_mode = InputMode::SavingConfig;
-            app.input_buffer.clear();
+            app.input_flow.buffer.clear();
             app.selected_file = None;
-            app.files = get_files_with_extensions(&["clockcfg"]);
+            app.files = get_files_with_extensions(&[persistence::CONFIG_EXTENSION]);
         }
         KeyCode::Char('L') => {
             app.input_mode = InputMode::LoadingConfig;
-            app.input_buffer.clear();
+            app.input_flow.buffer.clear();
             app.selected_file = None;
-            app.files = get_files_with_extensions(&["clockcfg"]);
+            app.files = get_files_with_extensions(&[persistence::CONFIG_EXTENSION]);
         }
         KeyCode::Char('s') => {
             app.input_mode = InputMode::SavingState;
-            app.input_buffer.clear();
+            app.input_flow.buffer.clear();
             app.selected_file = None;
-            app.files = get_files_with_extensions(&["clockstate"]);
+            app.files = get_files_with_extensions(&[persistence::STATE_EXTENSION]);
         }
         KeyCode::Char('l') => {
             app.input_mode = InputMode::LoadingState;
-            app.input_buffer.clear();
+            app.input_flow.buffer.clear();
             app.selected_file = None;
-            app.files = get_files_with_extensions(&["clockstate"]);
+            app.files = get_files_with_extensions(&[persistence::STATE_EXTENSION]);
         }
         KeyCode::Up => {
             match app.selected_section {
@@ -182,62 +186,16 @@ fn handle_help_input<B: Backend>(app: &mut App, code: KeyCode, terminal: &Termin
     Ok(())
 }
 
-fn handle_editing_time_input(app: &mut App, code: KeyCode) {
-    match code {
-        KeyCode::Enter => {
-            if let Some(time) = parse_time(&app.input_buffer) {
-                app.core.handle_event(ClockEvent::SetTime(time));
-            } else {
-                app.core.add_log(format!(
-                    "Invalid time format: {}",
-                    app.input_buffer
-                ), ClockColor::Red);
-            }
-            app.input_mode = InputMode::Normal;
-        }
-        KeyCode::Char(c) => app.input_buffer.push(c),
-        KeyCode::Backspace => {
-            app.input_buffer.pop();
-        }
-        KeyCode::Esc => app.input_mode = InputMode::Normal,
-        _ => {}
-    }
-}
-
-fn handle_editing_speed_input(app: &mut App, code: KeyCode) {
-    match code {
-        KeyCode::Enter => {
-            if let Ok(speed) = app.input_buffer.parse::<f64>() {
-                app.core.handle_event(ClockEvent::SetSpeed(speed));
-            } else {
-                app.core.add_log(format!(
-                    "Invalid speed: {}",
-                    app.input_buffer
-                ), ClockColor::Red);
-            }
-            app.input_mode = InputMode::Normal;
-        }
-        KeyCode::Char(c) => app.input_buffer.push(c),
-        KeyCode::Backspace => {
-            app.input_buffer.pop();
-        }
-        KeyCode::Esc => app.input_mode = InputMode::Normal,
-        _ => {}
-    }
-}
-
 fn handle_event_management_input(app: &mut App, code: KeyCode) {
     match code {
         KeyCode::Char('a') => {
-            app.input_mode = InputMode::AddingEventName;
-            app.input_buffer.clear();
-            app.temp_event_name.clear();
-            app.temp_event_time = None;
-            app.temp_event_auto_pause = false;
+            app.input_mode = InputMode::InputFlow;
+            app.input_flow.start_adding_event();
         }
         KeyCode::Char('d') => {
             if !app.core.events().is_empty() && app.selected_event < app.core.events().len() {
-                app.core.handle_event(ClockEvent::RemoveTimedEvent(app.selected_event));
+                let event_id = app.core.events()[app.selected_event].id;
+                app.core.handle_event(ClockEvent::RemoveTimedEvent(event_id));
                 if app.selected_event >= app.core.events().len() && !app.core.events().is_empty() {
                     app.selected_event = app.core.events().len() - 1;
                 }
@@ -258,136 +216,37 @@ fn handle_event_management_input(app: &mut App, code: KeyCode) {
     }
 }
 
-fn handle_adding_event_name_input(app: &mut App, code: KeyCode) {
+fn handle_input_flow_input(app: &mut App, code: KeyCode) {
     match code {
         KeyCode::Enter => {
-            app.temp_event_name = app.input_buffer.clone();
-            app.input_mode = InputMode::AddingEventTime;
-            app.input_buffer.clear();
-        }
-        KeyCode::Char(c) => app.input_buffer.push(c),
-        KeyCode::Backspace => {
-            app.input_buffer.pop();
-        }
-        KeyCode::Esc => app.input_mode = InputMode::EventManagement,
-        _ => {}
-    }
-}
-
-fn handle_adding_event_time_input(app: &mut App, code: KeyCode) {
-    match code {
-        KeyCode::Enter => {
-            if let Some(time) = parse_time(&app.input_buffer) {
-                app.temp_event_time = Some(time);
-                app.input_mode = InputMode::AddingEventAutoPause;
-                app.input_buffer.clear();
-            } else {
-                app.core.add_log(format!(
-                    "Invalid time format: {}",
-                    app.input_buffer
-                ), ClockColor::Red);
-            }
-        }
-        KeyCode::Char(c) => app.input_buffer.push(c),
-        KeyCode::Backspace => {
-            app.input_buffer.pop();
-        }
-        KeyCode::Esc => app.input_mode = InputMode::EventManagement,
-        _ => {}
-    }
-}
-
-fn handle_adding_event_auto_pause_input(app: &mut App, code: KeyCode) {
-    match code {
-        KeyCode::Char('y') | KeyCode::Char('Y') => {
-            app.temp_event_auto_pause = true;
-            app.input_mode = InputMode::AddingEventRepeatInterval;
-            app.input_buffer.clear();
-        }
-        KeyCode::Char('n') | KeyCode::Char('N') => {
-            app.temp_event_auto_pause = false;
-            app.input_mode = InputMode::AddingEventRepeatInterval;
-            app.input_buffer.clear();
-        }
-        KeyCode::Esc => app.input_mode = InputMode::EventManagement,
-        _ => {}
-    }
-}
-
-fn handle_adding_event_repeat_interval_input(app: &mut App, code: KeyCode) {
-    match code {
-        KeyCode::Enter => {
-            if app.input_buffer.is_empty() {
-                app.temp_event_repeat_interval = None;
-                if let Some(time) = app.temp_event_time {
-                    let color = app.get_random_color();
-                    app.core.handle_event(ClockEvent::AddTimedEvent(TimedEvent {
-                        time,
-                        name: app.temp_event_name.clone(),
-                        auto_pause: app.temp_event_auto_pause,
-                        repeat_interval: None,
-                        repeat_until: None,
-                        color,
-                    }));
+            let was_event_mgmt = matches!(app.input_flow.flow, InputFlow::AddingEvent(_));
+            match app.input_flow.handle_input(&app.input_flow.buffer.clone()) {
+                InputFlowResult::Completed(event) => {
+                    app.input_flow.buffer.clear();
+                    app.core.handle_event(event);
+                    app.input_mode = if was_event_mgmt {
+                        InputMode::EventManagement
+                    } else {
+                        InputMode::Normal
+                    };
                 }
-                app.input_mode = InputMode::EventManagement;
-            } else if let Ok(t) = NaiveTime::parse_from_str(&app.input_buffer, "%H:%M:%S") {
-                let seconds = t.num_seconds_from_midnight();
-                if seconds > 0 {
-                    let duration = Duration::seconds(seconds as i64);
-                    app.temp_event_repeat_interval = Some(duration);
-                    app.input_mode = InputMode::AddingEventRepeatUntil;
-                    app.input_buffer.clear();
-                } else {
-                    app.core.add_log("Repeat interval must be greater than zero".to_string(), ClockColor::Red);
+                InputFlowResult::NextStep => {
+                    app.input_flow.buffer.clear();
                 }
-            } else {
-                app.core.add_log(format!("Invalid interval format (HH:MM:SS): {}", app.input_buffer), ClockColor::Red);
-            }
-        }
-        KeyCode::Char(c) => app.input_buffer.push(c),
-        KeyCode::Backspace => {
-            app.input_buffer.pop();
-        }
-        KeyCode::Esc => app.input_mode = InputMode::EventManagement,
-        _ => {}
-    }
-}
-
-fn handle_adding_event_repeat_until_input(app: &mut App, code: KeyCode) {
-    match code {
-        KeyCode::Enter => {
-            let mut repeat_until = None;
-            let mut format_error = false;
-            if !app.input_buffer.is_empty() {
-                if let Some(until) = parse_time(&app.input_buffer) {
-                    repeat_until = Some(until);
-                } else {
-                    app.core.add_log(format!("Invalid until format: {}", app.input_buffer), ClockColor::Red);
-                    format_error = true;
+                InputFlowResult::Error(err) => {
+                    app.core.add_log(err, ClockColor::Red);
                 }
             }
-
-            if !format_error {
-                if let Some(time) = app.temp_event_time {
-                    let color = app.get_random_color();
-                    app.core.handle_event(ClockEvent::AddTimedEvent(TimedEvent {
-                        time,
-                        name: app.temp_event_name.clone(),
-                        auto_pause: app.temp_event_auto_pause,
-                        repeat_interval: app.temp_event_repeat_interval,
-                        repeat_until,
-                        color,
-                    }));
-                }
-                app.input_mode = InputMode::EventManagement;
-            }
         }
-        KeyCode::Char(c) => app.input_buffer.push(c),
+        KeyCode::Char(c) => app.input_flow.buffer.push(c),
         KeyCode::Backspace => {
-            app.input_buffer.pop();
+            app.input_flow.buffer.pop();
         }
-        KeyCode::Esc => app.input_mode = InputMode::EventManagement,
+        KeyCode::Esc => {
+            let was_event_mgmt = matches!(app.input_flow.flow, InputFlow::AddingEvent(_));
+            app.input_flow.cancel();
+            app.input_mode = if was_event_mgmt { InputMode::EventManagement } else { InputMode::Normal };
+        }
         _ => {}
     }
 }
@@ -403,7 +262,7 @@ fn handle_file_input(app: &mut App, code: KeyCode) {
                     app.selected_file = Some(app.files.len() - 1);
                 }
                 if let Some(selected) = app.selected_file {
-                    app.input_buffer = app.files[selected].clone();
+                    app.input_flow.buffer = app.files[selected].clone();
                 }
             }
         }
@@ -414,39 +273,30 @@ fn handle_file_input(app: &mut App, code: KeyCode) {
                     None => 0,
                 };
                 app.selected_file = Some(next);
-                app.input_buffer = app.files[next].clone();
+                app.input_flow.buffer = app.files[next].clone();
             }
         }
         KeyCode::Enter => {
-            let filename = app.input_buffer.trim().to_string();
+            let filename = app.input_flow.buffer.trim().to_string();
             if filename.is_empty() {
                 return;
             }
 
             match app.input_mode {
                 InputMode::LoadingConfig => {
-                    let filename = if filename.ends_with(".clockcfg") {
-                        filename
-                    } else {
-                        format!("{}.clockcfg", filename)
-                    };
-                    if let Ok(bytes) = std::fs::read(&filename) {
-                        if let Ok(config) = serde_json::from_slice::<ClockConfig>(&bytes) {
-                            app.core.handle_event(ClockEvent::LoadConfig(config));
-                            app.core.add_log(format!("Configuration loaded from {}", filename), ClockColor::White);
+                    let filename = persistence::ensure_extension(&filename, persistence::CONFIG_EXTENSION);
+                    if let Ok(json) = std::fs::read_to_string(&filename) {
+                        if let Err(e) = app.core.load_config_json(&json) {
+                            app.core.add_log(e, ClockColor::Red);
                         } else {
-                            app.core.add_log("Failed to parse config".to_string(), ClockColor::Red);
+                            app.core.add_log(format!("Configuration loaded from {}", filename), ClockColor::White);
                         }
                     } else {
                         app.core.add_log(format!("Failed to read file {}", filename), ClockColor::Red);
                     }
                 }
                 InputMode::SavingConfig => {
-                    let filename = if filename.ends_with(".clockcfg") {
-                        filename
-                    } else {
-                        format!("{}.clockcfg", filename)
-                    };
+                    let filename = persistence::ensure_extension(&filename, persistence::CONFIG_EXTENSION);
                     if std::path::Path::new(&filename).exists() {
                         app.input_mode = InputMode::ConfirmOverwriteConfig(filename);
                         return;
@@ -454,28 +304,19 @@ fn handle_file_input(app: &mut App, code: KeyCode) {
                     save_config(app, &filename);
                 }
                 InputMode::LoadingState => {
-                    let filename = if filename.ends_with(".clockstate") {
-                        filename
-                    } else {
-                        format!("{}.clockstate", filename)
-                    };
-                    if let Ok(bytes) = std::fs::read(&filename) {
-                        if let Ok(state) = serde_json::from_slice::<ClockState>(&bytes) {
-                            app.core.handle_event(ClockEvent::LoadState(state));
-                            app.core.add_log(format!("State loaded from {}", filename), ClockColor::White);
+                    let filename = persistence::ensure_extension(&filename, persistence::STATE_EXTENSION);
+                    if let Ok(json) = std::fs::read_to_string(&filename) {
+                        if let Err(e) = app.core.load_state_json(&json) {
+                            app.core.add_log(e, ClockColor::Red);
                         } else {
-                            app.core.add_log("Failed to parse state".to_string(), ClockColor::Red);
+                            app.core.add_log(format!("State loaded from {}", filename), ClockColor::White);
                         }
                     } else {
                         app.core.add_log(format!("Failed to read file {}", filename), ClockColor::Red);
                     }
                 }
                 InputMode::SavingState => {
-                    let filename = if filename.ends_with(".clockstate") {
-                        filename
-                    } else {
-                        format!("{}.clockstate", filename)
-                    };
+                    let filename = persistence::ensure_extension(&filename, persistence::STATE_EXTENSION);
                     if std::path::Path::new(&filename).exists() {
                         app.input_mode = InputMode::ConfirmOverwriteState(filename);
                         return;
@@ -487,10 +328,10 @@ fn handle_file_input(app: &mut App, code: KeyCode) {
             app.input_mode = InputMode::Normal;
         }
         KeyCode::Char(c) => {
-            app.input_buffer.push(c);
+            app.input_flow.buffer.push(c);
         }
         KeyCode::Backspace => {
-            app.input_buffer.pop();
+            app.input_flow.buffer.pop();
         }
         KeyCode::Esc => {
             app.input_mode = InputMode::Normal;
@@ -546,34 +387,27 @@ fn handle_confirm_overwrite_input(app: &mut App, code: KeyCode) {
 }
 
 fn save_config(app: &mut App, filename: &str) {
-    let config = ClockConfig {
-        initial_time: app.core.initial_time(),
-        target_speed: app.core.target_speed(),
-        events: app.core.events().to_vec(),
-    };
-    if let Ok(json) = serde_json::to_string_pretty(&config) {
-        if std::fs::write(filename, json).is_ok() {
-            app.core.add_log(format!("Configuration saved to {}", filename), ClockColor::White);
-        } else {
-            app.core.add_log("Failed to save config".to_string(), ClockColor::Red);
+    match app.core.get_config_json() {
+        Ok(json) => {
+            if std::fs::write(filename, json).is_ok() {
+                app.core.add_log(format!("Configuration saved to {}", filename), ClockColor::White);
+            } else {
+                app.core.add_log("Failed to write config file".to_string(), ClockColor::Red);
+            }
         }
+        Err(e) => app.core.add_log(e, ClockColor::Red),
     }
 }
 
 fn save_state(app: &mut App, filename: &str) {
-    let state = ClockState {
-        clock_time: app.core.clock_time(),
-        initial_time: app.core.initial_time(),
-        target_speed: app.core.target_speed(),
-        paused: app.core.paused(),
-        events: app.core.events().to_vec(),
-        logs: app.core.logs().to_vec(),
-    };
-    if let Ok(json) = serde_json::to_string_pretty(&state) {
-        if std::fs::write(filename, json).is_ok() {
-            app.core.add_log(format!("State saved to {}", filename), ClockColor::White);
-        } else {
-            app.core.add_log("Failed to save state".to_string(), ClockColor::Red);
+    match app.core.get_state_json() {
+        Ok(json) => {
+            if std::fs::write(filename, json).is_ok() {
+                app.core.add_log(format!("State saved to {}", filename), ClockColor::White);
+            } else {
+                app.core.add_log("Failed to write state file".to_string(), ClockColor::Red);
+            }
         }
+        Err(e) => app.core.add_log(e, ClockColor::Red),
     }
 }
