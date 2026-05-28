@@ -649,11 +649,6 @@ async function start() {
                 if (result.success) {
                     if (result.next_step === "None") {
                         if (inputMode === InputMode.InputFlow) {
-                            // If we came from EventManagement, we should go back there
-                            // but InputFlowState.flow is now None.
-                            // However, we don't have enough context here to know if we were in EventManagement.
-                            // Actually, handleInputSubmit is called from overlays which are triggered by shortcuts or buttons.
-                            // Let's check the current tab instead.
                             if (tabEvents.classList.contains('active')) {
                                 inputMode = InputMode.EventManagement;
                             } else {

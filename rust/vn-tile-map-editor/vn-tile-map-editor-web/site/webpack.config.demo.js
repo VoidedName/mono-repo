@@ -6,7 +6,7 @@ module.exports = {
     output: {
         path: path.resolve(__dirname, "demo-dist"),
         filename: "index.js",
-        publicPath: "/mono-repo/",
+        publicPath: "./",
     },
     mode: "development",
 

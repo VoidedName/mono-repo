@@ -9,7 +9,7 @@ use crate::models::color_serde::to_ratatui_color;
 use vn_clock_core::models::ClockColor;
 
 fn id_to_ratatui_color(id: u32) -> Color {
-    crate::models::color_serde::to_ratatui_color(ClockColor::Dynamic(id))
+    to_ratatui_color(ClockColor::Dynamic(id))
 }
 
 pub const HELP_TEXT: &str = "

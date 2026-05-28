@@ -1,5 +1,6 @@
 use vn_clock_core::models::ClockColor;
 use ratatui::style::Color;
+use vn_clock_core::models::color::hue_to_rgb;
 
 pub fn to_ratatui_color(clock_color: ClockColor) -> Color {
     match clock_color {
@@ -34,13 +35,4 @@ fn hsl_to_ratatui_rgb(h: f64, s: f64, l: f64) -> Color {
     let b = hue_to_rgb(p, q, h - 1.0 / 3.0);
 
     Color::Rgb((r * 255.0) as u8, (g * 255.0) as u8, (b * 255.0) as u8)
-}
-
-fn hue_to_rgb(p: f64, q: f64, mut t: f64) -> f64 {
-    if t < 0.0 { t += 1.0; }
-    if t > 1.0 { t -= 1.0; }
-    if t < 1.0 / 6.0 { return p + (q - p) * 6.0 * t; }
-    if t < 1.0 / 2.0 { return q; }
-    if t < 2.0 / 3.0 { return p + (q - p) * (2.0 / 3.0 - t) * 6.0; }
-    p
 }

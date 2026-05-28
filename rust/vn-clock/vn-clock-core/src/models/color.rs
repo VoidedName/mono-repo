@@ -65,7 +65,7 @@ fn hsl_to_rgb(h: f64, s: f64, l: f64) -> (f64, f64, f64) {
     )
 }
 
-fn hue_to_rgb(p: f64, q: f64, mut t: f64) -> f64 {
+pub fn hue_to_rgb(p: f64, q: f64, mut t: f64) -> f64 {
     if t < 0.0 { t += 1.0; }
     if t > 1.0 { t -= 1.0; }
     if t < 1.0 / 6.0 { return p + (q - p) * 6.0 * t; }
