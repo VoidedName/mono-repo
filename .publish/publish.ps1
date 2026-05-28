@@ -203,3 +203,5 @@ if ($Preview) {
 } else {
     Write-Host "`nDone! Build artifacts are in the '$OutputDir' directory." -ForegroundColor Green
 }
+
+exit 0

@@ -18,6 +18,7 @@ function Clean-Up {
 try {
     # 1. Build Projects Locally
     Write-Host "--- Step 1: Building Projects ---" -ForegroundColor Cyan
+    $LASTEXITCODE = 0
     & "$PSScriptRoot\publish.ps1" -Parallel
     if ($LASTEXITCODE -ne 0) { throw "Build failed." }
 
