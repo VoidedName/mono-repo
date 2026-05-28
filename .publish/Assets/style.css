@@ -70,17 +70,23 @@ ul#projectList:focus-visible {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
+    gap: 1em;
 }
 .project-title {
     color: var(--accent-color);
     font-size: 1.2em;
     font-weight: bold;
     margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 .project-version {
     color: var(--dim-color);
     font-size: 0.8em;
     font-family: monospace;
+    flex-shrink: 0;
 }
 .project-desc {
     color: var(--text-color);
