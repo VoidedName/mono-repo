@@ -17,9 +17,9 @@ function Invoke-NpmWebpackWorkflow {
         if (-not (Test-Path "node_modules")) {
             Write-Host "[$($Config.name)] Installing npm dependencies..." -ForegroundColor Gray
             if (Test-Path "package-lock.json") {
-                npm ci
+                & npm ci 2>&1 | ForEach-Object { Write-Host "[$($Config.name)] $_" }
             } else {
-                npm install
+                & npm install 2>&1 | ForEach-Object { Write-Host "[$($Config.name)] $_" }
             }
             if ($LASTEXITCODE -ne 0) {
                 throw "npm install failed with exit code $LASTEXITCODE"
@@ -34,7 +34,9 @@ function Invoke-NpmWebpackWorkflow {
 
         # 3. Execute build command
         Write-Host "[$($Config.name)] Running build: $($Config.buildCmd)" -ForegroundColor Gray
-        Invoke-Expression $Config.buildCmd
+        # Use Start-Process to capture output better if needed, but Invoke-Expression is fine for now
+        # but let's make it more robust
+        & cmd /c "$($Config.buildCmd) 2>&1" | ForEach-Object { Write-Host "[$($Config.name)] $_" }
         if ($LASTEXITCODE -ne 0) {
             throw "Build command failed with exit code $LASTEXITCODE"
         }

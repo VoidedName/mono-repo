@@ -87,6 +87,14 @@ if ($Parallel -and $PSVersionTable.PSVersion.Major -ge 7) {
         
         Import-Module $WorkflowModule -Force
         
+        # Ensure path is updated for child processes in parallel
+        if ($env:USERPROFILE) {
+            $CargoBin = Join-Path $env:USERPROFILE ".cargo\bin"
+            if ($env:PATH -notlike "*$CargoBin*") {
+                $env:PATH = "$CargoBin;$env:PATH"
+            }
+        }
+
         $Success = Invoke-Workflow -Config $_ -ScriptRoot $RepoRoot -OutputDir $OutputDir
         return [PSCustomObject]@{
             Config = $_

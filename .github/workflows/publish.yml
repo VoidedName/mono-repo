@@ -36,14 +36,22 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
 
       - name: Install wasm-pack
         run: |
-          cargo install wasm-pack
+          $url = "https://github.com/rustwasm/wasm-pack/releases/download/v0.12.1/wasm-pack-v0.12.1-x86_64-pc-windows-msvc.tar.gz"
+          $dest = "$env:USERPROFILE\.cargo\bin\wasm-pack.tar.gz"
+          Invoke-WebRequest -Uri $url -OutFile $dest
+          tar -xzf $dest -C "$env:USERPROFILE\.cargo\bin" --strip-components 1
+          Remove-Item $dest
+        shell: pwsh
 
       - name: Build Projects
         shell: pwsh
         run: |
+          $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
           .\.publish\publish.ps1 -Parallel
 
       - name: Deploy to GitHub Pages
