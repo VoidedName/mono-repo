@@ -6,28 +6,42 @@ This system provides a dynamic, configuration-driven orchestrator to build and a
 
 == Publishing Strategy
 
-To ensure control over when the site is updated and to avoid automatic republishing on every commit, the following strategy is implemented:
+The publishing strategy uses a **local-build, remote-deploy** model to avoid toolchain complexity in CI environments.
 
-1. **Local Build Isolation**: The `docs/` directory is ignored by Git (`.gitignore`). Running `publish.ps1` locally prepares the site for preview or manual inspection without affecting the repository or the live site.
-2. **Remote Publish**: A GitHub Actions workflow (`.github/workflows/publish.yml`) is provided. It can be triggered in three ways:
-* **Manually**: Via the GitHub "Actions" tab (using `workflow_dispatch`).
-* **Tagging**: Pushing a tag starting with `web-v` (e.g., `web-v1.0.0`).
-* **Commit Message**: Including `[publish]` in your commit message on the `main` branch.
-3. **Dedicated Branch**: The live site is served from the `gh-pages` branch. The manual workflow builds the projects and pushes the results to this branch.
+1.  **Local Build**: Projects are built on the developer's machine using `publish.ps1`.
+2.  **Dedicated Branch**: The live site is served from the `gh-pages` branch.
+3.  **Deployment**: A dedicated `Deploy.ps1` script handles the synchronization between the local build and the `gh-pages` branch.
 
-This setup prevents "random commits" from triggering a redeploy and gives you full control over the publishing lifecycle.
+== How to Publish
 
-== GitHub Configuration
+You can publish the site in two ways:
 
-After setting up the workflow, you must perform a one-time configuration on GitHub:
+=== 1. Manual Deployment
+Run the deployment script from the project root:
 
-1.  Navigate to your repository on GitHub.
-2.  Go to **Settings** > **Pages**.
-3.  Under **Build and deployment** > **Source**, ensure **"Deploy from a branch"** is selected.
-4.  Under **Branch**, select `gh-pages` and the `/ (root)` folder.
-5.  Click **Save**.
+[source,powershell]
+----
+.\.publish\Deploy.ps1
+----
 
-NOTE: The `gh-pages` branch will be created automatically the first time the workflow runs successfully. If you don't see it in the dropdown yet, trigger a manual publish first.
+This script will:
+* Build all projects in parallel.
+* Prepare a temporary worktree for the `gh-pages` branch.
+* Sync the `docs/` artifacts to that branch.
+* Commit and push to GitHub.
+
+=== 2. Automatic Deployment (Git Hook)
+The project includes a `pre-push` git hook. It automatically triggers the deployment script when:
+* You push a tag starting with `web-v*` (e.g., `git push origin web-v1.0.0`).
+* Any of the commits being pushed to `main` contains `[publish]` in the commit message.
+
+==== Setting up the Hook
+To enable automatic deployment, you must copy the hook from the repository to your local `.git/hooks` folder:
+
+[source,powershell]
+----
+Copy-Item .publish\pre-push.sample.ps1 .git\hooks\pre-push
+----
 
 == Overview
 
