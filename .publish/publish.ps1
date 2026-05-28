@@ -165,26 +165,13 @@ $IndexContent = Get-Content $TemplatePath -Raw
 
 # Get version info (Tag or Commit)
 $Version = "Local Build"
-if ($env:GITHUB_REF_TYPE -eq "tag" -and $env:GITHUB_REF_NAME -like "web-v*") {
-    $Version = $env:GITHUB_REF_NAME
-} elseif ($env:GITHUB_SHA) {
-    $Version = $env:GITHUB_SHA.Substring(0, 7)
-    if ($env:GITHUB_REF_NAME) {
-        $Version = "$($env:GITHUB_REF_NAME)@$Version"
-    }
+$GitTag = git describe --tags --match "web-v*" --exact-match 2>$null
+if ($GitTag) {
+    $Version = $GitTag.Trim()
 } else {
-    try {
-        $GitTag = git describe --tags --match "web-v*" --exact-match 2>$null
-        if ($GitTag) {
-            $Version = $GitTag
-        } else {
-            $GitSha = git rev-parse --short HEAD 2>$null
-            if ($GitSha) {
-                $Version = $GitSha
-            }
-        }
-    } catch {
-        $Version = "Unknown Build Version"
+    $GitSha = git rev-parse --short HEAD 2>$null
+    if ($GitSha) {
+        $Version = $GitSha.Trim()
     }
 }
 
