@@ -16,7 +16,14 @@ function Invoke-NpmWebpackWorkflow {
         # 1. Install dependencies
         if (-not (Test-Path "node_modules")) {
             Write-Host "[$($Config.name)] Installing npm dependencies..." -ForegroundColor Gray
-            npm install
+            if (Test-Path "package-lock.json") {
+                npm ci
+            } else {
+                npm install
+            }
+            if ($LASTEXITCODE -ne 0) {
+                throw "npm install failed with exit code $LASTEXITCODE"
+            }
         }
 
         # 2. Cleanup DistDir
@@ -28,6 +35,9 @@ function Invoke-NpmWebpackWorkflow {
         # 3. Execute build command
         Write-Host "[$($Config.name)] Running build: $($Config.buildCmd)" -ForegroundColor Gray
         Invoke-Expression $Config.buildCmd
+        if ($LASTEXITCODE -ne 0) {
+            throw "Build command failed with exit code $LASTEXITCODE"
+        }
 
         # 4. Verify output
         if (-not (Test-Path $Config.distDir)) {

@@ -119,6 +119,7 @@ if ($FailedProjects.Count -gt 0) {
     foreach ($P in $FailedProjects) {
         Write-Host "  - $($P.name)" -ForegroundColor Red
     }
+    exit 1
 }
 
 if ($SuccessfulProjects.Count -eq 0) {
