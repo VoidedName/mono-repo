@@ -99,6 +99,14 @@ function Get-ProjectVersion($Config) {
         return Get-VersionFromCargoContent (Get-Content $cargoPath -Raw)
     }
 
+    # 4. Git fallback for project version
+    try {
+        $GitTag = git describe --tags --always 2>$null
+        if ($LASTEXITCODE -eq 0 -and $GitTag) {
+            return $GitTag.Trim()
+        }
+    } catch {}
+
     return "v0.0.0"
 }
 
@@ -215,15 +223,21 @@ $IndexContent = Get-Content $TemplatePath -Raw
 
 # Get version info (Tag or Commit)
 $Version = "Local Build"
-$GitTag = git describe --tags --match "web-v*" --exact-match 2>$null
-if ($GitTag) {
-    $Version = $GitTag.Trim()
-} else {
+try {
+    # We suppress stderr and use a try-catch to ensure git failures (like no tags) 
+    # don't trigger $ErrorActionPreference = "Stop" or non-zero exit codes.
+    $GitTag = git describe --tags --match "web-v*" --exact-match 2>$null
+    if ($LASTEXITCODE -eq 0 -and $GitTag) {
+        $Version = $GitTag.Trim()
+    }
+} catch {
     $GitSha = git rev-parse --short HEAD 2>$null
-    if ($GitSha) {
+    if ($LASTEXITCODE -eq 0 -and $GitSha) {
         $Version = $GitSha.Trim()
+        $Version = @"Commit: $Version"
     }
 }
+$LASTEXITCODE = 0 # Reset after git checks to be safe
 
 $IndexContent = $IndexContent.Replace("{{LINKS}}", $LinksHtml)
 $IndexContent = $IndexContent.Replace("{{YEAR}}", (Get-Date -Format "yyyy"))
