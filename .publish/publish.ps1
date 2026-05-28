@@ -234,7 +234,7 @@ try {
     $GitSha = git rev-parse --short HEAD 2>$null
     if ($LASTEXITCODE -eq 0 -and $GitSha) {
         $Version = $GitSha.Trim()
-        $Version = @"Commit: $Version"
+        $Version = "Commit: $Version"
     }
 }
 $LASTEXITCODE = 0 # Reset after git checks to be safe
