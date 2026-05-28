@@ -66,11 +66,21 @@ ul#projectList:focus-visible {
 }
 .project-item.active::before { opacity: 1; }
 .project-info { flex: 1; }
+.project-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
 .project-title {
     color: var(--accent-color);
     font-size: 1.2em;
     font-weight: bold;
     margin: 0;
+}
+.project-version {
+    color: var(--dim-color);
+    font-size: 0.8em;
+    font-family: monospace;
 }
 .project-desc {
     color: var(--text-color);

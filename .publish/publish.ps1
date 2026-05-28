@@ -33,6 +33,11 @@ function Get-ProjectConfigs {
                 } elseif (-not [System.IO.Path]::IsPathRooted($Config.SourceDir)) {
                     $Config.SourceDir = [System.IO.Path]::GetFullPath((Join-Path $RepoRoot $Config.SourceDir))
                 }
+                
+                # Attach version if not explicitly provided
+                if (-not (Get-Member -InputObject $Config -Name "version")) {
+                    $Config | Add-Member -MemberType NoteProperty -Name "version" -Value (Get-ProjectVersion $Config)
+                }
             }
             return $Configs
         } else {
@@ -54,6 +59,12 @@ function Get-ProjectConfigs {
             } elseif ($Item.Name -eq "publish.json") {
                 $Config = Get-Content $Item.FullName | ConvertFrom-Json
                 $Config | Add-Member -MemberType NoteProperty -Name "SourceDir" -Value $Item.DirectoryName
+                
+                # Detect version
+                if (-not (Get-Member -InputObject $Config -Name "version")) {
+                    $Config | Add-Member -MemberType NoteProperty -Name "version" -Value (Get-ProjectVersion $Config)
+                }
+
                 $ConfigsList.Add($Config)
             }
         }
@@ -61,6 +72,41 @@ function Get-ProjectConfigs {
 
     Search-Dir $RepoRoot $Configs
     return $Configs
+}
+
+function Get-ProjectVersion($Config) {
+    # 1. Explicit version in config
+    if (Get-Member -InputObject $Config -Name "version") {
+        return $Config.version
+    }
+
+    # 2. versionFile specified in config
+    if (Get-Member -InputObject $Config -Name "versionFile") {
+        $vPath = Join-Path $Config.SourceDir $Config.versionFile
+        if (Test-Path $vPath) {
+            $content = Get-Content $vPath -Raw
+            if ($Config.versionFile -like "*.toml") {
+                return Get-VersionFromCargoContent $content
+            }
+            return $content.Trim()
+        }
+    }
+
+    # 3. Default: Look for Cargo.toml in parent directory
+    $parentDir = Split-Path $Config.SourceDir -Parent
+    $cargoPath = Join-Path $parentDir "Cargo.toml"
+    if (Test-Path $cargoPath) {
+        return Get-VersionFromCargoContent (Get-Content $cargoPath -Raw)
+    }
+
+    return "v0.0.0"
+}
+
+function Get-VersionFromCargoContent($Content) {
+    if ($Content -match '(?m)^version\s*=\s*"([^"]+)"') {
+        return $matches[1]
+    }
+    return "unknown"
 }
 
 # --- Execution ---
@@ -148,10 +194,14 @@ $Links = foreach ($Proj in $SuccessfulProjects) {
     $ProjId = "proj-$($Proj.Name)"
     $ProjName = $Proj.Name
     $ProjDescription = $Proj.Description
+    $ProjVersion = $Proj.version
     @"
             <li class="project-item" id="$ProjId" role="option" data-url="./$ProjName/" aria-labelledby="$ProjId-title" aria-describedby="$ProjId-desc">
                 <div class="project-info">
-                    <h2 class="project-title" id="$ProjId-title">$ProjName</h2>
+                    <div class="project-header">
+                        <h2 class="project-title" id="$ProjId-title">$ProjName</h2>
+                        <span class="project-version">$ProjVersion</span>
+                    </div>
                     <p class="project-desc" id="$ProjId-desc">$ProjDescription</p>
                 </div>
             </li>
