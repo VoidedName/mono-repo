@@ -1,0 +1,58 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voided Names Random Projects</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+            <h1>Voided Names Random Projects</h1>
+            <button id="helpToggle" aria-label="Show help" style="background: none; border: 1px solid var(--accent-color); color: var(--accent-color); padding: 0.5em 1em; cursor: pointer; font-family: inherit; text-transform: uppercase; letter-spacing: 1px;">Help [H]</button>
+        </div>
+        <p class="instructions">Select a project using keyboard or mouse.</p>
+    </header>
+    
+    <main>
+        <ul id="projectList" role="listbox" aria-label="Project selection" tabindex="0">
+            <li class="project-item" id="proj-vn-clock" role="option" data-url="./vn-clock/" aria-labelledby="proj-vn-clock-title" aria-describedby="proj-vn-clock-desc">
+                <div class="project-info">
+                    <h2 class="project-title" id="proj-vn-clock-title">vn-clock</h2>
+                    <p class="project-desc" id="proj-vn-clock-desc">A customizable accelerated clock with event scheduling and WASM-powered logic.</p>
+                </div>
+            </li>
+            <li class="project-item" id="proj-vn-tilemap-editor" role="option" data-url="./vn-tilemap-editor/" aria-labelledby="proj-vn-tilemap-editor-title" aria-describedby="proj-vn-tilemap-editor-desc">
+                <div class="project-info">
+                    <h2 class="project-title" id="proj-vn-tilemap-editor-title">vn-tilemap-editor</h2>
+                    <p class="project-desc" id="proj-vn-tilemap-editor-desc">A tile-based map editor for visual novels, featuring WASM integration and example map support.</p>
+                </div>
+            </li>
+        </ul>
+    </main>
+
+    <div id="helpOverlay" role="dialog" aria-modal="true" aria-labelledby="helpTitle" aria-describedby="helpCloseInstr">
+        <div class="help-content">
+            <h2 id="helpTitle" class="help-header">KEYBOARD CONTROLS</h2>
+            <dl class="kb-list">
+                <div class="kb-row"><dt class="kb-key">&uarr; / K</dt><dd class="kb-desc">Move selection up</dd></div>
+                <div class="kb-row"><dt class="kb-key">&darr; / J</dt><dd class="kb-desc">Move selection down</dd></div>
+                <div class="kb-row"><dt class="kb-key">ENTER</dt><dd class="kb-desc">Open selected project</dd></div>
+                <div class="kb-row"><dt class="kb-key">H / ?</dt><dd class="kb-desc">Toggle help</dd></div>
+                <div class="kb-row"><dt class="kb-key">ESC</dt><dd class="kb-desc">Close help / Deselect</dd></div>
+            </dl>
+            <p id="helpCloseInstr" class="help-footer">Press any key to close</p>
+        </div>
+    </div>
+
+    <footer>
+        <div>&copy; 2026 Voided Name</div>
+        <div>Version: Unknown Build Version</div>
+        <div>Generated: 2026-05-28 17:01:20</div>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
+

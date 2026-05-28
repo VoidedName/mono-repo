@@ -1,7 +1,0 @@
-{
-  "name": "vn-tilemap-editor",
-  "description": "A tile-based map editor for visual novels, featuring WASM integration and example map support.",
-  "workflow": "npm-webpack",
-  "distDir": "demo-dist",
-  "buildCmd": "npm run build-demo"
-}

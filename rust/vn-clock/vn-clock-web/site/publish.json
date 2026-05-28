@@ -1,7 +1,0 @@
-{
-  "name": "vn-clock",
-  "description": "A customizable accelerated clock with event scheduling and WASM-powered logic.",
-  "workflow": "npm-webpack",
-  "distDir": "dist",
-  "buildCmd": "npm run build"
-}
