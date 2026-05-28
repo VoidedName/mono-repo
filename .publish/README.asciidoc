@@ -14,9 +14,6 @@ The publishing strategy uses a **local-build, remote-deploy** model to avoid too
 
 == How to Publish
 
-You can publish the site in two ways:
-
-=== 1. Manual Deployment
 Run the deployment script from the project root:
 
 [source,powershell]
@@ -29,19 +26,6 @@ This script will:
 * Prepare a temporary worktree for the `gh-pages` branch.
 * Sync the `docs/` artifacts to that branch.
 * Commit and push to GitHub.
-
-=== 2. Automatic Deployment (Git Hook)
-The project includes a `pre-push` git hook. It automatically triggers the deployment script when:
-* You push a tag starting with `web-v*` (e.g., `git push origin web-v1.0.0`).
-* Any of the commits being pushed to `main` contains `[publish]` in the commit message.
-
-==== Setting up the Hook
-To enable automatic deployment, you must copy the hook from the repository to your local `.git/hooks` folder:
-
-[source,powershell]
-----
-Copy-Item .publish\pre-push.sample.ps1 .git\hooks\pre-push
-----
 
 == Overview
 
