@@ -277,6 +277,7 @@ impl<S: CloneableScene> SceneRenderer<S> {
     }
 }
 
+#[allow(dead_code)]
 fn diff<Old, New>(
     old: &Old,
     old_range: Range<usize>,
@@ -294,6 +295,7 @@ where
     d.into_inner().into_inner().into_ops()
 }
 
+#[allow(dead_code)]
 fn padded_zip<T: Default + Clone>(left: Vec<T>, right: Vec<T>) -> impl Iterator<Item = (T, T)> {
     let max_len = left.len().max(right.len());
     left.into_iter()
@@ -307,6 +309,7 @@ fn padded_zip<T: Default + Clone>(left: Vec<T>, right: Vec<T>) -> impl Iterator<
         )
 }
 
+#[allow(dead_code)]
 fn unified_clip_rect<T, F>(start: Option<Rect>, data: &[T], rect: F) -> Option<Rect>
 where
     F: Fn(&T) -> Rect,

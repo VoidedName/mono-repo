@@ -20,6 +20,7 @@ members = [
     "vn-clock/vn-clock-core",
     "vn-clock/vn-clock-ui",
     "vn-clock/vn-clock-web",
+    "vn-gen",
 ]
 
 [workspace.dependencies]

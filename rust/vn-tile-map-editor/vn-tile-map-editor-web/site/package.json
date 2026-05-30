@@ -5,7 +5,7 @@
     "prebuild-demo": "wasm-pack build --target web -- --features example_map",
     "build-demo": "webpack --config webpack.config.demo.js",
     "preserve": "wasm-pack build --target web -- --features example_map",
-    "serve": "webpack serve --config webpack.config.js --open"
+    "serve": "npx serve dist"
   },
   "devDependencies": {
     "copy-webpack-plugin": "^12.0.2",
