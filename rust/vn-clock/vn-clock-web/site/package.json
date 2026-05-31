@@ -2,6 +2,7 @@
   "scripts": {
     "prebuild": "wasm-pack build --target web",
     "build": "webpack --config webpack.config.js",
+    "preserve": "npm run build",
     "serve": "npx serve dist"
   },
   "devDependencies": {

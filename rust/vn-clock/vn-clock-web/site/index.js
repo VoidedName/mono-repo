@@ -62,6 +62,14 @@ async function start() {
 
         let lastModeBeforeHelp = InputMode.Normal;
 
+        // Last rendered state for optimization
+        let lastClockText = "";
+        let lastStatusText = "";
+        let lastConfigHtml = "";
+        let lastLogJson = "";
+        let lastSelectedSection = null;
+        let lastInputMode = null;
+
         // DOM Elements
         const clockDisplay = document.getElementById('clockTime');
         const statusText = document.getElementById('statusText');
@@ -152,14 +160,25 @@ async function start() {
 
                 // Update Header
                 const status = inputMode === InputMode.Normal ? (app.is_paused() ? "PAUSED" : "RUNNING") : inputMode.toUpperCase();
-                clockDisplay.textContent = `${app.get_clock_time()} | ${status}`;
+                const clockText = `${app.get_clock_time()} | ${status}`;
+                if (clockText !== lastClockText) {
+                    clockDisplay.textContent = clockText;
+                    lastClockText = clockText;
+                }
 
                 // Update Footer
-                statusText.textContent = `Mode: ${app.get_flow_name()}`;
+                const currentFlowName = app.get_flow_name();
+                if (currentFlowName !== lastStatusText) {
+                    statusText.textContent = `Mode: ${currentFlowName}`;
+                    lastStatusText = currentFlowName;
+                }
 
                 // Update Tabs
-                tabClock.classList.toggle('active', inputMode === InputMode.Normal);
-                tabEvents.classList.toggle('active', inputMode === InputMode.EventManagement);
+                if (inputMode !== lastInputMode) {
+                    tabClock.classList.toggle('active', inputMode === InputMode.Normal);
+                    tabEvents.classList.toggle('active', inputMode === InputMode.EventManagement);
+                    lastInputMode = inputMode;
+                }
 
                 // Update Panels
                 updateConfigPanel();
@@ -171,11 +190,14 @@ async function start() {
                 }
 
                 // Update Panel selection styles
-                configPanel.classList.toggle('selected', selectedSection === Section.Config);
-                logPanel.classList.toggle('selected', selectedSection === Section.Log);
+                if (selectedSection !== lastSelectedSection) {
+                    configPanel.classList.toggle('selected', selectedSection === Section.Config);
+                    logPanel.classList.toggle('selected', selectedSection === Section.Log);
 
-                configHeader.textContent = selectedSection === Section.Config ? "Configuration Status (SELECTED)" : "Configuration Status";
-                logHeader.textContent = selectedSection === Section.Log ? "Event Log (SELECTED)" : "Event Log";
+                    configHeader.textContent = selectedSection === Section.Config ? "Configuration Status (SELECTED)" : "Configuration Status";
+                    logHeader.textContent = selectedSection === Section.Log ? "Event Log (SELECTED)" : "Event Log";
+                    lastSelectedSection = selectedSection;
+                }
 
                 // Handle output events
                 const outputEvents = await app.take_output_events();
@@ -329,9 +351,11 @@ async function start() {
                 const events = await app.get_events();
                 const currentEventCount = configContent.querySelectorAll('.list-item').length;
                 const hasAddButton = configContent.querySelector('button') !== null;
+                const eventsJson = JSON.stringify(events);
 
-                if (!hasAddButton || events.length !== currentEventCount) {
+                if (!hasAddButton || events.length !== currentEventCount || lastConfigHtml !== eventsJson) {
                     configContent.innerHTML = '';
+                    lastConfigHtml = eventsJson;
 
                     const controlsDiv = document.createElement('div');
                     controlsDiv.style.marginBottom = '10px';
@@ -392,19 +416,26 @@ async function start() {
                     updateConfigPanelSelection();
                 }
             } else {
-                let html = `<div>${app.get_initial_time_string()}</div>`;
-                html += `<div>${app.get_target_speed_string()}</div>`;
-                html += `<div>Events:</div>`;
-
+                const initialTimeStr = app.get_initial_time_string();
+                const targetSpeedStr = app.get_target_speed_string();
                 const events = app.get_events();
-                if (events.length === 0) {
-                    html += `<div>  (None)</div>`;
-                } else {
-                    events.forEach((e, i) => {
-                        html += `<div style="color: ${app.get_event_color_hex(e.id)}">  [${e.id}] ${e.display_string}</div>`;
-                    });
+                const eventsJson = JSON.stringify({initialTimeStr, targetSpeedStr, events});
+
+                if (lastConfigHtml !== eventsJson) {
+                    let html = `<div>${initialTimeStr}</div>`;
+                    html += `<div>${targetSpeedStr}</div>`;
+                    html += `<div>Events:</div>`;
+
+                    if (events.length === 0) {
+                        html += `<div>  (None)</div>`;
+                    } else {
+                        events.forEach((e, i) => {
+                            html += `<div style="color: ${app.get_event_color_hex(e.id)}">  [${e.id}] ${e.display_string}</div>`;
+                        });
+                    }
+                    configContent.innerHTML = html;
+                    lastConfigHtml = eventsJson;
                 }
-                configContent.innerHTML = html;
             }
         }
 
@@ -417,6 +448,9 @@ async function start() {
 
         async function updateLogPanel() {
             const logs = await app.get_logs();
+            const logsJson = JSON.stringify(logs);
+            if (lastLogJson === logsJson) return;
+
             logContent.innerHTML = '';
             logs.slice().reverse().forEach(log => {
                 const div = document.createElement('div');
@@ -424,6 +458,7 @@ async function start() {
                 div.style.color = getColorCode(log.color);
                 logContent.appendChild(div);
             });
+            lastLogJson = logsJson;
         }
 
         function formatDuration(duration) {
