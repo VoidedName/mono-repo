@@ -36,7 +36,7 @@ eval("{__webpack_require__.r(__webpack_exports__);\n/* harmony export */ __webpa
   \*********************************************/
 (module, __unused_webpack_exports, __webpack_require__) {
 
-eval("{module.exports = __webpack_require__.p + \"48fca1fa3fcb3b63d8f3.wasm\";\n\n//# sourceURL=webpack:///../pkg/vn_tile_map_editor_web_bg.wasm?\n}");
+eval("{module.exports = __webpack_require__.p + \"e58c4ef136e1bf260f69.wasm\";\n\n//# sourceURL=webpack:///../pkg/vn_tile_map_editor_web_bg.wasm?\n}");
 
 /***/ },
 
